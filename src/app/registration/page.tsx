@@ -6,7 +6,6 @@ import React, { useState } from 'react';
 export default function Page() {
   const items = ['Компания', 'Инд. предприниматель', 'Физ лицо'];
   const [enabled, setEnabled] = useState(false);
-  const [selected, setSelected] = useState<string | null>(null);
   const [step, setStep] = useState(1); // Шаг формы
   const [inputFields, setInputFields] = useState({
     agentType: '',
@@ -18,6 +17,15 @@ export default function Page() {
     email: '',
     phoneNumber: '',
     error: '',
+    mainManager: 'Мальцева Светлана Валентиновна',
+    contactFace: {
+      firstName: '',
+      lastName: '',
+      surname: '',
+      phoneNumber: '',
+      email: '',
+      telegram: '',
+    },
   });
 
   const nextStep = () => setStep((prevStep) => prevStep + 1);
@@ -156,31 +164,91 @@ export default function Page() {
                     <input
                       type="text"
                       placeholder="Фамилия"
+                      value={inputFields.contactFace.lastName}
+                      onChange={(e) =>
+                        setInputFields((prev) => ({
+                          ...prev,
+                          contactFace: {
+                            ...prev.contactFace,
+                            lastName: e.target.value,
+                          },
+                        }))
+                      }
                       className="input-field border-[1px] border-solid border-[#414141] h-[35px] rounded-[20px] focus:border-[#959595] duration-[0.3s] px-[10px] "
                     />
                     <input
                       type="number"
                       placeholder="Телефон"
+                      value={inputFields.contactFace.phoneNumber}
+                      onChange={(e) =>
+                        setInputFields((prev) => ({
+                          ...prev,
+                          contactFace: {
+                            ...prev.contactFace,
+                            phoneNumber: e.target.value,
+                          },
+                        }))
+                      }
                       className="input-field border-[1px] border-solid border-[#414141] h-[35px] rounded-[20px] focus:border-[#959595] duration-[0.3s] px-[10px] "
                     />
                     <input
                       type="text"
                       placeholder="Имя"
+                      value={inputFields.contactFace.firstName}
+                      onChange={(e) =>
+                        setInputFields((prev) => ({
+                          ...prev,
+                          contactFace: {
+                            ...prev.contactFace,
+                            firstName: e.target.value,
+                          },
+                        }))
+                      }
                       className="input-field border-[1px] border-solid border-[#414141] h-[35px] rounded-[20px] focus:border-[#959595] duration-[0.3s] px-[10px] "
                     />
                     <input
                       type="email"
                       placeholder="E-mail"
+                      value={inputFields.contactFace.email}
+                      onChange={(e) =>
+                        setInputFields((prev) => ({
+                          ...prev,
+                          contactFace: {
+                            ...prev.contactFace,
+                            email: e.target.value,
+                          },
+                        }))
+                      }
                       className="input-field border-[1px] border-solid border-[#414141] h-[35px] rounded-[20px] focus:border-[#959595] duration-[0.3s] px-[10px] "
                     />
                     <input
                       type="text"
                       placeholder="Отчество"
+                      value={inputFields.contactFace.surname}
+                      onChange={(e) =>
+                        setInputFields((prev) => ({
+                          ...prev,
+                          contactFace: {
+                            ...prev.contactFace,
+                            surname: e.target.value,
+                          },
+                        }))
+                      }
                       className="input-field border-[1px] border-solid border-[#414141] h-[35px] rounded-[20px] focus:border-[#959595] duration-[0.3s] px-[10px] "
                     />
                     <input
                       type="number"
-                      placeholder="Мобильный телефон"
+                      placeholder="Телеграм"
+                      value={inputFields.contactFace.telegram}
+                      onChange={(e) =>
+                        setInputFields((prev) => ({
+                          ...prev,
+                          contactFace: {
+                            ...prev.contactFace,
+                            telegram: e.target.value,
+                          },
+                        }))
+                      }
                       className="input-field border-[1px] border-solid border-[#414141] h-[35px] rounded-[20px] focus:border-[#959595] duration-[0.3s] px-[10px] "
                     />
                   </div>
@@ -204,7 +272,7 @@ export default function Page() {
                   <div className="flex flex-wrap w-full">
                     <div className="w-[35%] h-[35px] border-[1px] border-solid border-[#414141] rounded-[15px] flex items-center group relative">
                       <div className="w-[90%] pl-[10px] text-[14px]">
-                        Мальцева Светлана Валентиновна
+                        {inputFields.mainManager}
                       </div>
                       <div className="w-[10%]">
                         <Image
@@ -267,53 +335,101 @@ export default function Page() {
               </div>
             </div>
           )}
+          {/* {<div className="w-full mt-[20px]">
+                <p>Контактное лицо:</p>
+                <div className="w-full flex space-x-[10px]">
+                  <p>Имя:</p>
+                  <div>{inputFields.contactFace.firstName}</div>
+                </div>
+              </div>} */}
           {step === 3 && (
             <div className="p-4  rounded-lg ">
               <p className="text-[20px] mb-[10px]">Проверьте все данные:</p>
-              <div className="w-full h-full border border-gray-700 rounded-lg p-[20px] flex items-center ">
-                <div className="flex-1">
-                  <div className="w-full flex space-x-[10px]">
-                    <p>Тип контрагента:</p>
-                    <div>{inputFields.agentType}</div>
+              <div className="w-full h-full border border-gray-700 rounded-lg p-[20px]">
+                <div className="flex items-center w-full h-full">
+                  <div className="flex-1">
+                    <div className="w-full flex space-x-[10px]">
+                      <p>Основной менеджер:</p>
+                      <div>{inputFields.mainManager}</div>
+                    </div>
+                    <div className="w-full flex space-x-[10px]">
+                      <p>Тип контрагента:</p>
+                      <div>{inputFields.agentType}</div>
+                    </div>
+                    <div className="w-full flex space-x-[10px]">
+                      <p>Тип отношений:</p>
+                      <div>{inputFields.relationshipType}</div>
+                    </div>
+                    <div className="w-full flex space-x-[10px]">
+                      <p>ИНН:</p>
+                      <div>{inputFields.inn}</div>
+                    </div>
+                    <div className="w-full flex space-x-[10px]">
+                      <p>КПП:</p>
+                      <div>{inputFields.kpp}</div>
+                    </div>
+                    <div className="w-full flex space-x-[10px]">
+                      <p>Секретное наименование</p>
+                      <div>{inputFields.secretName}</div>
+                    </div>
+                    <div className="w-full flex space-x-[10px]">
+                      <p>Код по ОКПО:</p>
+                      <div>{inputFields.OKPO}</div>
+                    </div>
                   </div>
-                  <div className="w-full flex space-x-[10px]">
-                    <p>Тип отношений:</p>
-                    <div>{inputFields.relationshipType}</div>
-                  </div>
-                  <div className="w-full flex space-x-[10px]">
-                    <p>ИНН:</p>
-                    <div>{inputFields.inn}</div>
-                  </div>
-                  <div className="w-full flex space-x-[10px]">
-                    <p>КПП:</p>
-                    <div>{inputFields.kpp}</div>
-                  </div>
-                  <div className="w-full flex space-x-[10px]">
-                    <p>Секретное наименование</p>
-                    <div>{inputFields.secretName}</div>
-                  </div>
-                  <div className="w-full flex space-x-[10px]">
-                    <p>Код по ОКПО:</p>
-                    <div>{inputFields.OKPO}</div>
+                  <div className="flex-1">
+                    <div className="w-full flex space-x-[10px]">
+                      <p>E-mail:</p>
+                      <div>{inputFields.email}</div>
+                    </div>
+                    <div className="w-full flex space-x-[10px]">
+                      <p>Phone number:</p>
+                      <div>{inputFields.phoneNumber}</div>
+                    </div>
                   </div>
                 </div>
-                <div className="flex-1">
-                  <div className="w-full flex space-x-[10px]">
-                    <p>E-mail:</p>
-                    <div>{inputFields.email}</div>
+                {enabled && (
+                  <div className="w-full mt-[20px]">
+                    <p className="text-[20px] mb-[7px]">Контактное лицо:</p>
+                    <div className="flex items-center">
+                      <div className="flex-1">
+                        <div className="w-full flex space-x-[10px]">
+                          <p>Имя:</p>
+                          <div>{inputFields.contactFace.firstName}</div>
+                        </div>
+                        <div className="w-full flex space-x-[10px]">
+                          <p>Фамилия:</p>
+                          <div>{inputFields.contactFace.lastName}</div>
+                        </div>
+                        <div className="w-full flex space-x-[10px]">
+                          <p>Отчество:</p>
+                          <div>{inputFields.contactFace.surname}</div>
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="w-full flex space-x-[10px]">
+                          <p>Телефон:</p>
+                          <div>{inputFields.contactFace.phoneNumber}</div>
+                        </div>
+                        <div className="w-full flex space-x-[10px]">
+                          <p>E-mail:</p>
+                          <div>{inputFields.contactFace.email}</div>
+                        </div>
+                        <div className="w-full flex space-x-[10px]">
+                          <p>Telegram:</p>
+                          <div>{inputFields.contactFace.telegram}</div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="w-full flex space-x-[10px]">
-                    <p>Phone number:</p>
-                    <div>{inputFields.phoneNumber}</div>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           )}
 
           {/* Navigation buttons */}
           <div className="flex justify-between mt-6">
-            {step === 2 && (
+            {step >= 2 && (
               <button
                 type="button"
                 onClick={prevStep}
@@ -344,6 +460,19 @@ export default function Page() {
                   setInputFields((prev) => ({
                     ...prev,
                     error: 'Заполните все поля',
+                  }));
+                } else if (
+                  enabled &&
+                  (!inputFields.contactFace.lastName ||
+                    !inputFields.contactFace.firstName ||
+                    !inputFields.contactFace.email ||
+                    !inputFields.contactFace.phoneNumber ||
+                    !inputFields.contactFace.surname ||
+                    !inputFields.contactFace.telegram)
+                ) {
+                  setInputFields((prev) => ({
+                    ...prev,
+                    error: 'Заполните все поля контактного лица',
                   }));
                 } else {
                   setInputFields((prev) => ({
