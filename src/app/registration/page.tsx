@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
 import Image from 'next/image';
+import React, { useState } from 'react';
 
 export default function Page() {
   const items = ['Компания', 'Инд. предприниматель', 'Физ лицо'];
