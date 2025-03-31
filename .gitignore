@@ -2,9 +2,12 @@
 
 # dependencies
 /node_modules
+node_modules
 /.pnp
 .pnp.*
 .yarn/*
+.vscode/
+
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
@@ -19,6 +22,8 @@
 
 # production
 /build
+
+
 
 # misc
 .DS_Store
