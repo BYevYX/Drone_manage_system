@@ -1,13 +1,19 @@
+'use client';
 import { UserCircle2, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import path from 'path';
 
 export default function Header() {
+  const pathname = usePathname();
   return (
-    <header className="sticky top-0 z-50 bg-gray-800 text-white p-4">
+    <header
+      className={`sticky top-0 z-50 ${pathname === '/' ? 'bg-white text-black' : 'bg-gray-800 text-white'}  ${pathname === '/' ? 'p-8' : 'p-4'} `}
+    >
       <div className="container mx-auto flex justify-between items-center">
-        <div className="text-lg font-bold">Miem Drone Manage System</div>
+        <div className="text-[25px] font-bold">Miem Drone Manage System</div>
         <nav className="flex items-center gap-4">
-          <Link href="/" className="px-4 hover:text-gray-300">
+          <Link href="/" className="px-4 hover:text-gray-300 text-[#000000]">
             Главная
           </Link>
 

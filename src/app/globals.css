@@ -39,7 +39,7 @@ body {
 .container {
   margin: auto;
   /* height: auto; */
-  max-width: 1600px;
+  max-width: 1200px;
 }
 
 /* Убираем стрелки для input[type="number"] */
