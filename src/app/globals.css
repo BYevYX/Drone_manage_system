@@ -1,4 +1,25 @@
 @import 'tailwindcss';
+/* @import './resets.css'; */
+@font-face {
+  font-family: 'Nekst-Medium'; /* Название шрифта */
+  src: url('/fonts/nekst/Nekst-Medium.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Nekst-Light'; /* Название шрифта */
+  src: url('/fonts/nekst/Nekst-Light.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Nekst-Regular'; /* Название шрифта */
+  src: url('/fonts/nekst/Nekst-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Nekst-Semibold'; /* Название шрифта */
+  src: url('/fonts/nekst/Nekst-SemiBold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Poppins-Medium'; /* Название шрифта */
+  src: url('/fonts/poppins/Poppins-Medium.ttf') format('truetype');
+}
 
 :root {
   --background: #ffffff;
@@ -6,10 +27,11 @@
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-nekstmedium: 'Nekst-Medium', 'Arial';
+  --font-nekstlight: 'Nekst-Light', 'Arial';
+  --font-nekstregular: 'Nekst-Regular', 'Arial';
+  --font-nekstsemibold: 'Nekst-Semibold', 'Arial';
+  --font-poppinsmedium: 'Poppins-Medium', 'Arial';
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,6 +46,9 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+[data-nextjs-toast='true'] {
+  display: none !important;
+}
 
 .wrapper {
   width: 100%;
@@ -33,13 +58,17 @@ body {
   /* height: auto; */
   /* background-color: black; */
   /* min-height: 13500px; */
-  overflow-y: scroll;
+  /* overflow-y: scroll; */
   overflow-x: hidden;
 }
 .container {
   margin: auto;
   /* height: auto; */
   max-width: 1200px;
+}
+
+button {
+  cursor: pointer;
 }
 
 /* Убираем стрелки для input[type="number"] */
@@ -50,4 +79,120 @@ input[type='number']::-webkit-inner-spin-button {
 }
 input:focus {
   outline: none;
+}
+
+.poppins-thin {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 100;
+  font-style: normal;
+}
+
+.poppins-extralight {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 200;
+  font-style: normal;
+}
+
+.poppins-light {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 300;
+  font-style: normal;
+}
+
+.poppins-regular {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.poppins-medium {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+  font-style: normal;
+}
+
+.poppins-semibold {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-style: normal;
+}
+
+.poppins-bold {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-style: normal;
+}
+
+.poppins-extrabold {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-style: normal;
+}
+
+.poppins-bold {
+  font-family: 'Poppins';
+  font-weight: 800;
+}
+.poppins-medium {
+  font-family: 'Poppins';
+  font-weight: 400;
+}
+.poppins .poppins-black {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 900;
+  font-style: normal;
+}
+
+.poppins-thin-italic {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 100;
+  font-style: italic;
+}
+
+.poppins-extralight-italic {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 200;
+  font-style: italic;
+}
+
+.poppins-light-italic {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 300;
+  font-style: italic;
+}
+
+.poppins-regular-italic {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.poppins-medium-italic {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 500;
+  font-style: italic;
+}
+
+.poppins-semibold-italic {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-style: italic;
+}
+
+.poppins-bold-italic {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.poppins-extrabold-italic {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-style: italic;
+}
+
+.poppins-black-italic {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 900;
+  font-style: italic;
 }
