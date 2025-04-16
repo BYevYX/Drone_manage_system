@@ -8,6 +8,7 @@ export default function Page() {
   const items = ['Компания', 'Инд. предприниматель', 'Физ лицо'];
   const [enabled, setEnabled] = useState(false);
   const [step, setStep] = useState(1); // Шаг формы
+  const [activeTab, setActiveTab] = useState(0);
   const [inputFields, setInputFields] = useState({
     agentType: '',
     relationshipType: '',
@@ -33,16 +34,30 @@ export default function Page() {
   const prevStep = () => setStep((prevStep) => prevStep - 1);
 
   return (
-    <div className="wrapper bg-[#282828]">
+    <div className="wrapper bg-[#0D0D0D]">
       <Header></Header>
       <div className="min-h-[calc(100vh-64px)] flex  text-white">
         {/* Sidebar */}
-        <aside className="w-1/5 bg-[#1b1b1b7a]  p-5 rounded-r-2xl shadow-lg">
-          <h2 className="text-xl font-semibold">Меню</h2>
+        <aside className="w-1/5 bg-[#1e1e1e]  rounded-r-2xl shadow-lg">
+          <h2 className="text-xl font-semibold font-nekstlight p-5">Меню</h2>
+          <div className="w-full min-h-[50px]  flex flex-wrap space-y-[10px]  mt-[10px]">
+            <button
+              className={`w-[95%] h-[45px] ${activeTab === 0 ? 'bg-purple-600 hover:bg-purple-700 ' : 'bg-[#2b2b2b] hover:bg-[#3a3a3a]'}  rounded-r-[15px] font-nekstmedium text-[18px] flex items-center justify-center duration-[0.3s] `}
+              onClick={() => setActiveTab(0)}
+            >
+              Регистрация контрагента
+            </button>
+            <button
+              className={`w-[95%] h-[45px] ${activeTab === 1 ? 'bg-purple-500 hover:bg-purple-700 ' : 'bg-[#2b2b2b] hover:bg-[#3a3a3a]'}  rounded-r-[15px] font-nekstmedium text-[18px] flex items-center justify-center duration-[0.3s] `}
+              onClick={() => setActiveTab(1)}
+            >
+              Дроны
+            </button>
+          </div>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-10 ">
+        <main className="flex-1 p-10  ">
           <h1 className="text-2xl font-bold">
             Помощник регистрации контрагента
           </h1>
@@ -79,7 +94,7 @@ export default function Page() {
                         className="hidden"
                       />
                       <span
-                        className={`px-4 py-2 rounded-full border transition-all ${inputFields.agentType === item ? 'bg-blue-500 border-blue-500' : 'border-gray-600'}`}
+                        className={`px-4 py-2 rounded-full border transition-all ${inputFields.agentType === item ? 'bg-purple-500 border-purple-500' : 'border-gray-600'}`}
                       >
                         {item}
                       </span>
@@ -337,7 +352,7 @@ export default function Page() {
                               className="hidden"
                             />
                             <span
-                              className={`px-4 py-2 rounded-full border transition-all ${inputFields.relationshipType === item ? 'bg-blue-500 border-blue-500' : 'border-gray-600'}`}
+                              className={`px-4 py-2 rounded-full border transition-all ${inputFields.relationshipType === item ? 'bg-purple-500 border-purple-500' : 'border-gray-600'}`}
                             >
                               {item}
                             </span>
@@ -496,7 +511,7 @@ export default function Page() {
                     nextStep();
                   }
                 }}
-                className="py-3 px-8 rounded-xl bg-blue-600 hover:bg-blue-500 transition"
+                className="py-[10px] px-8 rounded-xl bg-purple-500 hover:bg-purple-400 transition"
               >
                 {step === 3 ? 'Завершить' : 'Далее'}
               </button>

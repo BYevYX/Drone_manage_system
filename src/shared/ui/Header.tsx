@@ -6,19 +6,21 @@ import path from 'path';
 
 export default function Header() {
   const pathname = usePathname();
+
   return (
     <header
-      className={`sticky top-0 z-50 ${pathname === '/' ? 'bg-white text-black' : 'bg-[#282828] text-white shadow-[0_0_20px_2px] shadow-[#6f6f6fb7]'}  ${pathname === '/' ? 'p-6' : 'p-2'} ${pathname === '/signup' ? ' backdrop-blur-[20px]  bg-[#282828]/20  ' : ''} `}
+      className={`sticky top-0 z-50 ${pathname === '/' ? 'bg-white text-black' : 'bg-[#282828] text-white shadow-[0_0_15px_1px] shadow-[#464646] '}  ${pathname === '/' ? 'p-6' : 'p-3'} ${pathname === '/signup' ? ' backdrop-blur-[10px] shadow-[#2929293e]  bg-[#282828]/17  ' : ''}  `}
       // className="bg-[#4b4b4b] sticky text-white shadow-[0_0_20px_2px] shadow-[#6f6f6fb7]"
     >
+      <div className="bg-[#2e2e2e]"></div>
       <div className="container mx-auto flex justify-between items-center font-nekstmedium ">
         <div className="flex items-center  space-x-[20px]">
           <Link href="/">
-            <button className="text-[32px] font-nekstmedium ">ДронАгро</button>
+            <button className="text-[32px] font-nekstmedium">ДронАгро</button>
           </Link>
           <div className="flex items-center">
             <div className="relative group ">
-              <div className="flex items-center gap-1 px-4 text-[20px] hover:text-gray-300 cursor-pointer">
+              <div className="flex items-center gap-1 px-4  text-[20px] hover:text-gray-300 cursor-pointer">
                 RU
                 <ChevronDown className="h-4 w-4" />
               </div>
@@ -102,7 +104,7 @@ export default function Header() {
               className="px-[20px] text-[20px] border border-black rounded-[20px]
          duration-[0.3s] hover:scale-[1.1] hover:text-[#797979]"
             >
-              Войти
+              Регистрация
             </button>
           </Link>
         )}
