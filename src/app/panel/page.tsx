@@ -4,6 +4,7 @@ import Header from '@/src/shared/ui/Header';
 import { OrderCard } from './OrderCard';
 
 import Image from 'next/image';
+
 const ordersData = [
   {
     id: 1,

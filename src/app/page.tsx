@@ -1,13 +1,43 @@
 // export { default } from '../pages/home/ui/Home';
 'use client';
 import Image from 'next/image';
+import {
+  GraduationCap,
+  DollarSign,
+  Droplet,
+  CloudRain,
+  CheckCircle,
+} from 'lucide-react';
 import { InView } from 'react-intersection-observer';
 import { motion } from 'framer-motion';
 import React from 'react';
 import Header from '../shared/ui/Header';
 import { useInView } from 'react-intersection-observer';
 import Link from 'next/link';
+import Footer from '../shared/ui/Footer';
 
+const benefits = [
+  {
+    icon: <GraduationCap className="w-12 h-12 text-red-500" />,
+    title: '1',
+    text: 'Нет необходимости находить, учить и контролировать людей, мы это сделаем за Вас.',
+  },
+  {
+    icon: <DollarSign className="w-12 h-12 text-green-500" />,
+    title: '2',
+    text: 'Позволяем значительно сократить объемы воды и затраты на спецтехнику, повысить выручку за счет отсутствия колеи.',
+  },
+  {
+    icon: <Droplet className="w-12 h-12 text-blue-500" />,
+    title: '3',
+    text: 'Повышаем эффективность действия препарата за счет омывания культуры. Капли прилипают с обеих сторон листа при одной обработке.',
+  },
+  {
+    icon: <CloudRain className="w-12 h-12 text-gray-700" />,
+    title: '4',
+    text: 'Производим обработки на влажных почвах, по росе, при тумане, сразу после дождя.',
+  },
+];
 export default function page() {
   const { ref, inView } = useInView({
     triggerOnce: true, // Анимация сработает только один раз, когда элемент впервые попадет в видимую часть экрана
@@ -433,6 +463,90 @@ export default function page() {
           </div>
         </div>
       </div>
+
+      <section className="py-9 px-4 max-w-[80%] mx-auto text-center">
+        <h2 className="text-[30px] font-semibold text-gray-700 mb-10">
+          Преимущества работы с нами
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-10">
+          {benefits.map((item, idx) => (
+            <div
+              key={idx}
+              className="flex flex-col items-center text-center space-y-4"
+            >
+              {item.icon}
+              <span className="text-gray-100 text-sm">{item.title}</span>
+              <p className="text-lg font-nekstregular text-gray-800 max-w-[500px]">
+                {item.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+      <div className="w-full flex items-center justify-center h-[400px] bg-gradient-to-r from-[#080808]   to-[#727272]">
+        <div className="">
+          <p className="text-white font-nekstmedium text-[30px]">
+            Ответим на любые вопросы! Звоните! <br></br> Или оставьте заявку и
+            мы вам перезвоним!
+          </p>
+          <div className="flex justify-center mt-[15px]">
+            <button className="px-[20px] text-[20px] font-nekstregular py-[5px] bg-green-500 rounded-[20px]">
+              Оставить заявку
+            </button>
+          </div>
+        </div>
+      </div>
+      <section className="py-16 px-4 max-w-7xl mx-auto">
+        <h2 className="text-3xl sm:text-4xl font-bold mb-2">
+          <span className="text-green-600">Преимущества</span> внесения СЗР{' '}
+          <br />и удобрений агродронами
+        </h2>
+        <hr className="border-t-[2px] w-full border-green-500 my-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mt-8">
+          {[
+            {
+              title: '+7% прибавки к урожаю',
+              description:
+                'Отсутствие технологической колеи позволяет существенно увеличить урожайность, сократив потери под колесами наземной техники.',
+            },
+            {
+              title: 'При влажной почве',
+              description:
+                'БПЛА отлично подходят для работы в условиях повышенной влажности — там, где использование наземной техники невозможно или затруднено.',
+            },
+            {
+              title: 'Сокращение затрат воды',
+              description:
+                'При использовании агродронов снижается расход воды, используемой для подготовки рабочего раствора СЗР перед применением. Норма вылива составляет от 5л/Га.',
+            },
+            {
+              title: 'Скорость обработки',
+              description:
+                'Современные БПЛА (DJI Agras T40) способны обрабатывать до 200 Га за смену одним дроном.',
+            },
+            {
+              title: 'Работа в ночное время',
+              description:
+                'Летающие беспилотники можно использовать в вечернее и ночное время. В это время отсутствуют пчелы, для которых СЗР несут угрозу.',
+            },
+            {
+              title: 'Работа на сложных рельефах',
+              description:
+                'Беспилотники эффективны в районах со сложным рельефом, например, на фермах с крутыми склонами и удаленными участками. Они снижают трудозатраты и заменяют дорогостоящую пилотируемую авиацию.',
+            },
+          ].map((item, idx) => (
+            <div key={idx} className="flex items-start gap-4">
+              <CheckCircle className="text-green-500 shrink-0 mt-1" size={24} />
+              <div>
+                <h3 className="font-semibold text-lg">{item.title}</h3>
+                <p className="text-gray-700 mt-1">{item.description}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <Footer></Footer>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import './globals.css';
 import Header from '../shared/ui/Header';
+import { RoleProvider } from './GlobalContext';
 
 export default function RootLayout({
   children,
@@ -20,9 +21,7 @@ export default function RootLayout({
         </style>
       </head>
       <body>
-        {/* <Header /> */}
-
-        {children}
+        <RoleProvider>{children}</RoleProvider>
       </body>
     </html>
   );
