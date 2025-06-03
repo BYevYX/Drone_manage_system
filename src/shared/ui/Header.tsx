@@ -14,13 +14,30 @@ export default function Header() {
 
   const pathname = usePathname();
 
+  const headerStyles = {
+    '/': 'bg-white text-black p-6',
+    '/drones': 'bg-white text-black p-3',
+    '/signup':
+      'backdrop-blur-[0px] from-[white]/0   to-[#a9cdd5]/50  shadow-[#dfdfdf] bg-white/25 p-2 z-10 relative text-black',
+    default: 'bg-white text-black shadow-[0_0_15px_1px] shadow-[#dfdfdf] p-3',
+  };
+
   return (
     <header
-      className={`sticky top-0 z-50 ${pathname === '/' || pathname === '/drones' ? 'bg-white text-black' : 'bg-white text-black shadow-[0_0_15px_1px] shadow-[#464646] '}  ${pathname === '/' ? 'p-6' : 'p-3'} ${pathname === '/signup' ? ' backdrop-blur-[10px] shadow-[#2929293e]  bg-[#282828]/17  ' : ''}  `}
-      // className="bg-[#4b4b4b] sticky text-white shadow-[0_0_20px_2px] shadow-[#6f6f6fb7]"
+      // className={`sticky top-0 z-50 ${pathname === '/' || pathname === '/drones' ? 'bg-white text-black' : 'bg-white text-black shadow-[0_0_15px_1px] shadow-[#dfdfdf] '}  ${pathname === '/' ? 'p-6' : 'p-3'} ${pathname === '/signup' ? ' backdrop-blur-[10px] shadow-[#2929293e]  bg-[#282828]/17' : ''}  bg-white`}
+      // className={`sticky top-0 z-50 ${
+      //   pathname === '/'
+      //     ? 'bg-white text-black p-6'
+      //     : pathname === '/drones'
+      //       ? 'bg-white text-black'
+      //       : pathname === '/signup'
+      //         ? 'backdrop-blur-[10px] bg-[#282828]/17'
+      //         : 'bg-white text-black shadow-[0_0_15px_1px] shadow-[#dfdfdf] p-3'
+      // }`}
+      className={`sticky top-0 z-50 ${headerStyles[pathname] || headerStyles.default} z-100 bg-gradient-to-r  `}
     >
-      <div className="bg-[#2e2e2e]"></div>
-      <div className="container mx-auto flex justify-between items-center font-nekstmedium ">
+      {/* <div className="absolute inset-0 bg-white/0 backdrop-blur-[2px] z-0"></div> */}
+      <div className="container mx-auto flex justify-between items-center font-nekstmedium z-10 ">
         <div className="flex items-center  space-x-[20px]">
           <Link href="/">
             <button className="text-[32px] font-nekstmedium">ДронАгро</button>
@@ -64,16 +81,16 @@ export default function Header() {
       bg-white border-[#e5e5e5] border-[1px] rounded-lg shadow-[0px_0px_5px_3px] shadow-[#0000002b] z-50 origin-top"
             >
               <Link
-                href={`/drones/dada`}
+                href={`/workflow`}
                 className={`block text-[16px] rounded-t-lg  px-4 py-3 hover:bg-[#adadad] transition-colors `}
               >
-                s
+                Как это работает?
               </Link>
               <Link
-                href={`/drones/dada`}
+                href={`/partnership`}
                 className={`block text-[16px]  rounded-b-lg  px-4 py-3 hover:bg-[#adadad] transition-colors `}
               >
-                s
+                Стать партнером
               </Link>
             </div>
           </div>
@@ -166,12 +183,26 @@ export default function Header() {
             </div>
           </div>
 
-          <Link
-            href="/contact"
-            className="px-2 text-[20px] hover:text-gray-300"
-          >
-            Услуги
-          </Link>
+          <div className="relative group">
+            <div className="flex items-center gap-1 px-2 hover:text-gray-300 cursor-pointer text-[20px]">
+              Услуги
+              <ChevronDown className="h-4 w-4 " />
+            </div>
+            <div
+              className="absolute left-0 top-full mt-0 w-64
+      opacity-0 scale-95 pointer-events-none
+      group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto
+      transition-all duration-300 ease-out
+      bg-white border-[#e5e5e5] border-[1px] rounded-lg shadow-[0px_0px_5px_3px] shadow-[#0000002b] z-50 origin-top"
+            >
+              <Link
+                href={`/signup`}
+                className={`block text-[16px] rounded-t-lg  px-4 py-3 hover:bg-[#adadad] transition-colors `}
+              >
+                Зарегистрироваться
+              </Link>
+            </div>
+          </div>
           <Link
             href="/permissions"
             className="px-2 text-[20px] hover:text-gray-300"

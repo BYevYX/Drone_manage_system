@@ -6,7 +6,7 @@ import Image from 'next/image';
 
 const Footer = () => {
   return (
-    <footer className="bg-[#1e1e1e] text-neutral-300 pt-20 pb-10 mt-24 ">
+    <footer className="bg-[#1e1e1e] text-neutral-300 pt-20 pb-10 mt-0 ">
       <div className="container mx-auto px-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-12">
         {/* Бренд */}
         <div>
