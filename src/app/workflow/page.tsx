@@ -36,15 +36,7 @@ export default function HowItWorks() {
       {/* Hero Section */}
       <section className="relative h-[470px] overflow-hidden flex items-center justify-center bg-[url(/pages/main/drone_11.jpg)] bg-cover bg-center">
         <div className="absolute inset-0 bg-white/20 backdrop-blur-[12px] z-0"></div>
-        {/* Фоновое видео */}
-        <video
-          autoPlay
-          muted
-          loop
-          className="absolute inset-0 w-full h-full object-cover brightness-75"
-          src="/videos/drone_farm.mp4"
-          type="video/mp4"
-        />
+
         {/* Затемнённый оверлей */}
         <div className="absolute inset-0 bg-black/50" />
         {/* Текст с эффектом печатной машинки */}

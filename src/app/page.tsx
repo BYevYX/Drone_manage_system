@@ -441,7 +441,7 @@ export default function page() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-20 bg-gray-900 text-white">
+        <section className="py-20 bg-[#3a3a3a] text-white rounded-t-[40px]">
           <div className="container mx-auto px-4 text-center">
             <div className="max-w-2xl mx-auto">
               <h2 className="text-3xl md:text-4xl font-nekstmedium mb-6">

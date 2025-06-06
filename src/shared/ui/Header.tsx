@@ -1,13 +1,25 @@
 'use client';
 import { div } from 'framer-motion/client';
-import { UserCircle2, ChevronDown } from 'lucide-react';
+import { UserCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import path from 'path';
 import { useState } from 'react';
 import Image from 'next/image';
 import { useGlobalContext } from '@/src/app/GlobalContext';
-import { ArrowRight } from 'lucide-react';
+import {
+  ChevronDown,
+  Map,
+  Monitor,
+  ArrowRight,
+  BarChart,
+  Droplets,
+  Leaf,
+  Sun,
+  Trees,
+  Mountain,
+  Zap,
+} from 'lucide-react';
 
 export default function Header() {
   const { dronesList } = useGlobalContext();
@@ -21,6 +33,71 @@ export default function Header() {
       'backdrop-blur-[0px] from-[white]/0   to-[#a9cdd5]/50  shadow-[#dfdfdf] bg-white/25 p-2 z-10 relative text-black',
     default: 'bg-white text-black shadow-[0_0_15px_1px] shadow-[#dfdfdf] p-3',
   };
+
+  const menuSections = [
+    {
+      title: 'Планирование и управление',
+      icon: <Map className="text-blue-500" size={18} />,
+      links: [
+        {
+          label: 'Планирование маршрутов дронов',
+          href: '/services/flight-planning',
+          description:
+            'Оптимизация маршрутов для эффективного выполнения задач',
+          icon: <Map className="text-blue-400" size={16} />,
+        },
+        {
+          label: 'Мониторинг в реальном времени',
+          href: '/services/live-tracking',
+          description: 'Отслеживайте дроны и статус работ онлайн',
+          icon: <Monitor className="text-green-400" size={16} />,
+        },
+        {
+          label: 'Анализ и отчетность',
+          href: '/services/flight-analysis',
+          description: 'Детальная аналитика и отчеты по выполненным полетам',
+          icon: <BarChart className="text-purple-400" size={16} />,
+        },
+      ],
+    },
+    {
+      title: 'Обработка культур',
+      icon: <Leaf className="text-green-500" size={18} />,
+      links: [
+        {
+          label: 'Химическая защита растений',
+          href: '/services/chemical-protection',
+          description:
+            'Точное опрыскивание с использованием современных технологий',
+          icon: <Droplets className="text-red-400" size={16} />,
+        },
+        {
+          label: 'Внесение удобрений',
+          href: '/services/fertilization',
+          description: 'Равномерное и эффективное внесение удобрений',
+          icon: <Leaf className="text-yellow-400" size={16} />,
+        },
+        {
+          label: 'Десикация',
+          href: '/services/desiccation',
+          description: 'Ускорение созревания и подготовка к уборке урожая',
+          icon: <Sun className="text-orange-400" size={16} />,
+        },
+        {
+          label: 'Обработка садов и ягодников',
+          href: '/services/gardens-treatment',
+          description: 'Специализированные решения для садоводства',
+          icon: <Trees className="text-emerald-400" size={16} />,
+        },
+        {
+          label: 'Обработка лесов и курортных зон',
+          href: '/services/forests-treatment',
+          description: 'Уход за лесными и рекреационными территориями',
+          icon: <Mountain className="text-cyan-400" size={16} />,
+        },
+      ],
+    },
+  ];
 
   return (
     <header
@@ -183,26 +260,84 @@ export default function Header() {
             </div>
           </div>
 
-          <div className="relative group">
-            <div className="flex items-center gap-1 px-2 hover:text-gray-300 cursor-pointer text-[20px]">
+          <div className="relative group font-sans">
+            <button
+              type="button"
+              aria-haspopup="true"
+              aria-expanded="false"
+              className="flex items-center gap-1 px-4 py-3 text-[20px] font-medium transition-colors rounded-full hover:text-gray-300 font-nekstmedium"
+            >
               Услуги
-              <ChevronDown className="h-4 w-4 " />
-            </div>
+              <ChevronDown className="h-4 w-4 transition-transform duration-200 group-hover:rotate-180" />
+            </button>
+
             <div
-              className="absolute left-0 top-full mt-0 w-64
+              className="
+      absolute right-0 top-full pt-5 w-[900px] max-w-[96vw]
       opacity-0 scale-95 pointer-events-none
       group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto
-      transition-all duration-300 ease-out
-      bg-white border-[#e5e5e5] border-[1px] rounded-lg shadow-[0px_0px_5px_3px] shadow-[#0000002b] z-50 origin-top"
+      transition-all duration-200 ease-out
+      bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 origin-top-right
+      p-6
+      grid lg:grid-cols-2 sm:grid-cols-2 gap-6
+    "
             >
-              <Link
-                href={`/signup`}
-                className={`block text-[16px] rounded-t-lg  px-4 py-3 hover:bg-[#adadad] transition-colors `}
-              >
-                Зарегистрироваться
-              </Link>
+              {menuSections.map(({ title, links, icon }) => (
+                <section key={title}>
+                  <div className="flex items-center mb-3">
+                    <div className="p-2 bg-gray-100 rounded-lg mr-2">
+                      {icon}
+                    </div>
+                    <h3 className="text-[18px] font-semibold text-gray-900">
+                      {title}
+                    </h3>
+                  </div>
+                  <ul className="space-y-2">
+                    {links.map(({ label, href, description, icon }) => (
+                      <li key={href}>
+                        <Link
+                          href={href}
+                          className="flex items-start p-3 rounded-xl hover:bg-gray-50 transition border border-transparent hover:border-gray-200"
+                        >
+                          <div className="mt-0.5 mr-3 p-2 bg-gray-50 rounded-lg text-gray-500">
+                            {icon}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 text-[16px] flex items-center">
+                              {label}
+                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800 uppercase tracking-wide">
+                                New
+                              </span>
+                            </p>
+                            <p className="mt-1 text-[12px] text-gray-600 leading-snug">
+                              {description}
+                            </p>
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+
+              <div className="col-span-full mt-4 p-5 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl border border-blue-100">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-blue-100 rounded-lg text-blue-600">
+                    <Zap className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-900 mb-0.5">
+                      Специальное предложение
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      При заказе 3+ услуг — скидка 15% на все работы
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
           <Link
             href="/permissions"
             className="px-2 text-[20px] hover:text-gray-300"
@@ -210,7 +345,7 @@ export default function Header() {
             Разрешения
           </Link>
           <Link
-            href="/payment"
+            href="/to-the-customer"
             className="px-2 text-[20px] hover:text-gray-300"
           >
             Заказчику

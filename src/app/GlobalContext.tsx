@@ -8,9 +8,28 @@ type DroneType = {
   photo_url: string;
   manufacturer: string;
 };
+type UserRole = 'client' | 'operator' | 'manager' | 'supplier';
+interface Request {
+  id: number;
+  date: string;
+  field: string;
+  crop: string;
+  type: string;
+  area: number;
+  status: 'new' | 'in_progress' | 'completed' | 'rejected';
+  details?: {
+    chemicals?: string;
+    dosage?: string;
+    droneType?: string;
+    operatorNotes?: string;
+  };
+}
 
 interface GlobalContextType {
   dronesList: DroneType[];
+  userRole: string;
+  setUserRole: (role: UserRole) => void;
+  requests: Request[];
 }
 const GlobalContext = createContext<GlobalContextType | undefined>(undefined);
 
@@ -57,11 +76,58 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
       photo_url: '/header/drones/drone_5.jpg',
     },
   ]);
+  const [userRole, setUserRole] = useState<UserRole>('client');
+  const [requests, setRequests] = useState<Request[]>([
+    {
+      id: 1,
+      date: '2025-02-15',
+      field: 'Поле №3 (Южное)',
+      crop: 'Пшеница озимая',
+      type: 'Опрыскивание',
+      area: 45,
+      status: 'completed',
+      details: {
+        chemicals: 'Гербицид "Агрохит"',
+        dosage: '1.2 л/га',
+        droneType: 'DJI Agras T40',
+      },
+    },
+    {
+      id: 2,
+      date: '2025-02-10',
+      field: 'Поле №1 (Северное)',
+      crop: 'Кукуруза',
+      type: 'Внесение удобрений',
+      area: 32,
+      status: 'in_progress',
+      details: {
+        chemicals: 'NPK 15-15-15',
+        dosage: '80 кг/га',
+        droneType: 'DJI Agras T30',
+      },
+    },
+    {
+      id: 3,
+      date: '2025-02-05',
+      field: 'Поле №2 (Центральное)',
+      crop: 'Подсолнечник',
+      type: 'Картографирование',
+      area: 28,
+      status: 'new',
+    },
+  ]);
+
+  const changeRole = (role: UserRole) => {
+    setUserRole(role);
+  };
 
   return (
     <GlobalContext.Provider
       value={{
         dronesList,
+        userRole,
+        setUserRole: changeRole,
+        requests,
       }}
     >
       {children}

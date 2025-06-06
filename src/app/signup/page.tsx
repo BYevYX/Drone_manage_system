@@ -170,7 +170,7 @@ export default function MultiStepSignup() {
         </motion.h1>
         <div className="flex flex-col lg:flex-row w-full max-w-6xl bg-white/80 backdrop-blur-md rounded-2xl shadow-xl">
           {/* Левая часть — форма */}
-          <div className="w-full lg:w-1/2 p-8">
+          <div className="w-full lg:w-1/2 rounded-2xl p-8">
             <h2 className="text-[28px] font-nekstmedium text-black mb-6 flex items-center gap-2">
               <User size={28} className="text-green-600" />
               {step === 1 ? 'Основная информация' : 'Пароль и подтверждение'}
@@ -309,7 +309,7 @@ export default function MultiStepSignup() {
             </div>
           </div>
           {/* Правая часть — преимущества и безопасность */}
-          <div className="hidden lg:flex flex-col justify-center bg-gradient-to-br from-[#dceefc] to-[#e5d6d6] w-1/2 p-8 gap-6 font-nekstregular">
+          <div className="hidden rounded-2xl lg:flex flex-col justify-center bg-gradient-to-br from-[#dceefc] to-[#e5d6d6] w-1/2 p-8 gap-6 font-nekstregular">
             <a
               href="/"
               className="absolute top-4 right-4 flex items-center gap-2 text-sm font-semibold text-gray-700 bg-gradient-to-br from-white/80 to-white/40 backdrop-blur-sm px-4 py-2 rounded-xl border border-gray-300 shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200"
