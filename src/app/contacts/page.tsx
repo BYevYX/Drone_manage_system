@@ -40,7 +40,7 @@ export default function ContactsPage() {
       <Header />
 
       {/* Hero Section */}
-      <section className="py-16 px-4 text-center bg-white/80 backdrop-blur-sm shadow-md rounded-b-3xl max-w-5xl mx-auto mt-8">
+      <section className="py-10 px-4 text-center bg-white/80 backdrop-blur-sm shadow-md rounded-b-3xl max-w-5xl mx-auto mt-8 font-nekstregular">
         <h1 className="text-4xl font-bold mb-4 text-green-700 animate-fadeInDown">
           Свяжитесь с нами
         </h1>

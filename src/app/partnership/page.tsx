@@ -7,6 +7,7 @@ import {
   Zap,
   Shield,
   Users,
+  User,
   ChevronDown,
   ChevronUp,
   Rocket,
@@ -107,14 +108,17 @@ export default function BecomePartner() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <div className="flex-1 py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto font-nekstregular">
         {/* Benefits Section */}
         <section id="benefits" className="mb-20">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
               Почему стоит стать нашим партнёром?
             </h2>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+            <p
+              className="text-lg text-gray-600 max-w-3xl mx-auto font-normal
+            "
+            >
               6 ключевых преимуществ для развития вашего бизнеса
             </p>
           </div>
@@ -301,17 +305,17 @@ export default function BecomePartner() {
                 Оставить заявку <Handshake size={20} />
               </Link>
               <Link
-                href="tel:+78001234567"
+                href="/signup"
                 className="bg-white hover:bg-gray-50 text-gray-800 px-8 py-3 rounded-lg font-medium border border-gray-300 transition-all hover:shadow-lg flex items-center justify-center gap-2 font-nekstmedium"
               >
-                <Phone size={20} /> +7 800 123-45-67
+                <User width={22} height={22} /> Зарегистрироваться
               </Link>
             </div>
           </div>
         </section>
       </div>
 
-      <Footer className="mt-auto" />
+      <Footer />
     </div>
   );
 }

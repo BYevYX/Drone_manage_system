@@ -367,41 +367,7 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
           className="bg-white p-5 rounded-xl shadow-sm border border-gray-100"
-        >
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold">Карта полей</h3>
-            <div className="flex gap-2">
-              <button className="px-3 py-1 text-sm bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center gap-1">
-                <Plus size={16} /> Новая заявка
-              </button>
-            </div>
-          </div>
-          <div className="h-96 rounded-lg overflow-hidden border border-gray-200 relative">
-            <MapContainer
-              center={[51.505, -0.09]}
-              zoom={13}
-              style={{ height: '100%', width: '100%' }}
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              />
-              {fieldCoordinates.map((field) => (
-                <FieldMap key={field.id} fieldId={field.id} />
-              ))}
-            </MapContainer>
-            <div className="absolute bottom-4 left-4 bg-white p-2 rounded-lg shadow-md z-[1000]">
-              <div className="flex gap-2">
-                <div className="w-4 h-4 bg-emerald-500 rounded-full"></div>
-                <span className="text-sm">Завершено</span>
-              </div>
-              <div className="flex gap-2 mt-1">
-                <div className="w-4 h-4 bg-yellow-500 rounded-full"></div>
-                <span className="text-sm">В процессе</span>
-              </div>
-            </div>
-          </div>
-        </motion.div>
+        ></motion.div>
       </>
     </div>
   );

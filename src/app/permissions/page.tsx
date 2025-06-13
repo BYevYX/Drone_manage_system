@@ -27,7 +27,7 @@ export default function DronePermissionsInfo() {
     <div className="wrapper">
       <Header />
 
-      <div className="relative pt-12 pb-20 px-4 sm:px-6 lg:px-8 bg-white bg-[url(/pages/main/drone_15.jpg)] bg-cover bg-center">
+      <div className="relative pt-12 pb-20 px-4 sm:px-6 lg:px-8 bg-white bg-[url(/pages/main/drone_15.jpg)] bg-cover bg-center ">
         <div
           className="absolute inset-0 bg-[url(/pages/main/drone_16.jpg)] bg-cover bg-center"
           style={{ filter: 'blur(8px)' }}
@@ -37,22 +37,22 @@ export default function DronePermissionsInfo() {
         <div className="z-5 relative">
           {/* Hero with gradient */}
           <div className="max-w-4xl mx-auto text-center mb-16">
-            <div className="inline-flex items-center bg-gradient-to-r from-green-500 to-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium mb-4">
+            <div className="inline-flex items-center bg-gradient-to-r from-green-500 to-blue-500 text-white px-4 py-1 rounded-full text-sm font-medium mb-4 font-nekstregular">
               <ShieldCheck className="mr-2" size={16} />
               Юридическая поддержка
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            <h1 className="text-4xl font-bold text-gray-900 mb-4 ">
               Легальные полёты агродронов
             </h1>
-            <p className="text-xl text-gray-600">
+            <p className="text-xl text-gray-600 font-nekstregular">
               Полный цикл оформления документов и разрешений для сельхозработ
             </p>
           </div>
 
           {/* Key benefits */}
-          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 ">
             <BenefitCard
-              icon={<FileText className="text-blue-500" size={24} />}
+              icon={<FileText className="text-blue-500 " size={24} />}
               title="Документы"
               items={[
                 'Регистрация в реестре БАС',
@@ -237,9 +237,9 @@ function BenefitCard({
     <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition">
       <div className="flex items-center mb-4">
         <div className="p-3 rounded-lg bg-gray-50 mr-4">{icon}</div>
-        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-lg font-semibold text-gray-900 ">{title}</h3>
       </div>
-      <ul className="space-y-2">
+      <ul className="space-y-2 ">
         {items.map((item, index) => (
           <li key={index} className="flex items-start">
             <Check

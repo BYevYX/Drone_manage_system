@@ -34,31 +34,6 @@ import {
   BarChart2,
   Layers,
 } from 'lucide-react';
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  Polyline,
-  useMap,
-} from 'react-leaflet';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  Pie,
-  PieChart,
-  Cell,
-  Legend,
-  BarChart,
-  Bar,
-} from 'recharts';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { ActiveMenuContext } from './ActiveMenuContext';
 
 import EditBid from './client/layouts/bids/EditBid';
@@ -103,8 +78,7 @@ const RoleConfig = {
   operator: {
     menu: [
       { id: 'tasks', icon: <ClipboardList size={20} />, label: 'Задачи' },
-      //   { id: 'drones', icon: <Drone size={20} />, label: 'Дроны' },
-      { id: 'map', icon: <Map size={20} />, label: 'Карта заданий' },
+      { id: 'tasksMap', icon: <Map size={20} />, label: 'Карта заданий' },
       { id: 'analytics', icon: <ChartBar size={20} />, label: 'Аналитика' },
       { id: 'shifts', icon: <CalendarDays size={20} />, label: 'График смен' },
       {
@@ -197,67 +171,6 @@ const RoleConfig = {
   },
 };
 
-const chartData = [
-  { date: '01.06', area: 5, fuel: 22, plan: 25 },
-  { date: '02.06', area: 8, fuel: 19, plan: 20 },
-  { date: '03.06', area: 4, fuel: 20, plan: 18 },
-  { date: '04.06', area: 10, fuel: 27, plan: 25 },
-  { date: '05.06', area: 7, fuel: 24, plan: 22 },
-  { date: '06.06', area: 12, fuel: 30, plan: 28 },
-];
-
-const droneTasks = [
-  {
-    id: 1,
-    drone: 'DJI Agras T40',
-    status: 'active',
-    progress: 80,
-    field: 'Поле 1',
-    operation: 'Опрыскивание',
-    operator: 'Иванов И.И.',
-    battery: 65,
-  },
-  {
-    id: 2,
-    drone: 'DJI Agras T20P',
-    status: 'active',
-    progress: 60,
-    field: 'Поле 2',
-    operation: 'Внесение удобрений',
-    operator: 'Петров П.П.',
-    battery: 45,
-  },
-  {
-    id: 3,
-    drone: 'XAG V40',
-    status: 'done',
-    progress: 100,
-    field: 'Поле 3',
-    operation: 'Посев',
-    operator: 'Сидоров С.С.',
-    battery: 100,
-  },
-];
-
-const shifts = [
-  {
-    id: 1,
-    name: 'Иванов И.И.',
-    start: '08:00',
-    end: '16:00',
-    status: 'В работе',
-    avatar: 'bg-blue-500',
-  },
-  {
-    id: 2,
-    name: 'Петров П.П.',
-    start: '14:00',
-    end: '22:00',
-    status: 'Ожидание',
-    avatar: 'bg-green-500',
-  },
-];
-
 const notifications = [
   {
     id: 1,
@@ -289,64 +202,6 @@ const notifications = [
   },
 ];
 
-const fuelStats = [
-  { name: 'Израсходовано', value: 112 },
-  { name: 'Слито', value: 5 },
-  { name: 'Остаток', value: 33 },
-];
-
-const fieldCoordinates = [
-  {
-    id: 1,
-    name: 'Поле 1',
-    crop: 'Пшеница',
-    area: 12,
-    coordinates: [
-      [51.505, -0.09],
-      [51.505, -0.08],
-      [51.51, -0.08],
-      [51.51, -0.09],
-    ],
-  },
-  {
-    id: 2,
-    name: 'Поле 2',
-    crop: 'Кукуруза',
-    area: 8,
-    coordinates: [
-      [51.51, -0.1],
-      [51.51, -0.09],
-      [51.515, -0.09],
-      [51.515, -0.1],
-    ],
-  },
-];
-
-const flightPaths = [
-  {
-    id: 1,
-    fieldId: 1,
-    path: [
-      [51.505, -0.09],
-      [51.505, -0.085],
-      [51.508, -0.085],
-      [51.508, -0.09],
-    ],
-    status: 'completed',
-  },
-  {
-    id: 2,
-    fieldId: 2,
-    path: [
-      [51.51, -0.1],
-      [51.51, -0.095],
-      [51.513, -0.095],
-      [51.513, -0.1],
-    ],
-    status: 'in-progress',
-  },
-];
-
 const NotificationBadge = ({ count }: { count: number }) => (
   <motion.span
     initial={{ scale: 0 }}
@@ -356,44 +211,6 @@ const NotificationBadge = ({ count }: { count: number }) => (
     {count}
   </motion.span>
 );
-
-const FieldMap = ({ fieldId }: { fieldId: number }) => {
-  const field = fieldCoordinates.find((f) => f.id === fieldId);
-  const flightPath = flightPaths.find((fp) => fp.fieldId === fieldId);
-  const map = useMap();
-
-  useEffect(() => {
-    if (field) {
-      const bounds = L.latLngBounds(field.coordinates);
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [field, map]);
-
-  if (!field) return null;
-
-  return (
-    <>
-      <Polyline
-        positions={field.coordinates}
-        color="#4f46e5"
-        fillOpacity={0.2}
-        fillColor="#4f46e5"
-      />
-      {flightPath && (
-        <Polyline
-          positions={flightPath.path}
-          color={flightPath.status === 'completed' ? '#10b981' : '#f59e0b'}
-          dashArray={flightPath.status === 'in-progress' ? '10, 10' : undefined}
-        />
-      )}
-      <Marker position={field.coordinates[0]}>
-        <Popup>
-          {field.name} - {field.crop}, {field.area} га
-        </Popup>
-      </Marker>
-    </>
-  );
-};
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { userRole, setUserRole } = useGlobalContext();
@@ -405,6 +222,32 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  // Сохраняем состояние sidebar в localStorage
+  useEffect(() => {
+    const ls = localStorage.getItem('sidebarOpen');
+    if (ls !== null) setSidebarOpen(ls === 'true');
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('sidebarOpen', String(sidebarOpen));
+  }, [sidebarOpen]);
+
+  // Авто-закрытие уведомлений при клике вне окна
+  useEffect(() => {
+    if (!showNotifications) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        !target.closest('.notification-panel') &&
+        !target.closest('.notification-btn')
+      ) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showNotifications]);
+
   const markNotificationsAsRead = () => {
     setUnreadNotifications(0);
     setShowNotifications(false);
@@ -415,26 +258,40 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <ActiveMenuContext.Provider value={{ activeMenu, setActiveMenu }}>
       <div className="wrapper">
-        <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-sans text-gray-900">
+        <div className="flex min-h-[100vh] bg-gradient-to-br from-gray-50 to-gray-100 font-sans text-gray-900">
           {/* Sidebar */}
           <motion.aside
-            initial={{ width: 288 }}
-            animate={{ width: sidebarOpen ? 288 : 80 }}
-            className="bg-white border-r border-gray-200 flex flex-col shadow-lg overflow-hidden"
+            initial={false}
+            animate={{
+              width: sidebarOpen ? 260 : 76,
+              boxShadow: sidebarOpen
+                ? '0 6px 32px 0 rgba(31,38,135,0.17), 0 1.5px 8px 0 rgba(31,38,135,0.06)'
+                : '0 1px 2px 0 rgba(31,38,135,0.07)',
+              borderRadius: sidebarOpen ? '0 2rem 2rem 0' : '0 2.3rem 2.3rem 0',
+              margin: '0', // Убираем все внешние отступы
+              background: 'white',
+            }}
+            className={`border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden`}
+            style={{ minHeight: '100vh' }}
           >
             <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100">
-              <Link href="/">
-                <motion.h1
-                  initial={{ opacity: 1 }}
-                  animate={{ opacity: sidebarOpen ? 1 : 0 }}
-                  className="text-2xl font-bold text-emerald-600 whitespace-nowrap"
-                >
-                  DroneAgro
-                </motion.h1>
-              </Link>
+              {sidebarOpen ? (
+                <Link href="/">
+                  <motion.h1
+                    initial={false}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="text-2xl font-extrabold text-emerald-600 whitespace-nowrap transition-all duration-300"
+                  >
+                    DroneAgro
+                  </motion.h1>
+                </Link>
+              ) : (
+                <span className="w-8" />
+              )}
               <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
+                onClick={() => setSidebarOpen((v) => !v)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Скрыть/показать меню"
               >
                 {sidebarOpen ? (
                   <ChevronLeft size={20} />
@@ -448,20 +305,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <motion.button
                   key={item.id}
                   onClick={() => setActiveMenu(item.id)}
-                  whileHover={{ scale: 1.02 }}
+                  whileHover={{ scale: 1.04 }}
                   whileTap={{ scale: 0.98 }}
-                  className={`flex items-center w-full px-4 py-3 rounded-lg transition-all ${
+                  className={`flex items-center w-full px-3.5 py-3 rounded-2xl transition-all font-medium gap-2 ${
                     activeMenu === item.id
-                      ? 'bg-emerald-500 text-white shadow-md'
+                      ? 'bg-emerald-500/90 text-white shadow-md'
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
+                  style={{
+                    marginBottom: '0.15rem',
+                    boxShadow:
+                      activeMenu === item.id
+                        ? '0 2px 8px 0 rgba(16,185,129,0.07)'
+                        : undefined,
+                  }}
                 >
-                  <span className="mr-3">{item.icon}</span>
-                  <span className="mr-3"></span>
+                  <span className="mr-1">{item.icon}</span>
                   <motion.span
-                    initial={{ opacity: 1 }}
-                    animate={{ opacity: sidebarOpen ? 1 : 0 }}
-                    className="whitespace-nowrap"
+                    initial={false}
+                    animate={{
+                      opacity: sidebarOpen ? 1 : 0,
+                      x: sidebarOpen ? 0 : -10,
+                    }}
+                    className="whitespace-nowrap transition-all duration-300"
                   >
                     {item.label}
                   </motion.span>
@@ -470,8 +336,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </nav>
             <div className="p-4 border-t border-gray-100">
               <motion.div
-                initial={{ opacity: 1 }}
-                animate={{ opacity: sidebarOpen ? 1 : 0 }}
+                initial={false}
+                animate={{
+                  opacity: sidebarOpen ? 1 : 0,
+                  x: sidebarOpen ? 0 : -10,
+                }}
+                className="transition-all duration-300"
               >
                 <select
                   value={userRole}
@@ -499,22 +369,22 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className="relative p-2 text-gray-600 hover:text-emerald-600 rounded-full hover:bg-gray-100 transition-colors"
+                    onClick={() => setShowNotifications((v) => !v)}
+                    className="notification-btn relative p-2 text-gray-600 hover:text-emerald-600 rounded-full hover:bg-gray-100 transition-colors"
+                    aria-label="Уведомления"
                   >
                     <Bell size={20} />
                     {unreadNotifications > 0 && (
                       <NotificationBadge count={unreadNotifications} />
                     )}
                   </button>
-
                   <AnimatePresence>
                     {showNotifications && (
                       <motion.div
                         initial={{ opacity: 0, y: -20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -20 }}
-                        className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl z-10 border border-gray-200 overflow-hidden"
+                        className="notification-panel absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl z-30 border border-gray-200 overflow-hidden"
                       >
                         <div className="p-3 border-b border-gray-100 flex justify-between items-center">
                           <h3 className="font-medium">Уведомления</h3>
@@ -559,7 +429,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     )}
                   </AnimatePresence>
                 </div>
-
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shadow-inner">
                     <User size={20} className="text-emerald-600" />
@@ -570,10 +439,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             </header>
-            <section>{children}</section>
+            <section className="min-h-[calc(100vh-70px)] bg-transparent">
+              {children}
+            </section>
           </main>
         </div>
-        <Footer></Footer>
+        <Footer />
       </div>
     </ActiveMenuContext.Provider>
   );

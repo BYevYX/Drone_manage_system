@@ -31,10 +31,10 @@ import Footer from '@/src/shared/ui/Footer';
 export default function HowItWorks() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-green-50 to-white">
-      <Header className="sticky top-0 z-50 shadow-sm" />
+      <Header />
 
       {/* Hero Section */}
-      <section className="relative h-[470px] overflow-hidden flex items-center justify-center bg-[url(/pages/main/drone_11.jpg)] bg-cover bg-center">
+      <section className="relative h-[470px] overflow-hidden flex items-center justify-center bg-[url(/pages/main/drone_11.jpg)] bg-cover bg-center ">
         <div className="absolute inset-0 bg-white/20 backdrop-blur-[12px] z-0"></div>
 
         {/* Затемнённый оверлей */}
@@ -60,7 +60,7 @@ export default function HowItWorks() {
       </section>
 
       {/* Steps Section */}
-      <section className="flex-1 py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      <section className="flex-1 py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto font-nekstregular">
         <div className="text-center mb-14">
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
             Как работает платформа
@@ -156,7 +156,7 @@ export default function HowItWorks() {
       </section>
 
       {/* Integration Section */}
-      <section className="py-12 bg-gradient-to-r from-blue-50 to-green-50 border-t border-b border-gray-100 animate-fade-in">
+      <section className="py-12 bg-gradient-to-r from-blue-50 to-green-50 border-t border-b border-gray-100 animate-fade-in font-nekstregular">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
@@ -203,7 +203,7 @@ export default function HowItWorks() {
       </section>
 
       {/* Use Cases Section */}
-      <section className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8">
+      <section className="max-w-7xl mx-auto py-16 px-4 sm:px-6 lg:px-8 font-nekstregular">
         <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">
           Реальные сценарии использования
         </h2>
@@ -239,7 +239,7 @@ export default function HowItWorks() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-12 bg-white/90 border-t border-gray-100">
+      <section className="py-12 bg-white/90 border-t border-gray-100 font-nekstregular">
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex items-center gap-2 mb-6">
             <HelpCircle className="text-blue-600" size={28} />
@@ -293,17 +293,17 @@ export default function HowItWorks() {
 
       {/* Call to Action */}
       <section className="bg-gradient-to-r from-[#868484] to-[#82a6a6] py-12 flex flex-col items-center">
-        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 font-nekstregular">
           Готовы к цифровой трансформации вашего агробизнеса?
         </h2>
-        <p className="text-white/90 mb-6 text-center max-w-xl">
+        <p className="text-white/90 mb-6 text-[16px] text-center max-w-xl font-nekstregular">
           Присоединяйтесь к платформе, чтобы управлять парком дронов,
           автоматизировать процессы и повышать урожайность с заботой об
           экологии.
         </p>
         <a
           href="/signup"
-          className="inline-block bg-white hover:bg-blue-50 text-blue-700 font-semibold px-8 py-3 rounded-full shadow transition"
+          className="inline-block bg-white hover:bg-blue-50 text-blue-700 font-semibold px-8 py-3 rounded-full shadow transition font-nekstregular"
         >
           Начать работу
         </a>

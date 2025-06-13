@@ -59,15 +59,22 @@ import {
 } from 'recharts';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import TasksMapPage from './client/layouts/TasksMapPage';
+import Analytics from './client/layouts/Analytics';
+import Shifts from './client/layouts/Shifts';
 
 import EditBid from './client/layouts/bids/EditBid';
 import { useGlobalContext } from '../GlobalContext';
 import Dashboard from './client/layouts/Dashboard';
 import AddBid from './client/layouts/bids/AddBid';
 import Link from 'next/link';
+import Fields from './client/layouts/Fields';
+import Support from './client/layouts/Support';
+import Overview from './client/layouts/manager/Overview';
 
 import Requests from './client/layouts/Requests';
 import { useActiveMenu } from './ActiveMenuContext';
+import Reports from './client/layouts/Reports';
 
 const RoleConfig = {
   client: {
@@ -416,9 +423,9 @@ export default function page() {
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-sans text-gray-900">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-sans text-gray-900">
       <main className="flex-1 flex flex-col overflow-hidden">
-        <section className="flex-1 overflow-y-auto p-6 space-y-6">
+        <section className="flex-1 overflow-y-hidden p-6 space-y-6">
           {/* Клиент: BI и агрономия */}
           {userRole === 'client' && activeMenu === 'dashboard' && (
             <Dashboard></Dashboard>
@@ -432,6 +439,19 @@ export default function page() {
           {userRole === 'client' && activeMenu === 'addbid' && (
             <AddBid setActiveMenu={setActiveMenu}></AddBid>
           )}
+          {userRole === 'client' && activeMenu === 'fields' && (
+            <Fields></Fields>
+          )}
+          {userRole === 'client' && activeMenu === 'reports' && (
+            <Reports></Reports>
+          )}
+          {userRole === 'client' && activeMenu === 'support' && (
+            <Support></Support>
+          )}
+          {activeMenu === 'tasksMap' && <TasksMapPage></TasksMapPage>}
+          {activeMenu === 'analytics' && <Analytics></Analytics>}
+          {activeMenu === 'shifts' && <Shifts></Shifts>}
+          {activeMenu === 'overview' && <Overview></Overview>}
 
           {/* <EditBid></EditBid> */}
 

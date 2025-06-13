@@ -1,20 +1,95 @@
 'use client';
 import React, { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
-import { MapContainer, TileLayer, Polygon } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Popup, Marker } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronRight,
-  Plus,
   Check,
   ChevronDown,
   MapPin,
   ChevronLeft,
   Save,
 } from 'lucide-react';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Стильные компоненты UI
+// Типы данных для карты полей
+interface Field {
+  id: number;
+  name: string;
+  crop: string;
+  area: number;
+  coordinates: [number, number][];
+  status: 'active' | 'inactive';
+  color: string;
+  segments?: FieldSegment[];
+}
+interface FieldSegment {
+  id: number;
+  name: string;
+  coordinates: [number, number][];
+  assignedDroneId?: number;
+  taskType?: string;
+}
+
+// Примерные поля
+const initialFields: Field[] = [
+  {
+    id: 1,
+    name: 'Поле №1 (Северное)',
+    crop: 'Пшеница озимая',
+    area: 45,
+    coordinates: [
+      [55.7558, 37.6173],
+      [55.7565, 37.6205],
+      [55.753, 37.622],
+      [55.752, 37.618],
+    ],
+    status: 'active',
+    color: '#34d399',
+    segments: [
+      {
+        id: 1,
+        name: 'Сегмент A',
+        coordinates: [
+          [55.7558, 37.6173],
+          [55.7565, 37.619],
+          [55.7547, 37.6192],
+          [55.7541, 37.6177],
+        ],
+        assignedDroneId: 1,
+        taskType: 'Опрыскивание',
+      },
+      {
+        id: 2,
+        name: 'Сегмент B',
+        coordinates: [
+          [55.7565, 37.619],
+          [55.7565, 37.6205],
+          [55.753, 37.622],
+          [55.7547, 37.6192],
+        ],
+        assignedDroneId: 2,
+        taskType: 'Внесение удобрений',
+      },
+    ],
+  },
+  {
+    id: 2,
+    name: 'Поле №2 (Центральное)',
+    crop: 'Кукуруза',
+    area: 32,
+    coordinates: [
+      [55.7578, 37.6135],
+      [55.7582, 37.616],
+      [55.755, 37.6168],
+      [55.7542, 37.6142],
+    ],
+    status: 'inactive',
+    color: '#fbbf24',
+  },
+];
+
 const GlassCard = ({
   children,
   className = '',
@@ -63,7 +138,6 @@ const ModernSelect = ({
         {label}
         <span className="text-emerald-500 ml-0.5">*</span>
       </label>
-
       <div className="relative">
         <motion.div whileHover={{ y: -1 }} className="relative z-20">
           <button
@@ -94,7 +168,6 @@ const ModernSelect = ({
             </motion.div>
           </button>
         </motion.div>
-
         <AnimatePresence>
           {isOpen && (
             <motion.ul
@@ -143,14 +216,9 @@ export default function AddBid({ setActiveMenu }) {
   });
 
   const [activeTab, setActiveTab] = useState('details');
-  const [showZoneModal, setShowZoneModal] = useState(false);
+  const [selectedFieldId, setSelectedFieldId] = useState<number | null>(null);
 
-  const fields = [
-    'Выберите поле',
-    'Поле №1 (Пшеница, 45 га)',
-    'Поле №2 (Кукуруза, 32 га)',
-    'Поле №3 (Подсолнечник, 28 га)',
-  ];
+  const fields = ['Выберите поле', ...initialFields.map((f) => f.name)];
 
   const treatmentTypes = [
     'Выберите тип обработки',
@@ -166,6 +234,12 @@ export default function AddBid({ setActiveMenu }) {
     'Фунгицид "Здоровье"',
     'Инсектицид "Щит"',
   ];
+
+  // Для отображения информации о поле
+  const selectedPoly = initialFields.find((f) => f.name === formData.field);
+
+  // Центр карты
+  const defaultCenter: [number, number] = [55.7558, 37.6173];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 px-8">
@@ -207,7 +281,7 @@ export default function AddBid({ setActiveMenu }) {
                   className={`pb-2 px-1 font-medium ${activeTab === 'map' ? 'text-emerald-600 border-b-2 border-emerald-500' : 'text-gray-500'}`}
                   onClick={() => setActiveTab('map')}
                 >
-                  Карта обработки
+                  Карта полей
                 </button>
               </div>
 
@@ -336,34 +410,100 @@ export default function AddBid({ setActiveMenu }) {
                   </div>
                 </div>
               ) : (
+                // Карта полей: только отображение (как на странице "Карта полей").
                 <div className="h-96 relative">
                   <MapContainer
-                    center={[51.505, -0.09]}
-                    zoom={15}
+                    center={defaultCenter}
+                    zoom={14}
                     style={{ height: '100%', borderRadius: '12px' }}
                   >
                     <TileLayer
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     />
-                    <Polygon
-                      positions={[
-                        [51.509, -0.08],
-                        [51.503, -0.06],
-                        [51.51, -0.047],
-                      ]}
-                      pathOptions={{ color: '#10B981', fillOpacity: 0.4 }}
-                    />
+                    {initialFields.map((field) => (
+                      <Polygon
+                        key={field.id}
+                        positions={field.coordinates}
+                        pathOptions={{
+                          color:
+                            formData.field === field.name
+                              ? '#059669'
+                              : field.color,
+                          fillOpacity:
+                            formData.field === field.name ? 0.35 : 0.15,
+                          weight: formData.field === field.name ? 4 : 2,
+                        }}
+                        eventHandlers={{
+                          click: () => setSelectedFieldId(field.id),
+                        }}
+                      >
+                        <Popup>
+                          <div className="min-w-[180px]">
+                            <div className="font-bold text-base mb-1">
+                              {field.name}
+                            </div>
+                            <div className="text-gray-700 text-sm">
+                              Культура:{' '}
+                              <span className="font-medium">{field.crop}</span>
+                            </div>
+                            <div className="text-gray-700 text-sm">
+                              Площадь:{' '}
+                              <span className="font-medium">
+                                {field.area} га
+                              </span>
+                            </div>
+                            <div className="mt-1">
+                              <span
+                                className={`inline-block px-2 py-1 text-xs rounded-full ${
+                                  field.status === 'active'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                                }`}
+                              >
+                                {field.status === 'active'
+                                  ? 'Активно'
+                                  : 'Неактивно'}
+                              </span>
+                            </div>
+                            {field.segments && (
+                              <div className="mt-2">
+                                <b>Сегменты:</b>
+                                <ul className="text-xs ml-2 mt-1 space-y-1">
+                                  {field.segments.map((seg) => (
+                                    <li key={seg.id}>
+                                      {seg.name}
+                                      {seg.taskType && (
+                                        <>
+                                          {' '}
+                                          –{' '}
+                                          <span className="text-gray-500">
+                                            {seg.taskType}
+                                          </span>
+                                        </>
+                                      )}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </Popup>
+                      </Polygon>
+                    ))}
+                    {initialFields.map((field) => (
+                      <Marker
+                        key={field.id + '-marker'}
+                        position={field.coordinates[0]}
+                        icon={L.icon({
+                          iconUrl:
+                            'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+                          iconSize: [30, 30],
+                          iconAnchor: [15, 30],
+                        })}
+                      />
+                    ))}
                   </MapContainer>
-
-                  <div className="absolute bottom-4 right-4 z-[1000]">
-                    <button
-                      className="p-3 bg-white rounded-xl shadow-md hover:bg-gray-50 transition-colors flex items-center justify-center"
-                      onClick={() => setShowZoneModal(true)}
-                    >
-                      <Plus size={20} className="text-emerald-600" />
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
@@ -379,51 +519,47 @@ export default function AddBid({ setActiveMenu }) {
                 поле
               </h3>
 
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Культура:</span>
-                  <span className="font-medium">Пшеница озимая</span>
+              {selectedPoly ? (
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Культура:</span>
+                    <span className="font-medium">{selectedPoly.crop}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Площадь:</span>
+                    <span className="font-medium">{selectedPoly.area} га</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Тип почвы:</span>
+                    <span className="font-medium">{selectedPoly['soil']}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Последняя обработка:</span>
+                    <span className="font-medium">
+                      {selectedPoly['lastTreatment']}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Площадь:</span>
-                  <span className="font-medium">45 га</span>
+              ) : (
+                <div className="text-gray-400">
+                  Выберите поле для просмотра информации
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Тип почвы:</span>
-                  <span className="font-medium">Чернозём</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Последняя обработка:</span>
-                  <span className="font-medium">15.02.2024</span>
-                </div>
-              </div>
+              )}
             </div>
           </GlassCard>
 
           <GlassCard>
             <div className="p-6">
               <h3 className="font-medium text-lg mb-4">Рекомендации</h3>
-
               <div className="space-y-4">
                 <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-medium">Оптимальное время</div>
-                      <div className="text-sm text-gray-500">
-                        Утро (6:00-10:00)
-                      </div>
-                    </div>
-                  </div>
+                  <div className="font-medium">Оптимальное время</div>
+                  <div className="text-sm text-gray-500">Утро (6:00-10:00)</div>
                 </div>
-
                 <div className="p-3 bg-amber-50 rounded-lg border border-amber-100">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-medium">Рекомендуемый препарат</div>
-                      <div className="text-sm text-gray-500">
-                        Гербицид "Агрохит"
-                      </div>
-                    </div>
+                  <div className="font-medium">Рекомендуемый препарат</div>
+                  <div className="text-sm text-gray-500">
+                    Гербицид "Агрохит"
                   </div>
                 </div>
               </div>
@@ -440,68 +576,6 @@ export default function AddBid({ setActiveMenu }) {
           </button>
         </div>
       </div>
-
-      {/* Модальное окно добавления зоны */}
-      <AnimatePresence>
-        {showZoneModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 20 }}
-              className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
-            >
-              <div className="p-6">
-                <h3 className="text-lg font-medium mb-4">
-                  Добавить зону обработки
-                </h3>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Название зоны
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Площадь (га)
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full px-4 py-3 bg-gray-50 rounded-lg border border-gray-200 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-6 flex justify-end space-x-3">
-                  <button
-                    className="px-4 py-2 text-gray-500 hover:text-gray-700 transition-colors"
-                    onClick={() => setShowZoneModal(false)}
-                  >
-                    Отменить
-                  </button>
-                  <button
-                    className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-                    onClick={() => setShowZoneModal(false)}
-                  >
-                    Добавить
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

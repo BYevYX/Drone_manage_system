@@ -142,9 +142,12 @@ export default function page() {
               }}
               className="flex flex-col sm:flex-row gap-4 items-center mb-16"
             >
-              <button className="px-8 py-3 font-nekstsemibold rounded-lg bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
-                ПРОСМОТРЕТЬ УСЛУГИ
-              </button>
+              <Link href={'/services'}>
+                <button className="px-8 py-3 font-nekstsemibold rounded-lg bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 cursor-pointer transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1">
+                  ПРОСМОТРЕТЬ УСЛУГИ
+                </button>
+              </Link>
+
               <Link href={'/signup'}>
                 <button className="px-8 py-3 font-nekstsemibold rounded-lg bg-transparent border-2 border-white/30 hover:border-white/60 cursor-pointer transition-all duration-300 hover:bg-white/10 backdrop-blur-sm">
                   ЗАРЕГИСТРИРОВАТЬСЯ
@@ -199,12 +202,12 @@ export default function page() {
                   <h3 className="text-2xl font-nekstmedium text-gray-800 mb-6">
                     Упростите обработку полей с нами
                   </h3>
-                  <p className="text-lg text-gray-600 mb-8">
+                  <p className="text-lg text-gray-600 mb-8 font-nekstregular">
                     Мы предоставляем комплексные решения для автоматизации
                     вашего агробизнеса с использованием современных дронов и
                     технологий анализа данных.
                   </p>
-                  <ul className="space-y-4">
+                  <ul className="space-y-4 text-[16px] ">
                     {[
                       'Автоматическое планирование маршрутов',
                       'Реальный мониторинг выполнения работ',
@@ -246,12 +249,12 @@ export default function page() {
               <h2 className="text-3xl md:text-4xl font-nekstmedium text-gray-900 mb-4">
                 Наши <span className="text-green-600">услуги</span>
               </h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto font-nekstregular">
                 Полный спектр услуг для вашего сельхозпредприятия
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 ">
               {[
                 {
                   title: 'Орошение полей',
@@ -447,7 +450,7 @@ export default function page() {
               <h2 className="text-3xl md:text-4xl font-nekstmedium mb-6">
                 Готовы оптимизировать ваше сельхозпроизводство?
               </h2>
-              <p className="text-xl text-white/90 mb-8">
+              <p className="text-xl text-white/90 mb-8 ">
                 Оставьте заявку и наш специалист свяжется с вами для
                 консультации
               </p>

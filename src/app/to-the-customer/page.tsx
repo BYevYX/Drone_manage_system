@@ -14,10 +14,10 @@ import Footer from '@/src/shared/ui/Footer';
 
 export default function ForCustomersPage() {
   return (
-    <div className="wrapper">
+    <div className="wrapper font-nekstregular">
       <Header></Header>
       {/* Hero Section */}
-      <div className="text-center mb-16 pt-[50px]">
+      <div className="text-center mb-16 pt-[50px] ">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
           Информация для заказчиков
         </h1>
