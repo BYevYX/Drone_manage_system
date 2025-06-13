@@ -134,7 +134,7 @@ const ModernSelect = ({
   );
 };
 
-export default function page({ params }: { params: { id: string } }) {
+export default function page(params) {
   const { requests } = useGlobalContext();
 
   const bid = requests.find((el) => Number(el.id) === Number(params.id));
