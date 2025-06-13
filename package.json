@@ -38,6 +38,7 @@
     "@yandex/ymaps3-types": "^1.0.16731241",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
+    "eslint-config-prettier": "^10.1.5",
     "eslint-import-resolver-typescript": "^4.2.3",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-prettier": "^5.2.5",
