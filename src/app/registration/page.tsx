@@ -1,8 +1,9 @@
 'use client';
 
-import Header from '@/src/shared/ui/Header';
 import Image from 'next/image';
 import React, { useState } from 'react';
+
+import Header from '@/src/shared/ui/Header';
 
 export default function Page() {
   const items = ['Компания', 'Инд. предприниматель', 'Физ лицо'];

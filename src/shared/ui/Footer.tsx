@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import {
   Mail,
   Phone,
@@ -10,6 +9,7 @@ import {
   Linkedin,
   Twitter,
 } from 'lucide-react';
+import Link from 'next/link';
 
 const Footer = () => {
   return (
@@ -32,22 +32,22 @@ const Footer = () => {
               <SocialIcon
                 href="#"
                 icon={<Facebook size={24} />}
-                label="Facebook"
+                // label="Facebook"
               />
               <SocialIcon
                 href="#"
                 icon={<Instagram size={24} />}
-                label="Instagram"
+                // label="Instagram"
               />
               <SocialIcon
                 href="#"
                 icon={<Twitter size={24} />}
-                label="Twitter"
+                // label="Twitter"
               />
               <SocialIcon
                 href="#"
                 icon={<Linkedin size={24} />}
-                label="LinkedIn"
+                // label="LinkedIn"
               />
             </div>
           </div>

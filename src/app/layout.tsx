@@ -1,6 +1,6 @@
 import './globals.css';
-import Header from '../shared/ui/Header';
 import { RoleProvider } from './GlobalContext';
+import Header from '../shared/ui/Header';
 
 export default function RootLayout({
   children,

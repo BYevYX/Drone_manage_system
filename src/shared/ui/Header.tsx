@@ -1,12 +1,4 @@
 'use client';
-import { div } from 'framer-motion/client';
-import { UserCircle2 } from 'lucide-react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import path from 'path';
-import { useState } from 'react';
-import Image from 'next/image';
-import { useGlobalContext } from '@/src/app/GlobalContext';
 import {
   ChevronDown,
   Map,
@@ -20,6 +12,11 @@ import {
   Mountain,
   Zap,
 } from 'lucide-react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
+import { useGlobalContext } from '@/src/app/GlobalContext';
 
 export default function Header() {
   const { dronesList } = useGlobalContext();
@@ -111,7 +108,7 @@ export default function Header() {
       //         ? 'backdrop-blur-[10px] bg-[#282828]/17'
       //         : 'bg-white text-black shadow-[0_0_15px_1px] shadow-[#dfdfdf] p-3'
       // }`}
-      className={`sticky top-0 z-50 ${headerStyles[pathname] || headerStyles.default} z-100 bg-gradient-to-r  `}
+      className={`sticky top-0 z-50 ${headerStyles[pathname!] || headerStyles.default} z-100 bg-gradient-to-r  `}
     >
       {/* <div className="absolute inset-0 bg-white/0 backdrop-blur-[2px] z-0"></div> */}
       <div className="container mx-auto flex justify-between items-center font-nekstmedium z-10 ">
@@ -234,10 +231,12 @@ export default function Header() {
                         alt={drone.name}
                         className="block w-[30px] h-[100px] overflow-hidden bg-red-50"
                       ></Image> */}
-                      <img
+                      <Image
                         src={drone.photo_url || '/img/placeholder.jpg'}
                         alt={drone.name}
                         className="w-full  object-cover rounded-md"
+                        width={200}
+                        height={200}
                       />
                     </div>
                     <Link href={`/drones/${drone.id}`}>
