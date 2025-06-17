@@ -11,6 +11,7 @@ import {
   UserPlus2,
 } from 'lucide-react';
 import React, { useState } from 'react';
+import axios from 'axios';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -24,22 +25,54 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotError, setForgotError] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const isEmailValid = email.length > 4 && email.includes('@');
   const isPasswordValid = password.length >= 8;
   const isUserIdValid = userId === '' || /^[a-zA-Z0-9_-]{3,20}$/.test(userId);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // --- ВСТАВЛЯЕМ API URL ---
+  const LOGIN_API_URL = 'https://d70kaz-185-42-163-77.ru.tuna.am/v1/auth/login';
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitted(true);
-
+    setLoginError('');
     if (userId && isUserIdValid) {
-      alert(`Авторизация по ID: ${userId}`);
+      // Если надо отправлять запрос по ID
+      try {
+        setLoading(true);
+        // Пример: если сервер поддерживает вход по userId
+        const res = await axios.post(LOGIN_API_URL, { user_id: userId });
+        // Успешно — делаем что-то (например, сохраняем токен/делаем редирект)
+        alert('Вход по ID успешен!');
+        // window.location.href = "/"; // или router.push
+      } catch (err: any) {
+        setLoginError(err?.response?.data?.message || 'Ошибка входа по ID');
+      } finally {
+        setLoading(false);
+      }
       return;
     }
     if (!userId) {
       if (!isEmailValid || !isPasswordValid) return;
-      alert(`Авторизация по Email: ${email}`);
+      try {
+        setLoading(true);
+        const res = await axios.post(LOGIN_API_URL, {
+          email,
+          password,
+        });
+        const test = res.data['accessToken'];
+        console.log(res.data);
+        // Успешно — делаем что-то (например, сохраняем токен/делаем редирект)
+        alert(test);
+        // window.location.href = "/"; // или router.push
+      } catch (err: any) {
+        setLoginError(err?.response?.data?.message || 'Ошибка входа по Email');
+      } finally {
+        setLoading(false);
+      }
       return;
     }
     if (userId && !isUserIdValid) return;
@@ -83,7 +116,9 @@ export default function LoginPage() {
               type="text"
               icon={<ShieldCheck size={20} />}
               value={userId}
-              onChange={(e) => setUserId(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setUserId(e.target.value)
+              }
               error={
                 submitted && userId.length > 0 && !isUserIdValid
                   ? 'ID должен быть от 3 до 20 символов (буквы, цифры, -, _)'
@@ -98,7 +133,9 @@ export default function LoginPage() {
               type="email"
               icon={<Mail size={20} />}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setEmail(e.target.value)
+              }
               error={
                 submitted && !userId && !isEmailValid
                   ? 'Введите корректный email'
@@ -113,7 +150,9 @@ export default function LoginPage() {
               type={showPassword ? 'text' : 'password'}
               icon={<Lock size={20} />}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setPassword(e.target.value)
+              }
               error={
                 submitted && !userId && !isPasswordValid
                   ? 'Пароль должен быть не менее 8 символов'
@@ -139,11 +178,17 @@ export default function LoginPage() {
               )}
               Минимум 8 символов
             </div>
+            {loginError && (
+              <div className="text-red-600 text-sm font-nekstmedium">
+                {loginError}
+              </div>
+            )}
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 px-10 font-nekstmedium text-[18px] hover:from-indigo-600 hover:to-blue-700 transition-transform hover:scale-105 duration-300 shadow-lg mt-4"
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 px-10 font-nekstmedium text-[18px] hover:from-indigo-600 hover:to-blue-700 transition-transform hover:scale-105 duration-300 shadow-lg mt-4 disabled:opacity-60"
             >
-              <LogIn size={20} /> Войти
+              <LogIn size={20} /> {loading ? 'Входим...' : 'Войти'}
             </button>
           </form>
         ) : (
@@ -164,7 +209,9 @@ export default function LoginPage() {
               type="email"
               icon={<Mail size={20} />}
               value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setForgotEmail(e.target.value)
+              }
               error={forgotError}
               required={true}
             />

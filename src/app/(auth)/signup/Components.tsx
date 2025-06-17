@@ -24,11 +24,12 @@ export interface Step2Data {
   };
 }
 
+// Новый массив ролей с нужными подписями:
 const roles = [
-  { value: 'customer_manager', label: 'Заказчик' },
   { value: 'manager', label: 'Менеджер' },
-  { value: 'project_manager', label: 'Менеджер проектов' },
-  { value: 'drone_supplier', label: 'Поставщик дронов' },
+  { value: 'customer', label: 'Заказчик услуг' },
+  { value: 'drone_supplier', label: 'Поставщиков дронов и оборудования' },
+  { value: 'material_supplier', label: 'Поставщиков материалов' },
 ];
 
 export function RoleSelect({ value, onChange, error }) {
