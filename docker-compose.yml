@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: .
+      args:
+        NODE_VERSION: "21"
+    image: drone_manage_system:latest
+    ports:
+      - "80:3000"
+    environment:
+      NODE_ENV: "production"
+      PORT: "3000"
+      HOST: "0.0.0.0"
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Пример: прокиньте ваши переменные окружения
+      # NEXT_PUBLIC_API_URL: "https://api.example.com"
+    # Можно хранить чувствительные данные в .env
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
