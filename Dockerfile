@@ -47,8 +47,5 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Небольшая безопасность: запуск не от root
-USER node
-
 EXPOSE 3000
 CMD ["node", "server.js"]
