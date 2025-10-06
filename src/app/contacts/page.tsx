@@ -1,5 +1,4 @@
 'use client';
-import React, { useState } from 'react';
 import {
   Mail,
   Phone,
@@ -8,23 +7,29 @@ import {
   Instagram,
   Linkedin,
 } from 'lucide-react';
+import React, { useState } from 'react';
 import QRCode from 'react-qr-code'; // npm install react-qr-code
-import Header from '@/src/shared/ui/Header';
+
 import Footer from '@/src/shared/ui/Footer';
+import Header from '@/src/shared/ui/Header';
 
 export default function ContactsPage() {
-  const [formStatus, setFormStatus] = useState(null); // null | 'success' | 'error'
+  const [formStatus, setFormStatus] = useState<null | 'success' | 'error'>(
+    null,
+  );
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     message: '',
   });
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.message) {
       setFormStatus('error');
@@ -81,7 +86,9 @@ export default function ContactsPage() {
           />
 
           <div className="mt-8">
-            <p className="font-medium text-lg mb-3">Социальные сети</p>
+            <p className="font-medium text-lg mb-3 text-gray-900">
+              Социальные сети
+            </p>
             <div className="flex space-x-6 text-green-700">
               <SocialLink
                 href="#"
@@ -103,7 +110,7 @@ export default function ContactsPage() {
 
           {/* QR Код для контактов */}
           <div className="mt-10 flex flex-col items-center">
-            <p className="mb-2 font-semibold text-gray-700">
+            <p className="mb-2 font-semibold text-gray-900">
               Сканируйте QR-код для быстрого доступа к контактам
             </p>
             <div className="p-4 bg-white rounded-xl shadow-lg hover:scale-105 transition-transform duration-300 cursor-pointer">
@@ -119,7 +126,7 @@ END:VCARD`}
                 fgColor="#22c55e"
                 bgColor="#ffffff"
                 level="H"
-                includeMargin={true}
+                style={{ margin: '8px' }}
               />
             </div>
           </div>
@@ -269,25 +276,32 @@ END:VCARD`}
 }
 
 // Контактный элемент с иконкой
-function ContactItem({ icon, title, text, link }) {
+interface ContactItemProps {
+  icon: React.ReactNode;
+  title: string;
+  text: string;
+  link?: string;
+}
+
+function ContactItem({ icon, title, text, link }: ContactItemProps) {
   return (
     <div className="flex items-start gap-4 mb-5">
       <div className="text-green-600 rounded-full bg-green-100 p-3 shadow-md flex-shrink-0">
         {icon}
       </div>
       <div>
-        <p className="font-semibold text-lg mb-1">{title}</p>
+        <p className="font-semibold text-lg mb-1 text-gray-900">{title}</p>
         {link ? (
           <a
             href={link}
-            className="text-gray-800 hover:text-green-600 transition"
+            className="text-gray-900 hover:text-green-600 transition"
             target="_blank"
             rel="noopener noreferrer"
           >
             {text}
           </a>
         ) : (
-          <p className="text-gray-800">{text}</p>
+          <p className="text-gray-900">{text}</p>
         )}
       </div>
     </div>
@@ -295,6 +309,19 @@ function ContactItem({ icon, title, text, link }) {
 }
 
 // Универсальное поле ввода (input или textarea)
+interface InputFieldProps {
+  label: string;
+  id: string;
+  name: string;
+  type: string;
+  placeholder: string;
+  value: string;
+  onChange: (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => void;
+  required?: boolean;
+}
+
 function InputField({
   label,
   id,
@@ -304,10 +331,10 @@ function InputField({
   value,
   onChange,
   required,
-}) {
+}: InputFieldProps) {
   return (
     <div className="mb-5">
-      <label htmlFor={id} className="block mb-2 font-medium text-gray-700">
+      <label htmlFor={id} className="block mb-2 font-medium text-gray-900">
         {label}
       </label>
       {type === 'textarea' ? (
@@ -319,7 +346,7 @@ function InputField({
           onChange={onChange}
           required={required}
           rows={5}
-          className="w-full px-4 py-3 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-green-400 transition"
+          className="w-full px-4 py-3 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-green-400 transition text-gray-900 bg-white"
         />
       ) : (
         <input
@@ -330,7 +357,7 @@ function InputField({
           value={value}
           onChange={onChange}
           required={required}
-          className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-400 transition"
+          className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-400 transition text-gray-900 bg-white"
         />
       )}
     </div>
@@ -338,7 +365,13 @@ function InputField({
 }
 
 // Социальная ссылка с иконкой
-function SocialLink({ href, icon, label }) {
+interface SocialLinkProps {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+}
+
+function SocialLink({ href, icon, label }: SocialLinkProps) {
   return (
     <a
       href={href}

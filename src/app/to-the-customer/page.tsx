@@ -1,16 +1,7 @@
-import {
-  CheckCircle,
-  ChevronDown,
-  Shield,
-  Truck,
-  Clock,
-  Phone,
-  FileText,
-  MapPin,
-  CreditCard,
-} from 'lucide-react';
-import Header from '@/src/shared/ui/Header';
+import { CheckCircle } from 'lucide-react';
+
 import Footer from '@/src/shared/ui/Footer';
+import Header from '@/src/shared/ui/Header';
 
 export default function ForCustomersPage() {
   return (
@@ -208,18 +199,22 @@ export default function ForCustomersPage() {
                   Популярный выбор
                 </div>
               )}
-              <h3 className="text-xl font-semibold mb-2">{pricing.plan}</h3>
-              <p className="text-2xl font-bold mb-4">{pricing.price}</p>
+              <h3 className="text-xl font-semibold mb-2 text-gray-900">
+                {pricing.plan}
+              </h3>
+              <p className="text-2xl font-bold mb-4 text-gray-900">
+                {pricing.price}
+              </p>
               <ul className="space-y-2">
                 {pricing.features.map((feature, idx) => (
                   <li key={idx} className="flex items-start">
                     <CheckCircle className="flex-shrink-0 h-5 w-5 text-green-500 mt-0.5 mr-2" />
-                    <span>{feature}</span>
+                    <span className="text-gray-700">{feature}</span>
                   </li>
                 ))}
               </ul>
               <button
-                className={`mt-6 w-full py-2 px-4 rounded-lg font-medium ${pricing.popular ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
+                className={`mt-6 w-full py-2 px-4 rounded-lg font-medium transition-colors ${pricing.popular ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
               >
                 Оставить заявку
               </button>

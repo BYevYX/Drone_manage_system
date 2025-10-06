@@ -11,15 +11,23 @@ import {
   Trees,
   Mountain,
   Zap,
+  LogIn,
+  User,
+  LogOut,
+  Settings,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 import { useGlobalContext } from '@/src/app/GlobalContext';
+import { useAuth } from '@/src/lib/hooks/useAuth';
+import { useModalStore } from '@/src/lib/stores/modal';
 
 export default function Header() {
   const { dronesList } = useGlobalContext();
+  const { user, isAuthenticated, logout } = useAuth();
+  const { openModal } = useModalStore();
 
   const pathname = usePathname();
 
@@ -62,6 +70,12 @@ export default function Header() {
       icon: <Leaf className="text-green-500" size={18} />,
       links: [
         {
+          label: 'Опрыскивание и удобрения',
+          href: '/services/spraying',
+          description: 'Точное внесение СЗР и удобрений с дронов',
+          icon: <Droplets className="text-blue-400" size={16} />,
+        },
+        {
           label: 'Химическая защита растений',
           href: '/services/chemical-protection',
           description:
@@ -73,6 +87,12 @@ export default function Header() {
           href: '/services/fertilization',
           description: 'Равномерное и эффективное внесение удобрений',
           icon: <Leaf className="text-yellow-400" size={16} />,
+        },
+        {
+          label: 'Посев семян',
+          href: '/services/seeding',
+          description: 'Точный высев семян с оптимальным распределением',
+          icon: <Leaf className="text-green-400" size={16} />,
         },
         {
           label: 'Десикация',
@@ -91,6 +111,24 @@ export default function Header() {
           href: '/services/forests-treatment',
           description: 'Уход за лесными и рекреационными территориями',
           icon: <Mountain className="text-cyan-400" size={16} />,
+        },
+      ],
+    },
+    {
+      title: 'Мониторинг и анализ',
+      icon: <BarChart className="text-purple-500" size={18} />,
+      links: [
+        {
+          label: 'Мониторинг и картографирование',
+          href: '/services/monitoring',
+          description: 'Аэрофотосъемка и создание карт полей',
+          icon: <Monitor className="text-blue-400" size={16} />,
+        },
+        {
+          label: 'Анализ состояния посевов',
+          href: '/services/analysis',
+          description: 'ИИ-анализ здоровья растений и прогнозирование',
+          icon: <BarChart className="text-purple-400" size={16} />,
         },
       ],
     },
@@ -356,10 +394,54 @@ export default function Header() {
             Контакты
           </Link>
 
-          {/* TODO: change this on profile when state and middleware be ready */}
-          {/* <Link href="/registration" className="pl-4 hover:text-gray-300">
-            <UserCircle2 className="h-6 w-6" />
-          </Link> */}
+          {/* Authentication Button */}
+          {isAuthenticated ? (
+            <div className="relative group">
+              <button className="flex items-center gap-2 px-4 py-2 text-[18px] font-nekstmedium hover:text-gray-300 cursor-pointer rounded-lg transition-colors">
+                <User className="h-5 w-5" />
+                {`${user?.firstName} ${user?.lastName}` || 'Пользователь'}
+                <ChevronDown className="h-4 w-4 transition-transform group-hover:rotate-180" />
+              </button>
+
+              <div className="absolute right-0 top-full mt-2 w-48 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 ease-out bg-white border border-gray-200 rounded-lg shadow-lg z-50 origin-top-right">
+                <div className="p-3 border-b border-gray-100">
+                  <p className="text-sm font-medium text-gray-900">
+                    {`${user?.firstName} ${user?.lastName}`}
+                  </p>
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                  <span className="inline-block mt-1 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full capitalize">
+                    {user?.userRole?.toLowerCase()}
+                  </span>
+                </div>
+
+                <div className="py-1">
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Панель управления
+                  </Link>
+
+                  <button
+                    onClick={logout}
+                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Выйти
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => openModal('login')}
+              className="flex items-center gap-2 px-4 py-2 text-[18px] font-nekstmedium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <LogIn className="h-4 w-4" />
+              Войти
+            </button>
+          )}
         </nav>
         {/* {pathname === '/' && (
           <Link href={'/signup'}>
