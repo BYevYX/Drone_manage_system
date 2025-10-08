@@ -61,15 +61,15 @@ export function RoleSelect({ value, onChange, error }) {
         onClick={() => setOpen((v) => !v)}
         className={`
             w-full flex items-center justify-between px-4 py-3 rounded-xl
-            bg-gray-100 hover:bg-green-50 transition-all duration-200
+            bg-gray-100 hover:bg-blue-50 transition-all duration-200
             text-[18px] font-nekstmedium text-black shadow border
             ${error ? 'border-red-400' : 'border-gray-300'}
-            focus:outline-none focus:ring-2 focus:ring-green-400
+            focus:outline-none focus:ring-2 focus:ring-blue-400
           `}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className={value ? '' : 'text-gray-400'}>{selectedLabel}</span>
+        <span className={value ? 'text-black' : 'text-gray-400'}>{selectedLabel}</span>
         <ChevronDown
           size={20}
           className={`text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : 'rotate-0'}`}
@@ -96,9 +96,9 @@ export function RoleSelect({ value, onChange, error }) {
               setOpen(false);
             }}
             className={`
-                w-full text-left px-4 py-3 hover:bg-green-100 transition-colors duration-150
-                font-nekstregular
-                ${value === role.value ? 'bg-green-200 font-semibold' : 'font-normal'}
+                w-full text-left px-4 py-3 hover:bg-blue-100 transition-colors duration-150
+                font-nekstregular text-black
+                ${value === role.value ? 'bg-blue-200 font-semibold' : 'font-normal'}
               `}
             role="option"
             aria-selected={value === role.value}
@@ -149,7 +149,7 @@ export function Input({
           error ? 'border-red-400' : 'border-gray-500'
         } bg-transparent px-2 py-2`}
       >
-        {icon && <span className="mr-2 text-gray-500">{icon}</span>}
+        {icon && <span className="mr-2 text-black">{icon}</span>}
         <input
           type={type}
           id={id}

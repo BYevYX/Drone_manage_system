@@ -12,10 +12,10 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { useAuth } from '@/src/lib/hooks/useAuth';
-import { useModalStore } from '@/src/lib/stores/modal';
 
 interface ServiceCategory {
   id: string;
@@ -117,12 +117,12 @@ const complexityColors = {
 
 export default function ServicesPage() {
   const { isAuthenticated } = useAuth();
-  const { openModal } = useModalStore();
+  const router = useRouter();
   const [hoveredCard, setHoveredCard] = useState<string | null>(null);
 
   const handleServiceClick = () => {
     if (!isAuthenticated) {
-      openModal('login');
+      router.push('/login');
       return;
     }
     // Navigation will be handled by Link component

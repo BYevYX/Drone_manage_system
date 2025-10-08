@@ -2,7 +2,6 @@ import './globals.css';
 import { Toaster } from 'react-hot-toast';
 
 import { RoleProvider } from './GlobalContext';
-import AuthModal from '@/src/components/auth/AuthModal';
 
 export default function RootLayout({
   children,
@@ -25,7 +24,6 @@ export default function RootLayout({
       <body>
         <RoleProvider>
           {children}
-          <AuthModal />
           <Toaster
             position="top-right"
             toastOptions={{

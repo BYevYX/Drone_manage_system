@@ -1,7 +1,8 @@
 'use client';
-import { User } from 'lucide-react';
+import { User, Home } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import React, { useState } from 'react';
-import axios from 'axios';
 
 import {
   Step1,
@@ -15,14 +16,14 @@ import {
   DroneSupplierForm,
   MaterialSupplierForm,
 } from './steps';
-
-// Константа с адресом бэкенда
-const API_URL = 'https://d70kaz-185-42-163-77.ru.tuna.am/v1/auth/register';
+import { useAuth } from '@/src/lib/hooks/useAuth';
 
 export default function MultiStepSignup() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState('');
   const [allOk, setAllOk] = useState(false);
+  const { register: registerUser, isLoading, error, clearError } = useAuth();
+  const router = useRouter();
 
   // Первый шаг: телефон и email
   const [phone, setPhone] = useState('');
@@ -249,7 +250,7 @@ export default function MultiStepSignup() {
       handleBack={handleBack}
       handleNext={handleNext}
       data={fioData}
-      setData={setFioData}
+      setData={(data) => setFioData(prev => ({ ...prev, ...data }))}
       key="stepFio"
     />,
     <Step3
@@ -266,54 +267,69 @@ export default function MultiStepSignup() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (allOk && step === steps.length) {
-      setLoading(true);
       try {
+        // Clear any previous errors before starting registration
+        clearError();
         const dataToSend = collectData();
-        const res = await axios.post(API_URL, dataToSend);
-        alert(res.data.message || 'Регистрация успешна!');
-        // TODO: перенаправить/очистить/что-то ещё
+        await registerUser(dataToSend);
+        // Redirect to dashboard after successful registration
+        router.push('/dashboard');
       } catch (err: any) {
-        if (err.response?.data?.message) {
-          alert('Ошибка при регистрации: ' + err.response.data.message);
-        } else {
-          alert('Ошибка при регистрации: ' + err.message);
-        }
-      } finally {
-        setLoading(false);
+        console.error('Registration error:', err);
+        // Error is handled in the auth store with toast notifications
       }
     }
   };
 
   return (
     <div className="w-full lg:w-1/2 rounded-2xl p-8">
-      <h2 className="text-[28px] font-nekstmedium text-black mb-6 flex items-center gap-2">
-        <User size={28} className="text-green-600" />
-        {step === steps.length
-          ? 'Пароль и подтверждение'
-          : step === 3
-            ? 'Личные данные'
-            : 'Основная информация'}
-      </h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-[28px] font-nekstmedium text-black flex items-center gap-2">
+          <User size={28} className="text-blue-600" />
+          {step === steps.length
+            ? 'Пароль и подтверждение'
+            : step === 3
+              ? 'Личные данные'
+              : 'Основная информация'}
+        </h2>
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-sm font-semibold text-gray-700 bg-gradient-to-br from-white/80 to-white/40 backdrop-blur-sm px-4 py-2 rounded-xl border border-gray-300 shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200"
+        >
+          <Home size={18} className="text-blue-600" />
+          На главную
+        </Link>
+      </div>
       <form
         onSubmit={step === 1 ? (e) => e.preventDefault() : handleSubmit}
         noValidate
         className="space-y-6"
       >
         {steps[step - 1]}
-        {loading && (
-          <div className="text-center text-green-700 font-nekstmedium">
+        
+        {/* Display global auth error if any, but not during loading */}
+        {error && !isLoading && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600 font-nekstregular">
+              {error.message}
+            </p>
+          </div>
+        )}
+        
+        {isLoading && (
+          <div className="text-center text-black font-nekstmedium">
             Отправка...
           </div>
         )}
       </form>
       <div className="mt-8 flex flex-col gap-3">
         {step === 1 && (
-          <a
+          <Link
             href="/login"
-            className="flex items-center gap-2 text-green-700 font-medium hover:underline hover:scale-105 transition font-nekstmedium text-[18px]"
+            className="flex items-center gap-2 text-black font-medium hover:underline hover:scale-105 transition font-nekstmedium text-[18px]"
           >
             Уже есть аккаунт? Войти
-          </a>
+          </Link>
         )}
       </div>
     </div>

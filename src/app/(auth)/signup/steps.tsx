@@ -61,7 +61,30 @@ export function Step1({
   phone,
   email,
 }: Step1Props) {
-  // убрана валидация!
+  const isValidEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const isValidPhone = (phone: string) => {
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
+
+  const isFormValid = () => {
+    return phone.trim() !== '' &&
+           email.trim() !== '' &&
+           isValidEmail(email) &&
+           isValidPhone(phone) &&
+           role !== '';
+  };
+
+  const handleNextClick = () => {
+    if (isFormValid()) {
+      handleNext(true);
+    }
+  };
+
   return (
     <div>
       <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-4">
@@ -73,6 +96,7 @@ export function Step1({
           icon={<Phone size={20} />}
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
+          error={phone.trim() !== '' && !isValidPhone(phone)}
         />
         <Input
           label="E-mail"
@@ -82,13 +106,19 @@ export function Step1({
           icon={<Mail size={20} />}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          error={email.trim() !== '' && !isValidEmail(email)}
         />
       </div>
-      <RoleSelect value={role} onChange={setRole} />
+      <RoleSelect value={role} onChange={setRole} error={role === ''} />
       <button
         type="button"
-        onClick={() => handleNext(true)}
-        className="w-full flex items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white py-3 px-10 font-nekstmedium text-[18px] hover:from-green-600 hover:to-green-800 transition-transform hover:scale-105 duration-300 shadow-lg mt-6"
+        onClick={handleNextClick}
+        disabled={!isFormValid()}
+        className={`w-full flex items-center justify-center gap-2 rounded-[20px] py-3 px-10 font-nekstmedium text-[18px] transition-all duration-300 shadow-lg mt-6 ${
+          isFormValid()
+            ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-blue-700 hover:scale-105'
+            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+        }`}
       >
         Далее
       </button>
@@ -125,8 +155,8 @@ export function Step2({
             onClick={() => setData({ type: value as Step2Data['type'] })}
             className={`px-4 py-2 rounded-full font-nekstmedium ${
               data.type === value
-                ? 'bg-gradient-to-r from-green-500 to-green-700 text-white'
-                : 'bg-transparent border text-gray-600 border-gray-600 '
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white'
+                : 'bg-transparent border text-black border-gray-600 '
             }`}
           >
             {label}
@@ -139,42 +169,48 @@ export function Step2({
           label="Название компании"
           value={data.nameCompany}
           onChange={(e) => setData({ nameCompany: e.target.value })}
-          id="inn"
+          id="company_name"
+          error={false}
         />
         <Input
           label="ИНН"
           value={data.inn}
           onChange={(e) => setData({ inn: e.target.value })}
           id="inn"
+          error={false}
         />
         <Input
           label="КПП"
           value={data.kpp}
           onChange={(e) => setData({ kpp: e.target.value })}
           id="kpp"
+          error={false}
         />
         <Input
           label="Код по ОКПО"
           value={data.okpo}
           onChange={(e) => setData({ okpo: e.target.value })}
           id="okpo"
+          error={false}
         />
         <Input
           label="Юридический адрес"
           value={data.urAddres}
           onChange={(e) => setData({ urAddres: e.target.value })}
           id="ur_addres"
+          error={false}
         />
         <Input
           label="Фактический адрес"
           value={data.factAddres}
           onChange={(e) => setData({ factAddres: e.target.value })}
           id="fact_addres"
+          error={false}
         />
       </div>
 
       <div className="mt-6 border border-gray-700 rounded-lg p-4">
-        <label className="flex items-center gap-2 font-nekstmedium text-sm mb-4">
+        <label className="flex items-center gap-2 font-nekstmedium text-sm mb-4 text-black">
           <input
             type="checkbox"
             checked={data.contactPerson}
@@ -204,6 +240,7 @@ export function Step2({
                     })
                   }
                   id="surname_agent"
+                  error={false}
                 />
                 <Input
                   label="Телефон"
@@ -214,6 +251,7 @@ export function Step2({
                     })
                   }
                   id="telephone_agent"
+                  error={false}
                 />
                 <Input
                   label="Имя"
@@ -224,6 +262,7 @@ export function Step2({
                     })
                   }
                   id="name_agent"
+                  error={false}
                 />
                 <Input
                   label="E-mail"
@@ -234,6 +273,7 @@ export function Step2({
                     })
                   }
                   id="email_agent"
+                  error={false}
                 />
                 <Input
                   label="Отчество"
@@ -244,6 +284,7 @@ export function Step2({
                     })
                   }
                   id="patronumic_agent"
+                  error={false}
                 />
               </div>
             </motion.div>
@@ -254,7 +295,7 @@ export function Step2({
         <button
           type="button"
           onClick={handleBack}
-          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-gray-700 font-nekstmedium hover:bg-gray-100 transition"
+          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-black font-nekstmedium hover:bg-gray-100 transition"
         >
           <ArrowLeft size={18} />
           Назад
@@ -262,7 +303,7 @@ export function Step2({
         <button
           type="button"
           onClick={() => handleNext(true)}
-          className="flex items-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
+          className="flex items-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-nekstmedium hover:from-indigo-600 hover:to-blue-700 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
         >
           Далее
         </button>
@@ -284,54 +325,64 @@ export function StepFio({
   data,
   setData,
 }: StepFioProps) {
+  const isFormValid = () => {
+    return data.lastName.trim() !== '' &&
+           data.firstName.trim() !== '' &&
+           data.middleName.trim() !== '';
+  };
+
+  const handleNextClick = () => {
+    if (isFormValid()) {
+      handleNext(true);
+    }
+  };
+
   return (
     <div>
-      {/* <h3 className="text-2xl font-nekstsemibold text-gray-900 mb-6 flex items-center gap-3">
-        <User className="text-green-600" size={28} />
-        Личные данные
-      </h3> */}
       <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-4">
         <Input
           label="Фамилия"
           id="lastName"
           value={data.lastName}
-          onChange={(e) =>
-            setData((prev) => ({ ...prev, lastName: e.target.value }))
-          }
+          onChange={(e) => setData({ lastName: e.target.value })}
           icon={<User size={20} />}
+          error={false}
         />
         <Input
           label="Имя"
           id="firstName"
           value={data.firstName}
-          onChange={(e) =>
-            setData((prev) => ({ ...prev, firstName: e.target.value }))
-          }
+          onChange={(e) => setData({ firstName: e.target.value })}
           icon={<User size={20} />}
+          error={false}
         />
         <Input
           label="Отчество"
           id="middleName"
           value={data.middleName}
-          onChange={(e) =>
-            setData((prev) => ({ ...prev, middleName: e.target.value }))
-          }
+          onChange={(e) => setData({ middleName: e.target.value })}
           icon={<User size={20} />}
+          error={false}
         />
       </div>
       <div className="flex justify-between mt-6">
         <button
           type="button"
           onClick={handleBack}
-          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-gray-700 font-nekstmedium hover:bg-gray-100 transition"
+          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-black font-nekstmedium hover:bg-gray-100 transition"
         >
           <ArrowLeft size={18} />
           Назад
         </button>
         <button
           type="button"
-          className="flex items-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
-          onClick={() => handleNext(true)}
+          onClick={handleNextClick}
+          disabled={!isFormValid()}
+          className={`flex items-center gap-2 px-10 py-3 rounded-[20px] font-nekstmedium transition-all duration-300 shadow-lg text-[18px] ${
+            isFormValid()
+              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-blue-700 hover:scale-105'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
           Далее
         </button>
@@ -358,7 +409,36 @@ export function Step3({
 }: Step3Props) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  // убрана валидация!
+
+  const isValidPassword = (password: string) => {
+    return password.length >= 8 &&
+           /[a-z]/.test(password) &&
+           /[A-Z]/.test(password) &&
+           /\d/.test(password);
+  };
+
+  const isFormValid = () => {
+    return password.trim() !== '' &&
+           confirm.trim() !== '' &&
+           isValidPassword(password) &&
+           password === confirm;
+  };
+
+  const handleSubmitClick = () => {
+    if (isFormValid()) {
+      setAllOk(true);
+    }
+  };
+
+  // Clear errors when user starts typing
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPassword(e.target.value);
+  };
+
+  const handleConfirmChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirm(e.target.value);
+  };
+
   return (
     <>
       <Input
@@ -368,7 +448,8 @@ export function Step3({
         type={showPassword ? 'text' : 'password'}
         icon={<Lock size={20} />}
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={handlePasswordChange}
+        error={password.trim() !== '' && !isValidPassword(password)}
         rightIcon={
           <button
             type="button"
@@ -388,7 +469,8 @@ export function Step3({
         type={showConfirm ? 'text' : 'password'}
         icon={<Lock size={20} />}
         value={confirm}
-        onChange={(e) => setConfirm(e.target.value)}
+        onChange={handleConfirmChange}
+        error={confirm.trim() !== '' && password !== confirm}
         rightIcon={
           <button
             type="button"
@@ -401,23 +483,48 @@ export function Step3({
           </button>
         }
       />
-      <div className="flex items-center gap-2 text-sm text-gray-800 font-nekstregular">
-        <CheckCircle className="text-gray-400" size={18} />
-        Минимум 8 символов
-      </div>
+      
+      {/* Password strength indicator */}
+      {password && password.length > 0 && (
+        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-600 mb-2 font-nekstmedium">
+            Требования к паролю:
+          </p>
+          <ul className="text-xs text-blue-600 space-y-1 font-nekstregular">
+            <li className={password.length >= 8 ? 'text-green-600' : 'text-blue-600'}>
+              ✓ Минимум 8 символов
+            </li>
+            <li className={/[a-z]/.test(password) ? 'text-green-600' : 'text-blue-600'}>
+              ✓ Строчная буква
+            </li>
+            <li className={/[A-Z]/.test(password) ? 'text-green-600' : 'text-blue-600'}>
+              ✓ Заглавная буква
+            </li>
+            <li className={/\d/.test(password) ? 'text-green-600' : 'text-blue-600'}>
+              ✓ Цифра
+            </li>
+          </ul>
+        </div>
+      )}
+
       <div className="flex justify-between mt-4">
         <button
           type="button"
           onClick={handleBack}
-          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-gray-700 font-nekstmedium hover:bg-gray-100 transition"
+          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-black font-nekstmedium hover:bg-gray-100 transition"
         >
           <ArrowLeft size={18} />
           Назад
         </button>
         <button
           type="submit"
-          className="flex items-center gap-2 px-6 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
-          onClick={() => setAllOk(true)}
+          onClick={handleSubmitClick}
+          disabled={!isFormValid()}
+          className={`flex items-center gap-2 px-6 py-3 rounded-[20px] font-nekstmedium transition-all duration-300 shadow-lg text-[18px] ${
+            isFormValid()
+              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-blue-700 hover:scale-105'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
           Зарегистрироваться
         </button>
@@ -443,7 +550,18 @@ export function ManagerForm({
   handleNext: (ok: boolean) => void;
   handleBack: () => void;
 }) {
-  // убрана валидация!
+  const isFormValid = () => {
+    return data.company.trim() !== '' &&
+           data.phone.trim() !== '' &&
+           data.region.trim() !== '';
+  };
+
+  const handleNextClick = () => {
+    if (isFormValid()) {
+      handleNext(true);
+    }
+  };
+
   return (
     <>
       <Input
@@ -452,6 +570,7 @@ export function ManagerForm({
         onChange={(e) => setData({ ...data, company: e.target.value })}
         id="company_manager"
         icon={<Building size={20} />}
+        error={false}
       />
       <Input
         label="Телефон"
@@ -459,6 +578,7 @@ export function ManagerForm({
         onChange={(e) => setData({ ...data, phone: e.target.value })}
         id="phone_manager"
         icon={<Phone size={20} />}
+        error={false}
       />
       <Input
         label="Регион"
@@ -466,6 +586,7 @@ export function ManagerForm({
         onChange={(e) => setData({ ...data, region: e.target.value })}
         id="region_manager"
         icon={<MapPin size={20} />}
+        error={false}
       />
       <Input
         label="О себе (необязательно)"
@@ -473,20 +594,26 @@ export function ManagerForm({
         onChange={(e) => setData({ ...data, about: e.target.value })}
         id="about_manager"
         icon={<Info size={20} />}
+        error={false}
       />
       <div className="flex justify-between mt-4">
         <button
           type="button"
           onClick={handleBack}
-          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-gray-700 font-nekstmedium hover:bg-gray-100 transition"
+          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-black font-nekstmedium hover:bg-gray-100 transition"
         >
           <ArrowLeft size={18} />
           Назад
         </button>
         <button
           type="button"
-          className="flex items-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
-          onClick={() => handleNext(true)}
+          onClick={handleNextClick}
+          disabled={!isFormValid()}
+          className={`flex items-center gap-2 px-10 py-3 rounded-[20px] font-nekstmedium transition-all duration-300 shadow-lg text-[18px] ${
+            isFormValid()
+              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-blue-700 hover:scale-105'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
           Далее
         </button>
@@ -524,6 +651,19 @@ export function DroneSupplierForm({
   handleNext: (ok: boolean) => void;
   handleBack: () => void;
 }) {
+  const isFormValid = () => {
+    return data.company.trim() !== '' &&
+           data.supplyType.trim() !== '' &&
+           data.phone.trim() !== '' &&
+           data.region.trim() !== '';
+  };
+
+  const handleNextClick = () => {
+    if (isFormValid()) {
+      handleNext(true);
+    }
+  };
+
   return (
     <>
       <Input
@@ -532,6 +672,7 @@ export function DroneSupplierForm({
         onChange={(e) => setData({ ...data, company: e.target.value })}
         id="company_drone_supplier"
         icon={<Building size={20} />}
+        error={false}
       />
       <Input
         label="Телефон"
@@ -539,6 +680,7 @@ export function DroneSupplierForm({
         onChange={(e) => setData({ ...data, phone: e.target.value })}
         id="phone_drone_supplier"
         icon={<Phone size={20} />}
+        error={false}
       />
       <Input
         label="Регион"
@@ -546,6 +688,7 @@ export function DroneSupplierForm({
         onChange={(e) => setData({ ...data, region: e.target.value })}
         id="region_drone_supplier"
         icon={<MapPin size={20} />}
+        error={false}
       />
       <Input
         label="Тип деятельности (дроны, оборудование, сервис и др.)"
@@ -553,6 +696,7 @@ export function DroneSupplierForm({
         onChange={(e) => setData({ ...data, supplyType: e.target.value })}
         id="supply_type_drone_supplier"
         icon={<Package size={20} />}
+        error={false}
       />
       <Input
         label="Размер парка дронов (необязательно)"
@@ -560,6 +704,7 @@ export function DroneSupplierForm({
         onChange={(e) => setData({ ...data, fleetSize: e.target.value })}
         id="fleet_size_drone_supplier"
         icon={<Info size={20} />}
+        error={false}
       />
       <Input
         label="Опыт работы (необязательно)"
@@ -567,6 +712,7 @@ export function DroneSupplierForm({
         onChange={(e) => setData({ ...data, experience: e.target.value })}
         id="experience_drone_supplier"
         icon={<Info size={20} />}
+        error={false}
       />
       <Input
         label="Оборудование (необязательно)"
@@ -574,6 +720,7 @@ export function DroneSupplierForm({
         onChange={(e) => setData({ ...data, equipment: e.target.value })}
         id="equipment_drone_supplier"
         icon={<Info size={20} />}
+        error={false}
       />
       <Input
         label="Комментарий (необязательно)"
@@ -581,20 +728,26 @@ export function DroneSupplierForm({
         onChange={(e) => setData({ ...data, notes: e.target.value })}
         id="notes_drone_supplier"
         icon={<Info size={20} />}
+        error={false}
       />
       <div className="flex justify-between mt-4">
         <button
           type="button"
           onClick={handleBack}
-          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-gray-700 font-nekstmedium hover:bg-gray-100 transition"
+          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-black font-nekstmedium hover:bg-gray-100 transition"
         >
           <ArrowLeft size={18} />
           Назад
         </button>
         <button
           type="button"
-          className="flex items-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
-          onClick={() => handleNext(true)}
+          onClick={handleNextClick}
+          disabled={!isFormValid()}
+          className={`flex items-center gap-2 px-10 py-3 rounded-[20px] font-nekstmedium transition-all duration-300 shadow-lg text-[18px] ${
+            isFormValid()
+              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-blue-700 hover:scale-105'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
           Далее
         </button>
@@ -621,6 +774,19 @@ export function MaterialSupplierForm({
   handleNext: (ok: boolean) => void;
   handleBack: () => void;
 }) {
+  const isFormValid = () => {
+    return data.company.trim() !== '' &&
+           data.materialType.trim() !== '' &&
+           data.phone.trim() !== '' &&
+           data.region.trim() !== '';
+  };
+
+  const handleNextClick = () => {
+    if (isFormValid()) {
+      handleNext(true);
+    }
+  };
+
   return (
     <>
       <Input
@@ -629,6 +795,7 @@ export function MaterialSupplierForm({
         onChange={(e) => setData({ ...data, company: e.target.value })}
         id="company_material_supplier"
         icon={<Building size={20} />}
+        error={false}
       />
       <Input
         label="Телефон"
@@ -636,6 +803,7 @@ export function MaterialSupplierForm({
         onChange={(e) => setData({ ...data, phone: e.target.value })}
         id="phone_material_supplier"
         icon={<Phone size={20} />}
+        error={false}
       />
       <Input
         label="Регион"
@@ -643,6 +811,7 @@ export function MaterialSupplierForm({
         onChange={(e) => setData({ ...data, region: e.target.value })}
         id="region_material_supplier"
         icon={<MapPin size={20} />}
+        error={false}
       />
       <Input
         label="Тип материалов"
@@ -650,6 +819,7 @@ export function MaterialSupplierForm({
         onChange={(e) => setData({ ...data, materialType: e.target.value })}
         id="material_type_material_supplier"
         icon={<Package size={20} />}
+        error={false}
       />
       <Input
         label="Опыт работы (необязательно)"
@@ -657,6 +827,7 @@ export function MaterialSupplierForm({
         onChange={(e) => setData({ ...data, experience: e.target.value })}
         id="experience_material_supplier"
         icon={<Info size={20} />}
+        error={false}
       />
       <Input
         label="Комментарий (необязательно)"
@@ -664,20 +835,26 @@ export function MaterialSupplierForm({
         onChange={(e) => setData({ ...data, notes: e.target.value })}
         id="notes_material_supplier"
         icon={<Info size={20} />}
+        error={false}
       />
       <div className="flex justify-between mt-4">
         <button
           type="button"
           onClick={handleBack}
-          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-gray-700 font-nekstmedium hover:bg-gray-100 transition"
+          className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-black font-nekstmedium hover:bg-gray-100 transition"
         >
           <ArrowLeft size={18} />
           Назад
         </button>
         <button
           type="button"
-          className="flex items-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
-          onClick={() => handleNext(true)}
+          onClick={handleNextClick}
+          disabled={!isFormValid()}
+          className={`flex items-center gap-2 px-10 py-3 rounded-[20px] font-nekstmedium transition-all duration-300 shadow-lg text-[18px] ${
+            isFormValid()
+              ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-blue-700 hover:scale-105'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
         >
           Далее
         </button>

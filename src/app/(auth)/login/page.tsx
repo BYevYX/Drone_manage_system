@@ -1,309 +1,273 @@
 'use client';
-import {
-  LogIn,
-  Home,
-  Lock,
-  Mail,
-  Eye,
-  EyeOff,
-  CheckCircle,
-  ShieldCheck,
-  UserPlus2,
-} from 'lucide-react';
-import React, { useState } from 'react';
-import axios from 'axios';
+
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Eye, EyeOff, LogIn, Mail, Lock, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useState } from 'react';
+import { useForm } from 'react-hook-form';
+
+import { useAuth } from '@/src/lib/hooks/useAuth';
+import { loginSchema, type LoginFormData } from '@/src/lib/validations/auth';
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [userId, setUserId] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [loginMode, setLoginMode] = useState<'email' | 'id'>('email');
+  const { login, loginById, isLoading, error, clearError } = useAuth();
+  const router = useRouter();
 
-  // Состояния для "Забыл пароль"
-  const [showForgot, setShowForgot] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotSent, setForgotSent] = useState(false);
-  const [forgotError, setForgotError] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+    clearErrors,
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: '',
+      password: '',
+      userId: '',
+    },
+  });
 
-  const isEmailValid = email.length > 4 && email.includes('@');
-  const isPasswordValid = password.length >= 8;
-  const isUserIdValid = userId === '' || /^[a-zA-Z0-9_-]{3,20}$/.test(userId);
-
-  // --- ВСТАВЛЯЕМ API URL ---
-  const LOGIN_API_URL = 'https://d70kaz-185-42-163-77.ru.tuna.am/v1/auth/login';
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitted(true);
-    setLoginError('');
-    if (userId && isUserIdValid) {
-      // Если надо отправлять запрос по ID
+  /**
+   * Handle form submission with proper error handling
+   */
+  const onSubmit = useCallback(
+    async (data: LoginFormData) => {
       try {
-        setLoading(true);
-        // Пример: если сервер поддерживает вход по userId
-        const res = await axios.post(LOGIN_API_URL, { user_id: userId });
-        // Успешно — делаем что-то (например, сохраняем токен/делаем редирект)
-        alert('Вход по ID успешен!');
-        // window.location.href = "/"; // или router.push
-      } catch (err: any) {
-        setLoginError(err?.response?.data?.message || 'Ошибка входа по ID');
-      } finally {
-        setLoading(false);
+        clearErrors();
+        clearError();
+
+        if (loginMode === 'id' && data.userId?.trim()) {
+          await loginById({ userId: data.userId.trim() });
+          // Redirect to dashboard or home page after successful login
+          router.push('/dashboard');
+          reset();
+        } else if (loginMode === 'email' && data.email && data.password) {
+          await login({
+            email: data.email.toLowerCase().trim(),
+            password: data.password,
+          });
+          // Redirect to dashboard or home page after successful login
+          router.push('/dashboard');
+          reset();
+        } else {
+          throw new Error('Заполните все обязательные поля');
+        }
+      } catch (error) {
+        console.error('Login submission error:', error);
+        // Error is handled in the auth store with toast notifications
       }
-      return;
-    }
-    if (!userId) {
-      if (!isEmailValid || !isPasswordValid) return;
-      try {
-        setLoading(true);
-        const res = await axios.post(LOGIN_API_URL, {
-          email,
-          password,
-        });
-        const test = res.data['accessToken'];
-        console.log(res.data);
-        // Успешно — делаем что-то (например, сохраняем токен/делаем редирект)
-        alert(test);
-        // window.location.href = "/"; // или router.push
-      } catch (err: any) {
-        setLoginError(err?.response?.data?.message || 'Ошибка входа по Email');
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-    if (userId && !isUserIdValid) return;
-  };
+    },
+    [loginMode, login, loginById, router, reset, clearErrors, clearError],
+  );
 
-  // Обработка "Забыл пароль"
-  const handleForgotSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setForgotError('');
-    setForgotSent(false);
+  /**
+   * Toggle password visibility
+   */
+  const togglePasswordVisibility = useCallback(() => {
+    setShowPassword((prev) => !prev);
+  }, []);
 
-    // Простейшая валидация
-    if (!forgotEmail || !forgotEmail.includes('@')) {
-      setForgotError('Введите корректный email');
-      return;
+  /**
+   * Switch between email and ID login modes
+   */
+  const handleModeChange = useCallback(
+    (mode: 'email' | 'id') => {
+      setLoginMode(mode);
+      clearErrors();
+      clearError();
+      reset();
+    },
+    [clearErrors, clearError, reset],
+  );
+
+  /**
+   * Clear errors when user starts typing
+   */
+  const handleInputChange = useCallback(() => {
+    if (error) {
+      clearError();
     }
-
-    // Здесь должен быть реальный запрос на сервер для отправки письма
-    // await api.sendResetPasswordEmail(forgotEmail)
-    setTimeout(() => {
-      setForgotSent(true);
-      setForgotError('');
-    }, 1000);
-  };
+  }, [error, clearError]);
 
   return (
-    <>
-      <div className="w-full lg:w-1/2 p-8">
-        <h2 className="text-[28px] font-nekstmedium text-black mb-6 flex items-center gap-2">
-          <LogIn size={28} className="text-blue-600" />
-          Войти в аккаунт
-        </h2>
+    <div className="w-full lg:w-1/2 p-8">
+      {/* Header */}
+      <div className="mb-8">
+        <div className="mb-6">
+          <h2 className="text-[28px] font-nekstmedium text-black flex items-center gap-2">
+            <LogIn size={28} className="text-blue-600" />
+            Войти в аккаунт
+          </h2>
+        </div>
+        <p className="text-black font-nekstregular">
+          Добро пожаловать в ДронАгро
+        </p>
+      </div>
 
-        {/* --- Основная форма --- */}
-        {!showForgot ? (
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            <Input
-              label="ID"
-              id="userId"
-              placeholder="Введите ваш ID или оставьте пустым"
-              type="text"
-              icon={<ShieldCheck size={20} />}
-              value={userId}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setUserId(e.target.value)
-              }
-              error={
-                submitted && userId.length > 0 && !isUserIdValid
-                  ? 'ID должен быть от 3 до 20 символов (буквы, цифры, -, _)'
-                  : ''
-              }
-              required={false}
-            />
-            <Input
-              label="Email"
-              id="email"
-              placeholder="you@example.com"
-              type="email"
-              icon={<Mail size={20} />}
-              value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setEmail(e.target.value)
-              }
-              error={
-                submitted && !userId && !isEmailValid
-                  ? 'Введите корректный email'
-                  : ''
-              }
-              required={!userId}
-            />
-            <Input
-              label="Пароль"
-              id="password"
-              placeholder="••••••••"
-              type={showPassword ? 'text' : 'password'}
-              icon={<Lock size={20} />}
-              value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setPassword(e.target.value)
-              }
-              error={
-                submitted && !userId && !isPasswordValid
-                  ? 'Пароль должен быть не менее 8 символов'
-                  : ''
-              }
-              rightIcon={
+      {/* Login mode toggle */}
+      <div className="mb-6 flex rounded-lg bg-gray-100 p-1">
+        <button
+          type="button"
+          onClick={() => handleModeChange('email')}
+          className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors font-nekstmedium ${
+            loginMode === 'email'
+              ? 'bg-white text-black shadow-sm'
+              : 'text-black hover:text-gray-700'
+          }`}
+          aria-pressed={loginMode === 'email'}
+        >
+          Email
+        </button>
+        <button
+          type="button"
+          onClick={() => handleModeChange('id')}
+          className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors font-nekstmedium ${
+            loginMode === 'id'
+              ? 'bg-white text-black shadow-sm'
+              : 'text-black hover:text-gray-700'
+          }`}
+          aria-pressed={loginMode === 'id'}
+        >
+          ID пользователя
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        {loginMode === 'id' ? (
+          <div>
+            <label className="block text-sm font-medium text-black font-nekstmedium mb-2">
+              ID пользователя <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3">
+                <ShieldCheck className="h-5 w-5 text-black" />
+              </div>
+              <input
+                {...register('userId')}
+                onChange={handleInputChange}
+                type="text"
+                placeholder="Введите ваш ID"
+                className="block w-full rounded-lg border border-gray-300 pl-10 pr-3 py-3 text-sm placeholder-gray-500 text-black focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-nekstregular"
+              />
+            </div>
+            {errors.userId && (
+              <p className="mt-1 text-sm text-red-600 font-nekstregular">
+                {errors.userId.message}
+              </p>
+            )}
+          </div>
+        ) : (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-black font-nekstmedium mb-2">
+                Email <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Mail className="h-5 w-5 text-black" />
+                </div>
+                <input
+                  {...register('email')}
+                  onChange={handleInputChange}
+                  type="email"
+                  placeholder="you@example.com"
+                  className="block w-full rounded-lg border border-gray-300 pl-10 pr-3 py-3 text-sm placeholder-gray-500 text-black focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-nekstregular"
+                />
+              </div>
+              {errors.email && (
+                <p className="mt-1 text-sm text-red-600 font-nekstregular">
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-black font-nekstmedium mb-2">
+                Пароль <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Lock className="h-5 w-5 text-black" />
+                </div>
+                <input
+                  {...register('password')}
+                  onChange={handleInputChange}
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="••••••••"
+                  className="block w-full rounded-lg border border-gray-300 pl-10 pr-10 py-3 text-sm placeholder-gray-500 text-black focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 font-nekstregular"
+                />
                 <button
                   type="button"
-                  tabIndex={-1}
-                  onClick={() => setShowPassword((v) => !v)}
-                  className="focus:outline-none"
+                  onClick={togglePasswordVisibility}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 hover:text-gray-800 transition-colors"
+                  aria-label={
+                    showPassword ? 'Скрыть пароль' : 'Показать пароль'
+                  }
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5 text-black" />
+                  ) : (
+                    <Eye className="h-5 w-5 text-black" />
+                  )}
                 </button>
-              }
-              required={!userId}
-            />
-            <div className="flex items-center gap-2 text-sm text-gray-800 font-nekstregular text-[14px]">
-              {isPasswordValid ? (
-                <CheckCircle className="text-green-600" size={18} />
-              ) : (
-                <CheckCircle className="text-gray-400" size={18} />
+              </div>
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-600 font-nekstregular">
+                  {errors.password.message}
+                </p>
               )}
-              Минимум 8 символов
             </div>
-            {loginError && (
-              <div className="text-red-600 text-sm font-nekstmedium">
-                {loginError}
-              </div>
-            )}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 px-10 font-nekstmedium text-[18px] hover:from-indigo-600 hover:to-blue-700 transition-transform hover:scale-105 duration-300 shadow-lg mt-4 disabled:opacity-60"
-            >
-              <LogIn size={20} /> {loading ? 'Входим...' : 'Войти'}
-            </button>
-          </form>
-        ) : (
-          // --- Форма восстановления пароля ---
-
-          <form
-            className="space-y-6 w-full m-auto"
-            onSubmit={handleForgotSubmit}
-          >
-            <div className="text-xl font-nekstmedium mb-4 text-center">
-              Восстановление пароля
-            </div>
-
-            <Input
-              label="Email для восстановления"
-              id="forgotEmail"
-              placeholder="Введите ваш email"
-              type="email"
-              icon={<Mail size={20} />}
-              value={forgotEmail}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setForgotEmail(e.target.value)
-              }
-              error={forgotError}
-              required={true}
-            />
-
-            <button
-              type="submit"
-              className="w-full flex items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 font-nekstmedium text-[18px] hover:from-indigo-600 hover:to-blue-700 transition-transform hover:scale-105 duration-300 shadow-lg"
-            >
-              Отправить ссылку для сброса
-            </button>
-
-            {forgotSent && (
-              <div className="text-green-600 text-center mt-2">
-                Если email найден — на него отправлена ссылка для сброса пароля.
-              </div>
-            )}
-
-            <button
-              type="button"
-              className="block mx-auto mt-4 text-blue-700 font-nekstmedium hover:text-blue-900 transition-colors hover:underline"
-              onClick={() => {
-                setShowForgot(false);
-                setForgotEmail('');
-                setForgotError('');
-                setForgotSent(false);
-              }}
-            >
-              Назад к входу
-            </button>
-          </form>
+          </>
         )}
 
-        {/* --- Ссылки под формой --- */}
-        {!showForgot && (
-          <div className="mt-8 flex flex-col gap-3">
-            <div className="flex items-center justify-between ">
-              <a
-                href="/signup"
-                className="flex items-center  gap-2 text-blue-700 font-medium hover:underline hover:scale-105 transition font-nekstmedium text-[18px]  "
-              >
-                <UserPlus2 size={18} /> Зарегистрироваться
-              </a>
-              <button
-                type="button"
-                className="text-sm text-gray-600 hover:text-blue-700 hover:underline transition font-nekstmedium text-[16px]"
-                onClick={() => setShowForgot(true)}
-              >
-                Забыли пароль?
-              </button>
-            </div>
+        {/* Display global auth error if any */}
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600 font-nekstregular">
+              {error.message}
+            </p>
           </div>
         )}
-      </div>
-    </>
-  );
-}
 
-function Input({
-  label,
-  id,
-  placeholder,
-  type = 'text',
-  icon,
-  value,
-  onChange,
-  error,
-  rightIcon,
-  required = false,
-}: any) {
-  return (
-    <div>
-      <label htmlFor={id} className="block font-nekstlight text-black mb-1">
-        {label}
-      </label>
-      <div
-        className={`flex items-center border-b ${
-          error ? 'border-red-400' : 'border-gray-500'
-        } bg-transparent px-2 py-2`}
-      >
-        <span className="mr-2 text-gray-500">{icon}</span>
-        <input
-          type={type}
-          id={id}
-          placeholder={placeholder}
-          value={value}
-          onChange={onChange}
-          className="flex-1 bg-transparent outline-none text-[18px] text-black font-nekstmedium"
-          required={required}
-        />
-        {rightIcon && <span className="ml-2">{rightIcon}</span>}
+        <button
+          type="submit"
+          disabled={isLoading || isSubmitting}
+          className="w-full flex items-center justify-center gap-2 rounded-[20px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-3 px-10 font-nekstmedium text-[18px] hover:from-indigo-600 hover:to-blue-700 transition-transform hover:scale-105 duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+        >
+          <LogIn className="h-5 w-5" />
+          {isLoading || isSubmitting ? 'Входим...' : 'Войти'}
+        </button>
+      </form>
+
+      {/* Links */}
+      <div className="mt-8 space-y-4">
+        {loginMode === 'email' && (
+          <div className="text-center">
+            <Link
+              href="/forgot-password"
+              className="text-sm text-blue-600 hover:text-blue-500 font-nekstmedium hover:underline"
+            >
+              Забыли пароль?
+            </Link>
+          </div>
+        )}
+
+        <div className="text-center">
+          <p className="text-sm text-black font-nekstregular">
+            Нет аккаунта?{' '}
+            <Link
+              href="/signup"
+              className="font-medium text-blue-600 hover:text-blue-500 font-nekstmedium hover:underline"
+            >
+              Зарегистрироваться
+            </Link>
+          </p>
+        </div>
       </div>
-      {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
     </div>
   );
 }

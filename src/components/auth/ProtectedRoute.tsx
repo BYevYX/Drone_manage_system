@@ -4,51 +4,34 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
 import { useAuth } from '@/src/lib/hooks/useAuth';
-import { useModalStore } from '@/src/lib/stores/modal';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  requiredRole?: 'client' | 'supplier';
+  requiredRole?: 'CLIENT' | 'CONTRACTOR' | 'OPERATOR' | 'ADMIN';
   redirectTo?: string;
-  showModal?: boolean;
 }
 
 export const ProtectedRoute = ({
   children,
   requiredRole,
-  redirectTo = '/',
-  showModal = true,
+  redirectTo = '/login',
 }: ProtectedRouteProps) => {
   const { isAuthenticated, user, isLoading } = useAuth();
-  const { openModal } = useModalStore();
   const router = useRouter();
 
   useEffect(() => {
     if (isLoading) return;
 
     if (!isAuthenticated) {
-      if (showModal) {
-        openModal('login');
-      } else {
-        router.push(redirectTo);
-      }
+      router.push(redirectTo);
       return;
     }
 
-    if (requiredRole && user?.role !== requiredRole) {
+    if (requiredRole && user?.userRole !== requiredRole) {
       router.push('/unauthorized');
       return;
     }
-  }, [
-    isAuthenticated,
-    user,
-    isLoading,
-    requiredRole,
-    router,
-    redirectTo,
-    showModal,
-    openModal,
-  ]);
+  }, [isAuthenticated, user, isLoading, requiredRole, router, redirectTo]);
 
   // Show loading state
   if (isLoading) {
@@ -60,7 +43,7 @@ export const ProtectedRoute = ({
   }
 
   // Don't render children if not authenticated or wrong role
-  if (!isAuthenticated || (requiredRole && user?.role !== requiredRole)) {
+  if (!isAuthenticated || (requiredRole && user?.userRole !== requiredRole)) {
     return null;
   }
 

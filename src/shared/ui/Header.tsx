@@ -22,12 +22,10 @@ import { usePathname } from 'next/navigation';
 
 import { useGlobalContext } from '@/src/app/GlobalContext';
 import { useAuth } from '@/src/lib/hooks/useAuth';
-import { useModalStore } from '@/src/lib/stores/modal';
 
 export default function Header() {
   const { dronesList } = useGlobalContext();
   const { user, isAuthenticated, logout } = useAuth();
-  const { openModal } = useModalStore();
 
   const pathname = usePathname();
 
@@ -61,6 +59,24 @@ export default function Header() {
           label: 'Анализ и отчетность',
           href: '/services/flight-analysis',
           description: 'Детальная аналитика и отчеты по выполненным полетам',
+          icon: <BarChart className="text-purple-400" size={16} />,
+        },
+      ],
+    },
+    {
+      title: 'Мониторинг и анализ',
+      icon: <BarChart className="text-purple-500" size={18} />,
+      links: [
+        {
+          label: 'Мониторинг и картографирование',
+          href: '/services/monitoring',
+          description: 'Аэрофотосъемка и создание карт полей',
+          icon: <Monitor className="text-blue-400" size={16} />,
+        },
+        {
+          label: 'Анализ состояния посевов',
+          href: '/services/analysis',
+          description: 'ИИ-анализ здоровья растений и прогнозирование',
           icon: <BarChart className="text-purple-400" size={16} />,
         },
       ],
@@ -114,24 +130,6 @@ export default function Header() {
         },
       ],
     },
-    {
-      title: 'Мониторинг и анализ',
-      icon: <BarChart className="text-purple-500" size={18} />,
-      links: [
-        {
-          label: 'Мониторинг и картографирование',
-          href: '/services/monitoring',
-          description: 'Аэрофотосъемка и создание карт полей',
-          icon: <Monitor className="text-blue-400" size={16} />,
-        },
-        {
-          label: 'Анализ состояния посевов',
-          href: '/services/analysis',
-          description: 'ИИ-анализ здоровья растений и прогнозирование',
-          icon: <BarChart className="text-purple-400" size={16} />,
-        },
-      ],
-    },
   ];
 
   return (
@@ -182,7 +180,7 @@ export default function Header() {
         >
           <div className="relative group">
             <div className="flex items-center gap-1 px-2 hover:text-gray-300 cursor-pointer text-[22px]">
-              О платформе
+              Платформа
               <ChevronDown className="h-4 w-4 " />
             </div>
             <div
@@ -316,48 +314,96 @@ export default function Header() {
       transition-all duration-200 ease-out
       bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 origin-top-right
       p-6
-      grid lg:grid-cols-2 sm:grid-cols-2 gap-6
+      flex flex-col gap-6
     "
             >
-              {menuSections.map(({ title, links, icon }) => (
-                <section key={title}>
-                  <div className="flex items-center mb-3">
-                    <div className="p-2 bg-gray-100 rounded-lg mr-2">
-                      {icon}
-                    </div>
-                    <h3 className="text-[18px] font-semibold text-gray-900">
-                      {title}
-                    </h3>
-                  </div>
-                  <ul className="space-y-2">
-                    {links.map(({ label, href, description, icon }) => (
-                      <li key={href}>
-                        <Link
-                          href={href}
-                          className="flex items-start p-3 rounded-xl hover:bg-gray-50 transition border border-transparent hover:border-gray-200"
-                        >
-                          <div className="mt-0.5 mr-3 p-2 bg-gray-50 rounded-lg text-gray-500">
-                            {icon}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900 text-[16px] flex items-center">
-                              {label}
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800 uppercase tracking-wide">
-                                New
-                              </span>
-                            </p>
-                            <p className="mt-1 text-[12px] text-gray-600 leading-snug">
-                              {description}
-                            </p>
-                          </div>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              ))}
+              {/* Основные столбцы */}
+              <div className="flex gap-6">
+                {/* Первый столбец - Планирование и управление + Мониторинг и анализ */}
+                <div className="flex-1 space-y-6">
+                  {menuSections.slice(0, 2).map(({ title, links, icon }) => (
+                    <section key={title}>
+                      <div className="flex items-center mb-3">
+                        <div className="p-2 bg-gray-100 rounded-lg mr-2">
+                          {icon}
+                        </div>
+                        <h3 className="text-[18px] font-semibold text-gray-900">
+                          {title}
+                        </h3>
+                      </div>
+                      <ul className="space-y-2">
+                        {links.map(({ label, href, description, icon }) => (
+                          <li key={href}>
+                            <Link
+                              href={href}
+                              className="flex items-start p-3 rounded-xl hover:bg-gray-50 transition border border-transparent hover:border-gray-200"
+                            >
+                              <div className="mt-0.5 mr-3 p-2 bg-gray-50 rounded-lg text-gray-500">
+                                {icon}
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900 text-[16px] flex items-center">
+                                  {label}
+                                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800 uppercase tracking-wide">
+                                    New
+                                  </span>
+                                </p>
+                                <p className="mt-1 text-[12px] text-gray-600 leading-snug">
+                                  {description}
+                                </p>
+                              </div>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
 
-              <div className="col-span-full mt-4 p-5 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl border border-blue-100">
+                {/* Второй столбец - Обработка культур */}
+                <div className="flex-1">
+                  {menuSections.slice(2).map(({ title, links, icon }) => (
+                    <section key={title}>
+                      <div className="flex items-center mb-3">
+                        <div className="p-2 bg-gray-100 rounded-lg mr-2">
+                          {icon}
+                        </div>
+                        <h3 className="text-[18px] font-semibold text-gray-900">
+                          {title}
+                        </h3>
+                      </div>
+                      <ul className="space-y-2">
+                        {links.map(({ label, href, description, icon }) => (
+                          <li key={href}>
+                            <Link
+                              href={href}
+                              className="flex items-start p-3 rounded-xl hover:bg-gray-50 transition border border-transparent hover:border-gray-200"
+                            >
+                              <div className="mt-0.5 mr-3 p-2 bg-gray-50 rounded-lg text-gray-500">
+                                {icon}
+                              </div>
+                              <div>
+                                <p className="font-medium text-gray-900 text-[16px] flex items-center">
+                                  {label}
+                                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-800 uppercase tracking-wide">
+                                    New
+                                  </span>
+                                </p>
+                                <p className="mt-1 text-[12px] text-gray-600 leading-snug">
+                                  {description}
+                                </p>
+                              </div>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+              </div>
+
+              {/* Специальное предложение внизу */}
+              <div className="mt-4 p-5 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl border border-blue-100">
                 <div className="flex items-center gap-4">
                   <div className="p-3 bg-blue-100 rounded-lg text-blue-600">
                     <Zap className="h-5 w-5" />
@@ -434,13 +480,13 @@ export default function Header() {
               </div>
             </div>
           ) : (
-            <button
-              onClick={() => openModal('login')}
+            <Link
+              href="/login"
               className="flex items-center gap-2 px-4 py-2 text-[18px] font-nekstmedium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <LogIn className="h-4 w-4" />
               Войти
-            </button>
+            </Link>
           )}
         </nav>
         {/* {pathname === '/' && (
