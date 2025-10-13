@@ -15,6 +15,8 @@ import {
 import React, { useState, useEffect } from 'react';
 
 import ServiceCatalog from './ServiceCatalog';
+import CadastralPlotForm from '../orders/CadastralPlotForm';
+import VegetationIndexSelector from '../orders/VegetationIndexSelector';
 import { dronesApi } from '@/src/lib/api/drones';
 import { fieldsApi } from '@/src/lib/api/fields';
 import { materialsApi } from '@/src/lib/api/materials';
