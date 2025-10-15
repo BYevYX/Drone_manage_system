@@ -15,6 +15,7 @@ import {
   User,
   LogOut,
   Settings,
+  TestTube,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -28,6 +29,7 @@ export default function Header() {
   const { user, isAuthenticated, logout } = useAuth();
 
   const pathname = usePathname();
+  const isDevelopment = process.env.NODE_ENV === 'development';
 
   const headerStyles = {
     '/': 'bg-white text-black p-6',
@@ -439,6 +441,18 @@ export default function Header() {
           >
             Контакты
           </Link>
+
+          {/* Development Test Link */}
+          {isDevelopment && (
+            <Link
+              href="/dev/order-test"
+              className="flex items-center gap-1 px-2 text-[18px] text-yellow-600 hover:text-yellow-500 border border-yellow-300 rounded-lg bg-yellow-50"
+              title="Тестирование заказов (только в разработке)"
+            >
+              <TestTube className="h-4 w-4" />
+              DEV
+            </Link>
+          )}
 
           {/* Authentication Button */}
           {isAuthenticated ? (

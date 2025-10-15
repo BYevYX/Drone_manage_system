@@ -5,6 +5,10 @@ import { useEffect } from 'react';
 
 import { useAuth } from '@/src/lib/hooks/useAuth';
 
+// Development mode bypass
+const isDevelopmentMode = process.env.NODE_ENV === 'development';
+const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredRole?: 'CLIENT' | 'CONTRACTOR' | 'OPERATOR' | 'ADMIN';
@@ -20,6 +24,9 @@ export const ProtectedRoute = ({
   const router = useRouter();
 
   useEffect(() => {
+    // Skip auth checks in development mode with bypass
+    if (isDevelopmentMode && bypassAuth) return;
+    
     if (isLoading) return;
 
     if (!isAuthenticated) {
@@ -32,6 +39,19 @@ export const ProtectedRoute = ({
       return;
     }
   }, [isAuthenticated, user, isLoading, requiredRole, router, redirectTo]);
+
+  // Development mode bypass
+  if (isDevelopmentMode && bypassAuth) {
+    return (
+      <div>
+        {/* Development mode indicator */}
+        <div className="fixed top-0 left-0 right-0 z-50 bg-yellow-500 text-black text-center py-1 text-sm font-medium">
+          🚧 РЕЖИМ РАЗРАБОТКИ - Аутентификация отключена
+        </div>
+        <div className="pt-8">{children}</div>
+      </div>
+    );
+  }
 
   // Show loading state
   if (isLoading) {
