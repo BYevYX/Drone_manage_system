@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { usePathname } from 'next/navigation';
 import {
   Home,
   ClipboardList,
@@ -36,21 +37,21 @@ import {
 } from 'lucide-react';
 import { ActiveMenuContext } from './ActiveMenuContext';
 
-import EditBid from './client/layouts/bids/EditBid';
+import EditBid from './customer/layouts/bids/EditBid';
 import { useGlobalContext } from '../GlobalContext';
-import Dashboard from './client/layouts/Dashboard';
-import AddBid from './client/layouts/bids/AddBid';
+import Dashboard from './customer/layouts/Dashboard';
+import AddBid from './customer/layouts/bids/AddBid';
 import Link from 'next/link';
 
-import Requests from './client/layouts/Requests';
+import Requests from './customer/layouts/Requests';
 import Footer from '@/src/shared/ui/Footer';
 
 const RoleConfig = {
-  client: {
+  contractor: {
     menu: [
-      { id: 'dashboard', icon: <Home size={20} />, label: 'Главная' },
+      { id: 'contractor/main', icon: <Home size={20} />, label: 'Главная' },
       {
-        id: 'requests',
+        id: 'contractor/requests',
         icon: <ClipboardList size={20} />,
         label: 'Мои заявки',
       },
@@ -213,7 +214,11 @@ const NotificationBadge = ({ count }: { count: number }) => (
 );
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { userRole, setUserRole } = useGlobalContext();
+  const { userInfo, setUserInfo } = useGlobalContext();
+
+  const fullPathname = usePathname();
+
+  if (!userInfo.userRole) return null; // или <LoadingSpinner />
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(
@@ -253,7 +258,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     setShowNotifications(false);
   };
 
-  const [activeMenu, setActiveMenu] = useState('dashboard');
+  const pathname = fullPathname ? fullPathname.replace('/dashboard/', '') : '';
+  const [activeMenu, setActiveMenu] = useState(pathname);
 
   return (
     <ActiveMenuContext.Provider value={{ activeMenu, setActiveMenu }}>
@@ -301,37 +307,40 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
             <nav className="flex-1 px-2 py-4 space-y-1">
-              {RoleConfig[userRole].menu.map((item) => (
-                <motion.button
-                  key={item.id}
-                  onClick={() => setActiveMenu(item.id)}
-                  whileHover={{ scale: 1.04 }}
-                  whileTap={{ scale: 0.98 }}
-                  className={`flex items-center w-full px-3.5 py-3 rounded-2xl transition-all font-medium gap-2 ${
-                    activeMenu === item.id
-                      ? 'bg-emerald-500/90 text-white shadow-md'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
-                  style={{
-                    marginBottom: '0.15rem',
-                    boxShadow:
+              {RoleConfig[userInfo.userRole].menu.map((item) => (
+                <Link href={`/dashboard/${item.id}`} key={item.id}>
+                  {' '}
+                  <motion.button
+                    key={item.id}
+                    onClick={() => setActiveMenu(item.id)}
+                    whileHover={{ scale: 1.04 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`flex items-center w-full px-3.5 py-3 rounded-2xl transition-all font-medium gap-2 ${
                       activeMenu === item.id
-                        ? '0 2px 8px 0 rgba(16,185,129,0.07)'
-                        : undefined,
-                  }}
-                >
-                  <span className="mr-1">{item.icon}</span>
-                  <motion.span
-                    initial={false}
-                    animate={{
-                      opacity: sidebarOpen ? 1 : 0,
-                      x: sidebarOpen ? 0 : -10,
+                        ? 'bg-emerald-500/90 text-white shadow-md'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                    style={{
+                      marginBottom: '0.15rem',
+                      boxShadow:
+                        activeMenu === item.id
+                          ? '0 2px 8px 0 rgba(16,185,129,0.07)'
+                          : undefined,
                     }}
-                    className="whitespace-nowrap transition-all duration-300"
                   >
-                    {item.label}
-                  </motion.span>
-                </motion.button>
+                    <span className="mr-1">{item.icon}</span>
+                    <motion.span
+                      initial={false}
+                      animate={{
+                        opacity: sidebarOpen ? 1 : 0,
+                        x: sidebarOpen ? 0 : -10,
+                      }}
+                      className="whitespace-nowrap transition-all duration-300"
+                    >
+                      {item.label}
+                    </motion.span>
+                  </motion.button>
+                </Link>
               ))}
             </nav>
             <div className="p-4 border-t border-gray-100">
@@ -344,11 +353,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 className="transition-all duration-300"
               >
                 <select
-                  value={userRole}
+                  value={userInfo.userRole}
                   onChange={(e) => setUserRole(e.target.value as UserRole)}
                   className="w-full p-2 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                 >
-                  <option value="client">Клиент</option>
+                  <option value="customer">Клиент</option>
                   <option value="operator">Оператор</option>
                   <option value="manager">Менеджер</option>
                   <option value="supplier">Поставщик</option>
@@ -362,8 +371,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <header className="flex items-center justify-between h-16 px-6 bg-white border-b border-gray-100 shadow-sm py-[15px]">
               <h2 className="text-xl font-semibold capitalize">
                 {
-                  RoleConfig[userRole].menu.find((m) => m.id === activeMenu)
-                    ?.label
+                  RoleConfig[userInfo.userRole].menu.find(
+                    (m) => m.id === activeMenu,
+                  )?.label
                 }
               </h2>
               <div className="flex items-center gap-4">
@@ -439,7 +449,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             </header>
-            <section className="min-h-[calc(100vh-70px)] bg-transparent">
+            <section className="min-h-[calc(100vh-70px)] p-[20px] bg-transparent">
               {children}
             </section>
           </main>

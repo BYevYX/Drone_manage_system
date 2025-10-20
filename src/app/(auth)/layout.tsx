@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { CheckCircle, Home, ShieldCheck, UserPlus2 } from 'lucide-react';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
+import { usePathname } from 'next/navigation';
 
 export default function Layout({ children }: PropsWithChildren) {
+  const pathName = usePathname();
   return (
     <div className="relative bg-[url(/pages/main/drone_15.jpg)] bg-cover min-h-[100vh] bg-gray-100">
       <div className="absolute inset-0 bg-white/20 backdrop-blur-[12px] z-0"></div>
@@ -15,7 +17,7 @@ export default function Layout({ children }: PropsWithChildren) {
           transition={{ delay: 0.2 }}
           className="text-4xl md:text-5xl font-nekstsemibold text-white drop-shadow-xl mb-6 text-center"
         >
-          Вход в DroneAgro
+          {pathName === '/login' ? 'Вход' : 'Регистрация'} в DroneAgro
         </motion.h1>
         <div className="flex flex-col lg:flex-row w-full max-w-6xl bg-white/80 backdrop-blur-md rounded-2xl shadow-xl">
           {children}

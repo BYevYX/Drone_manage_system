@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useState } from 'react';
-// import axios from "axios";
+
 type DroneType = {
   id: number;
   name: string;
@@ -8,7 +8,13 @@ type DroneType = {
   photo_url: string;
   manufacturer: string;
 };
-type UserRole = 'client' | 'operator' | 'manager' | 'supplier';
+type UserRole =
+  | 'guest'
+  | 'manager'
+  | 'contractor'
+  | 'drone_supplier'
+  | 'material_supplier';
+
 interface Request {
   id: number;
   date: string;
@@ -27,11 +33,24 @@ interface Request {
 
 interface GlobalContextType {
   dronesList: DroneType[];
-  userRole: string;
+  userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   requests: Request[];
 }
+
 const GlobalContext = createContext<GlobalContextType | undefined>(undefined);
+
+const VALID_ROLES: UserRole[] = [
+  'guest',
+  'contractor',
+  'manager',
+  'drone_supplier',
+  'material_supplier',
+];
+
+const isValidRole = (v: string | null): v is UserRole => {
+  return typeof v === 'string' && VALID_ROLES.includes(v as UserRole);
+};
 
 export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
   const [dronesList, setDronesList] = useState<DroneType[]>([
@@ -76,7 +95,49 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
       photo_url: '/header/drones/drone_5.jpg',
     },
   ]);
-  const [userRole, setUserRole] = useState<UserRole>('client');
+
+  // по умолчанию 'guest' — затем подхватим из localStorage при монтировании
+  const [userRole, setUserRoleState] = useState<UserRole | null>(null);
+  const [userInfo, setUserInfo] = useState({
+    email: '',
+    phone: '',
+    firstName: '',
+    lastName: '',
+    surname: '',
+    userRole: '',
+  });
+
+  useEffect(() => {
+    try {
+      const storedUser = {
+        email: localStorage.getItem('email') || '',
+        phone: localStorage.getItem('phone') || '',
+        firstName: localStorage.getItem('firstName') || '',
+        lastName: localStorage.getItem('lastName') || '',
+        surname: localStorage.getItem('surname') || '',
+        userRole: (localStorage.getItem('userRole') || 'guest').toLowerCase(),
+      };
+
+      // простая валидация роли
+      const validRoles = [
+        'manager',
+        'contractor',
+        'drone_supplier',
+        'material_supplier',
+        'guest',
+      ];
+
+      if (!validRoles.includes(storedUser.userRole)) {
+        storedUser.userRole = 'guest';
+      }
+
+      setUserInfo(storedUser);
+    } catch (e) {
+      console.warn('Ошибка при чтении localStorage:', e);
+      setUserInfo((prev) => ({ ...prev, userRole: 'guest' }));
+    }
+  }, []);
+
   const [requests, setRequests] = useState<Request[]>([
     {
       id: 1,
@@ -117,17 +178,39 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     },
   ]);
 
-  const changeRole = (role: UserRole) => {
-    setUserRole(role);
+  // обёртка для установки роли — сохраняет в state и localStorage
+  const setUserRole = (role: UserRole) => {
+    setUserRoleState(role);
+    try {
+      localStorage.setItem('userRole', role);
+    } catch (e) {
+      // localStorage может быть недоступен — молча игнорируем
+      // при необходимости можно логировать
+    }
   };
+
+  // при монтировании читаем роль из localStorage (если есть и валидна)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('userRole');
+      if (isValidRole(stored)) {
+        setUserRoleState(stored);
+      }
+    } catch (e) {
+      // ignore localStorage read errors
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <GlobalContext.Provider
       value={{
         dronesList,
         userRole,
-        setUserRole: changeRole,
+        setUserRole,
         requests,
+        userInfo,
+        setUserInfo,
       }}
     >
       {children}
