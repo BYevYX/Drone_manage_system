@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import {
   BarChart3,
   ClipboardList,
@@ -15,102 +15,33 @@ import {
   Calendar,
   ArrowRightLeft,
   Layers,
+  RefreshCw,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
 
-// Примерные данные (можно заменить на реальные с бэка)
-const stats = [
-  {
-    label: 'Активные задачи',
-    value: 8,
-    icon: <ClipboardList className="text-emerald-500" size={28} />,
-    color: 'bg-emerald-50',
-  },
-  {
-    label: 'В работе',
-    value: 4,
-    icon: <Timer className="text-blue-400" size={28} />,
-    color: 'bg-blue-50',
-  },
-  {
-    label: 'Завершено',
-    value: 21,
-    icon: <CheckCircle2 className="text-emerald-500" size={28} />,
-    color: 'bg-green-50',
-  },
-  {
-    label: 'Отклонено',
-    value: 3,
-    icon: <AlertCircle className="text-red-400" size={28} />,
-    color: 'bg-red-50',
-  },
-];
+import { apiClient } from '../../services/api';
 
-const operatorStats = [
-  {
-    label: 'Операторов',
-    value: 5,
-    icon: <Users className="text-indigo-500" size={24} />,
-  },
-  {
-    label: 'В смене',
-    value: 2,
-    icon: <UserCheck className="text-emerald-500" size={24} />,
-  },
-  {
-    label: 'Всего смен',
-    value: 20,
-    icon: <Calendar className="text-blue-400" size={24} />,
-  },
-];
+interface DashboardStats {
+  activeOrders: number;
+  inProgressOrders: number;
+  completedOrders: number;
+  rejectedOrders: number;
+  totalOperators: number;
+  activeOperators: number;
+  totalDrones: number;
+  activeDrones: number;
+  totalFields: number;
+}
 
-const droneStats = [
-  {
-    label: 'Дронов',
-    value: 4,
-    icon: <Tractor className="text-orange-500" size={24} />,
-  },
-  {
-    label: 'В работе',
-    value: 2,
-    icon: <ArrowRightLeft className="text-sky-500" size={24} />,
-  },
-  {
-    label: 'Оборудование',
-    value: 6,
-    icon: <Layers className="text-gray-400" size={24} />,
-  },
-];
-
-const recentTasks = [
-  {
-    id: 201,
-    name: 'Опрыскивание — Поле №1',
-    status: 'in_progress',
-    operator: 'Петров И.И.',
-    date: '2025-06-09',
-    field: 'Поле №1 (Северное)',
-    area: 12,
-  },
-  {
-    id: 202,
-    name: 'Внесение удобрений — Поле №2',
-    status: 'waiting',
-    operator: 'Иванова А.А.',
-    date: '2025-06-09',
-    field: 'Поле №2 (Центральное)',
-    area: 32,
-  },
-  {
-    id: 203,
-    name: 'Картографирование — Поле №1',
-    status: 'completed',
-    operator: 'Петров И.И.',
-    date: '2025-06-08',
-    field: 'Поле №1 (Северное)',
-    area: 30,
-  },
-];
+interface RecentTask {
+  id: string;
+  name: string;
+  status: 'in_progress' | 'waiting' | 'completed' | 'rejected';
+  operator: string;
+  date: string;
+  field: string;
+  area: number;
+}
 
 const statusLabels: Record<string, string> = {
   waiting: 'Ожидает',
@@ -137,6 +68,198 @@ const cropOptions = [
 export default function Overview() {
   const [year, setYear] = useState(yearOptions[1]);
   const [crop, setCrop] = useState(cropOptions[0]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({
+    activeOrders: 0,
+    inProgressOrders: 0,
+    completedOrders: 0,
+    rejectedOrders: 0,
+    totalOperators: 0,
+    activeOperators: 0,
+    totalDrones: 0,
+    activeDrones: 0,
+    totalFields: 0,
+  });
+  const [recentTasks, setRecentTasks] = useState<RecentTask[]>([]);
+
+  // Load dashboard data
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  const loadDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Load data from multiple endpoints
+      const [orders, users, drones, fields] = await Promise.all([
+        apiClient.getOrders(),
+        apiClient.getUsers(),
+        apiClient.getDrones(),
+        apiClient.getFields(),
+      ]);
+
+      // Calculate statistics
+      const orderStats = {
+        activeOrders: orders.filter(
+          (o) => o.status === 'new' || o.status === 'planned',
+        ).length,
+        inProgressOrders: orders.filter((o) => o.status === 'in_progress')
+          .length,
+        completedOrders: orders.filter((o) => o.status === 'completed').length,
+        rejectedOrders: orders.filter((o) => o.status === 'rejected').length,
+      };
+
+      const userStats = {
+        totalOperators: users.filter((u) => u.role === 'operator').length,
+        activeOperators: users.filter(
+          (u) => u.role === 'operator' && u.verified,
+        ).length,
+      };
+
+      const droneStats = {
+        totalDrones: drones.length,
+        activeDrones: drones.filter((d) => d.status === 'in_use').length,
+      };
+
+      setStats({
+        ...orderStats,
+        ...userStats,
+        ...droneStats,
+        totalFields: fields.length,
+      });
+
+      // Convert orders to recent tasks
+      const tasks: RecentTask[] = orders.slice(0, 5).map((order) => ({
+        id: order.id,
+        name: `${order.type} — ${order.fields?.[0]?.name || 'Поле не указано'}`,
+        status: mapOrderStatus(order.status),
+        operator: order.assignedOperatorId || 'Не назначен',
+        date: order.createdAt.split('T')[0],
+        field: order.fields?.[0]?.name || 'Поле не указано',
+        area: order.fields?.[0]?.area || 0,
+      }));
+
+      setRecentTasks(tasks);
+    } catch (err) {
+      setError('Ошибка загрузки данных: ' + (err as Error).message);
+      // Use fallback data
+      setStats({
+        activeOrders: 8,
+        inProgressOrders: 4,
+        completedOrders: 21,
+        rejectedOrders: 3,
+        totalOperators: 5,
+        activeOperators: 2,
+        totalDrones: 4,
+        activeDrones: 2,
+        totalFields: 6,
+      });
+      setRecentTasks([
+        {
+          id: '201',
+          name: 'Опрыскивание — Поле №1',
+          status: 'in_progress',
+          operator: 'Петров И.И.',
+          date: '2025-06-09',
+          field: 'Поле №1 (Северное)',
+          area: 12,
+        },
+        {
+          id: '202',
+          name: 'Внесение удобрений — Поле №2',
+          status: 'waiting',
+          operator: 'Иванова А.А.',
+          date: '2025-06-09',
+          field: 'Поле №2 (Центральное)',
+          area: 32,
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const mapOrderStatus = (
+    status: string,
+  ): 'in_progress' | 'waiting' | 'completed' | 'rejected' => {
+    switch (status) {
+      case 'in_progress':
+        return 'in_progress';
+      case 'completed':
+        return 'completed';
+      case 'rejected':
+        return 'rejected';
+      default:
+        return 'waiting';
+    }
+  };
+
+  // Create dynamic stats array
+  const dynamicStats = [
+    {
+      label: 'Активные задачи',
+      value: stats.activeOrders,
+      icon: <ClipboardList className="text-emerald-500" size={28} />,
+      color: 'bg-emerald-50',
+    },
+    {
+      label: 'В работе',
+      value: stats.inProgressOrders,
+      icon: <Timer className="text-blue-400" size={28} />,
+      color: 'bg-blue-50',
+    },
+    {
+      label: 'Завершено',
+      value: stats.completedOrders,
+      icon: <CheckCircle2 className="text-emerald-500" size={28} />,
+      color: 'bg-green-50',
+    },
+    {
+      label: 'Отклонено',
+      value: stats.rejectedOrders,
+      icon: <AlertCircle className="text-red-400" size={28} />,
+      color: 'bg-red-50',
+    },
+  ];
+
+  const operatorStats = [
+    {
+      label: 'Операторов',
+      value: stats.totalOperators,
+      icon: <Users className="text-indigo-500" size={24} />,
+    },
+    {
+      label: 'В смене',
+      value: stats.activeOperators,
+      icon: <UserCheck className="text-emerald-500" size={24} />,
+    },
+    {
+      label: 'Всего полей',
+      value: stats.totalFields,
+      icon: <Calendar className="text-blue-400" size={24} />,
+    },
+  ];
+
+  const droneStats = [
+    {
+      label: 'Дронов',
+      value: stats.totalDrones,
+      icon: <Tractor className="text-orange-500" size={24} />,
+    },
+    {
+      label: 'В работе',
+      value: stats.activeDrones,
+      icon: <ArrowRightLeft className="text-sky-500" size={24} />,
+    },
+    {
+      label: 'Оборудование',
+      value: stats.totalFields,
+      icon: <Layers className="text-gray-400" size={24} />,
+    },
+  ];
 
   return (
     <div className="min-h-[100vh] bg-neutral-50 py-0 sm:py-8">
@@ -147,26 +270,63 @@ export default function Overview() {
           className="space-y-8"
         >
           {/* Заголовок */}
-          <div className="flex items-center gap-3 pt-4 pb-2">
-            <BarChart3 size={34} className="text-emerald-600" />
-            <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
-              Обзор (Менеджер)
-            </h1>
+          <div className="flex items-center justify-between pt-4 pb-2">
+            <div className="flex items-center gap-3">
+              <BarChart3 size={34} className="text-emerald-600" />
+              <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
+                Обзор (Менеджер)
+              </h1>
+            </div>
+            <button
+              onClick={loadDashboardData}
+              className="p-2 rounded-lg bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+              title="Обновить данные"
+            >
+              <RefreshCw
+                className={`w-5 h-5 ${loading ? 'animate-spin' : ''} text-gray-600`}
+              />
+            </button>
           </div>
 
-          {/* Статистика (основная) */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-            {stats.map((st) => (
-              <div
-                key={st.label}
-                className={`rounded-2xl shadow-sm flex flex-col items-center gap-3 py-7 px-4 border border-gray-100 ${st.color}`}
-              >
-                <div>{st.icon}</div>
-                <div className="text-2xl font-bold">{st.value}</div>
-                <div className="text-gray-500 text-sm">{st.label}</div>
+          {/* Error State */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-red-800">
+                <AlertCircle className="w-5 h-5" />
+                {error}
               </div>
-            ))}
-          </div>
+              <button
+                onClick={loadDashboardData}
+                className="mt-2 px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+              >
+                Повторить
+              </button>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center h-64">
+              <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
+              <span className="ml-2 text-gray-600">Загрузка данных...</span>
+            </div>
+          )}
+
+          {/* Статистика (основная) */}
+          {!loading && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+              {dynamicStats.map((st) => (
+                <div
+                  key={st.label}
+                  className={`rounded-2xl shadow-sm flex flex-col items-center gap-3 py-7 px-4 border border-gray-100 ${st.color}`}
+                >
+                  <div>{st.icon}</div>
+                  <div className="text-2xl font-bold">{st.value}</div>
+                  <div className="text-gray-500 text-sm">{st.label}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Операторы и дроны */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-7">

@@ -14,6 +14,8 @@ import {
   Route,
   Eye,
   Undo,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   MapContainer,
@@ -27,15 +29,19 @@ import {
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
+import { apiClient } from '../../../services/api';
+
 // Типы данных
 interface Field {
-  id: number;
+  id: string;
   name: string;
-  crop: string;
+  crop?: string;
   area: number;
   coordinates: [number, number][];
   status: 'active' | 'inactive';
   color: string;
+  location?: string;
+  orderId?: string;
   segments?: FieldSegment[];
 }
 interface FieldSegment {
@@ -69,7 +75,7 @@ const statusOptions = [
 ];
 const initialFields: Field[] = [
   {
-    id: 1,
+    id: '1',
     name: 'Поле №1 (Северное)',
     crop: 'Пшеница озимая',
     area: 45,
@@ -109,7 +115,7 @@ const initialFields: Field[] = [
     ],
   },
   {
-    id: 2,
+    id: '2',
     name: 'Поле №2 (Центральное)',
     crop: 'Кукуруза',
     area: 32,
@@ -146,10 +152,12 @@ const droneRoutes: DroneRoute[] = [
 ];
 
 export default function FieldsMapPage() {
-  const [fields, setFields] = useState<Field[]>(initialFields);
+  const [fields, setFields] = useState<Field[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState('all');
   const [search, setSearch] = useState('');
-  const [selectedFieldId, setSelectedFieldId] = useState<number | null>(null);
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [addingMode, setAddingMode] = useState(false);
   const [newPolygon, setNewPolygon] = useState<[number, number][]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -161,6 +169,39 @@ export default function FieldsMapPage() {
   });
   const [viewSegments, setViewSegments] = useState(true);
   const [viewRoutes, setViewRoutes] = useState(true);
+
+  // Load fields from API
+  useEffect(() => {
+    loadFields();
+  }, []);
+
+  const loadFields = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const apiFields = await apiClient.getFields();
+      
+      // Convert API fields to local format
+      const convertedFields: Field[] = apiFields.map((field, index) => ({
+        ...field,
+        coordinates:
+          field.coordinates ||
+          initialFields[index % initialFields.length].coordinates,
+        status: 'active' as const,
+        color: '#34d399',
+        crop: field.crop || 'Пшеница озимая',
+      }));
+
+      // If no fields from API, use initial fields as fallback
+      setFields(convertedFields.length > 0 ? convertedFields : initialFields);
+    } catch (err) {
+      setError('Ошибка загрузки полей: ' + (err as Error).message);
+      // Use initial fields as fallback
+      setFields(initialFields);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ОТМЕНА: после добавления поля — сбросить всё
   const resetNewField = () => {
@@ -193,22 +234,32 @@ export default function FieldsMapPage() {
   const removeLastPoint = () => setNewPolygon((prev) => prev.slice(0, -1));
 
   // Сохранить новое поле
-  const handleSaveNewField = () => {
+  const handleSaveNewField = async () => {
     if (newPolygon.length < 3 || !newFieldData.name.trim()) return;
-    const area = Math.abs(polygonArea(newPolygon));
-    setFields((prev) => [
-      ...prev,
-      {
-        id: prev.length ? prev[prev.length - 1].id + 1 : 1,
+    
+    try {
+      const area = Math.abs(polygonArea(newPolygon));
+      const newField = await apiClient.createField({
         name: newFieldData.name,
         crop: newFieldData.crop,
         area: Number(area.toFixed(1)),
         coordinates: newPolygon,
-        status: newFieldData.status,
-        color: newFieldData.color,
-      },
-    ]);
-    resetNewField();
+      });
+
+      // Add to local state
+      setFields((prev) => [
+        ...prev,
+        {
+          ...newField,
+          coordinates: newPolygon,
+          status: newFieldData.status,
+          color: newFieldData.color,
+        },
+      ]);
+      resetNewField();
+    } catch (err) {
+      alert('Ошибка создания поля: ' + (err as Error).message);
+    }
   };
 
   // Фильтрация
@@ -216,7 +267,7 @@ export default function FieldsMapPage() {
     const statusMatch = status === 'all' || f.status === status;
     const searchMatch =
       f.name.toLowerCase().includes(search.toLowerCase()) ||
-      f.crop.toLowerCase().includes(search.toLowerCase());
+      (f.crop || '').toLowerCase().includes(search.toLowerCase());
     return statusMatch && searchMatch;
   });
 
@@ -248,20 +299,55 @@ export default function FieldsMapPage() {
             <Map size={28} className="text-emerald-500" />
             Карта полей
           </h2>
-          <button
-            className={`px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center gap-2 ${
-              addingMode ? 'opacity-60 pointer-events-none' : ''
-            }`}
-            onClick={() => {
-              setAddingMode(true);
-              setNewPolygon([]);
-            }}
-            disabled={addingMode}
-            title="Создать новое поле"
-          >
-            <Plus size={18} /> Новое поле
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadFields}
+              className="px-3 py-2 rounded-lg bg-white border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+              title="Обновить данные"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
+              />
+            </button>
+            <button
+              className={`px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center gap-2 ${
+                addingMode ? 'opacity-60 pointer-events-none' : ''
+              }`}
+              onClick={() => {
+                setAddingMode(true);
+                setNewPolygon([]);
+              }}
+              disabled={addingMode}
+              title="Создать новое поле"
+            >
+              <Plus size={18} /> Новое поле
+            </button>
+          </div>
         </div>
+
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-red-800">
+              <AlertTriangle className="w-5 h-5" />
+              {error}
+            </div>
+            <button
+              onClick={loadFields}
+              className="mt-2 px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+            >
+              Повторить
+            </button>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center h-64">
+            <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
+            <span className="ml-2 text-gray-600">Загрузка полей...</span>
+          </div>
+        )}
 
         {/* Фильтры */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 z-100">
@@ -348,7 +434,7 @@ export default function FieldsMapPage() {
             <MousePointerClick size={20} />
             Кликните по карте, чтобы отметить контур поля (минимум 3 точки,
             можно больше). При ошибке можно удалить последнюю точку. Для
-            завершения нажмите "Добавить".
+            завершения нажмите &quot;Добавить&quot;.
             <button
               className="ml-auto px-2 py-1 text-red-600 hover:text-red-800"
               onClick={resetNewField}

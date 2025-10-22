@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   CalendarClock,
@@ -11,20 +11,40 @@ import {
   CheckCircle2,
   AlertCircle,
   Calendar,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 
-// Примерные данные графика смен
-const operators = [
-  { id: 1, name: 'Петров И.И.' },
-  { id: 2, name: 'Иванова А.А.' },
-  { id: 3, name: 'Сидоров В.В.' },
-  { id: 4, name: 'Морозова Е.Г.' },
+import { apiClient } from '../../../services/api';
+
+interface Operator {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface Shift {
+  id: string;
+  operatorId: string;
+  date: string;
+  start: string;
+  end: string;
+  type: string;
+  status: 'waiting' | 'in_progress' | 'completed' | 'absent';
+}
+
+// Fallback данные графика смен
+const mockOperators: Operator[] = [
+  { id: '1', name: 'Петров И.И.', email: 'petrov@example.com' },
+  { id: '2', name: 'Иванова А.А.', email: 'ivanova@example.com' },
+  { id: '3', name: 'Сидоров В.В.', email: 'sidorov@example.com' },
+  { id: '4', name: 'Морозова Е.Г.', email: 'morozova@example.com' },
 ];
 
-const shifts = [
+const mockShifts: Shift[] = [
   {
-    id: 1,
-    operatorId: 1,
+    id: '1',
+    operatorId: '1',
     date: '2025-06-09',
     start: '08:00',
     end: '20:00',
@@ -32,8 +52,8 @@ const shifts = [
     status: 'completed',
   },
   {
-    id: 2,
-    operatorId: 2,
+    id: '2',
+    operatorId: '2',
     date: '2025-06-09',
     start: '20:00',
     end: '08:00',
@@ -41,8 +61,8 @@ const shifts = [
     status: 'in_progress',
   },
   {
-    id: 3,
-    operatorId: 3,
+    id: '3',
+    operatorId: '3',
     date: '2025-06-10',
     start: '08:00',
     end: '20:00',
@@ -50,8 +70,8 @@ const shifts = [
     status: 'waiting',
   },
   {
-    id: 4,
-    operatorId: 4,
+    id: '4',
+    operatorId: '4',
     date: '2025-06-10',
     start: '20:00',
     end: '08:00',
@@ -59,8 +79,8 @@ const shifts = [
     status: 'waiting',
   },
   {
-    id: 5,
-    operatorId: 1,
+    id: '5',
+    operatorId: '1',
     date: '2025-06-11',
     start: '08:00',
     end: '20:00',
@@ -68,8 +88,8 @@ const shifts = [
     status: 'waiting',
   },
   {
-    id: 6,
-    operatorId: 2,
+    id: '6',
+    operatorId: '2',
     date: '2025-06-11',
     start: '20:00',
     end: '08:00',
@@ -97,14 +117,89 @@ const shiftTypes = [
   { value: 'Ночная', label: 'Ночные' },
 ];
 
-const operatorOptions = [
-  { value: 'all', label: 'Все операторы' },
-  ...operators.map((o) => ({ value: o.id, label: o.name })),
-];
-
 export default function Shifts() {
   const [type, setType] = useState('all');
   const [operator, setOperator] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [shifts, setShifts] = useState<Shift[]>([]);
+
+  useEffect(() => {
+    loadShiftsData();
+  }, []);
+
+  const loadShiftsData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Load users (operators) from API
+      const users = await apiClient.getUsers();
+      const operatorUsers = users
+        .filter(user => user.role === 'operator')
+        .map(user => ({
+          id: user.id,
+          name: user.name || user.email,
+          email: user.email,
+        }));
+
+      setOperators(operatorUsers.length > 0 ? operatorUsers : mockOperators);
+
+      // Generate shifts based on operators and orders
+      const orders = await apiClient.getOrders();
+      const generatedShifts: Shift[] = [];
+
+      // Generate shifts for the next 7 days
+      for (let i = 0; i < 7; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        const dateStr = date.toISOString().split('T')[0];
+
+        operatorUsers.forEach((op, index) => {
+          // Day shift
+          generatedShifts.push({
+            id: `day-${i}-${op.id}`,
+            operatorId: op.id,
+            date: dateStr,
+            start: '08:00',
+            end: '20:00',
+            type: 'Дневная',
+            status: i === 0 && index === 0 ? 'in_progress' :
+                   i < 2 ? 'completed' : 'waiting',
+          });
+
+          // Night shift (every other operator)
+          if (index % 2 === 0) {
+            generatedShifts.push({
+              id: `night-${i}-${op.id}`,
+              operatorId: op.id,
+              date: dateStr,
+              start: '20:00',
+              end: '08:00',
+              type: 'Ночная',
+              status: i < 1 ? 'completed' : 'waiting',
+            });
+          }
+        });
+      }
+
+      setShifts(generatedShifts.length > 0 ? generatedShifts : mockShifts);
+
+    } catch (err) {
+      setError('Ошибка загрузки данных смен: ' + (err as Error).message);
+      // Use fallback data
+      setOperators(mockOperators);
+      setShifts(mockShifts);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const operatorOptions = [
+    { value: 'all', label: 'Все операторы' },
+    ...operators.map((o) => ({ value: o.id, label: o.name })),
+  ];
 
   // Фильтрация смен по оператору и типу
   const filteredShifts = shifts.filter(
@@ -115,6 +210,32 @@ export default function Shifts() {
 
   // Даты для группировки по дням
   const allDates = Array.from(new Set(shifts.map((s) => s.date))).sort();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Загрузка графика смен...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="flex items-center gap-2 text-red-800">
+          <AlertTriangle className="w-5 h-5" />
+          {error}
+        </div>
+        <button
+          onClick={loadShiftsData}
+          className="mt-2 px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+        >
+          Повторить
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-[100vh]">
@@ -133,11 +254,20 @@ export default function Shifts() {
           className="space-y-8"
         >
           {/* Заголовок */}
-          <div className="flex items-center gap-3 pt-7 pb-1">
-            <CalendarClock size={32} className="text-emerald-600" />
-            <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
-              График смен
-            </h1>
+          <div className="flex items-center justify-between pt-7 pb-1">
+            <div className="flex items-center gap-3">
+              <CalendarClock size={32} className="text-emerald-600" />
+              <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
+                График смен
+              </h1>
+            </div>
+            <button
+              onClick={loadShiftsData}
+              className="p-2 rounded-lg bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+              title="Обновить данные"
+            >
+              <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''} text-gray-600`} />
+            </button>
           </div>
           {/* Фильтры */}
           <div className="flex flex-wrap items-center gap-4 mb-2">

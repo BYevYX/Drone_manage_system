@@ -600,10 +600,8 @@ export default function RequestsWithEditor({
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700/90 mb-1.5 pl-1.5">
-                Статус
-              </label>
               <ModernSelect
+                label="Статус"
                 options={statusOptions.map((o) => o.label)}
                 value={
                   statusOptions.find((o) => o.value === status)?.label || 'Все'
@@ -616,10 +614,8 @@ export default function RequestsWithEditor({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700/90 mb-1.5 pl-1.5">
-                Тип обработки
-              </label>
               <ModernSelect
+                label="Тип обработки"
                 options={treatmentOptions.map((o) => o.label)}
                 value={
                   treatmentOptions.find((o) => o.value === treatmentType)

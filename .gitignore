@@ -23,7 +23,7 @@ node_modules
 # production
 /build
 
-
+.history
 
 # misc
 .DS_Store

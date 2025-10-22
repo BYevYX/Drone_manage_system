@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Mail,
   HelpCircle,
@@ -7,9 +7,28 @@ import {
   CheckCircle,
   AlertCircle,
   BookOpen,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 
-const faqList = [
+import { apiClient } from '../../../services/api';
+import { useGlobalContext } from '../../../GlobalContext';
+
+interface SupportTicket {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  status: 'open' | 'in_progress' | 'resolved';
+  createdAt: string;
+}
+
+interface FAQ {
+  question: string;
+  answer: string;
+}
+
+const defaultFaqList: FAQ[] = [
   {
     question: 'Как создать новый отчёт?',
     answer:
@@ -30,12 +49,52 @@ const faqList = [
     answer:
       'На странице входа нажмите "Забыли пароль?", следуйте инструкциям для восстановления доступа.',
   },
+  {
+    question: 'Как связаться с технической поддержкой?',
+    answer:
+      'Используйте форму обратной связи на этой странице или напишите на support@agroapp.ru. Мы отвечаем в течение рабочего дня.',
+  },
+  {
+    question: 'Как обновить профиль пользователя?',
+    answer:
+      'Перейдите в настройки профиля через меню пользователя в правом верхнем углу. Внесите изменения и сохраните.',
+  },
 ];
 
 export default function SupportPage() {
+  const { user } = useGlobalContext();
   const [form, setForm] = useState({ name: '', email: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [faqList, setFaqList] = useState<FAQ[]>(defaultFaqList);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+
+  useEffect(() => {
+    // Pre-fill form with user data if available
+    if (user) {
+      setForm(prev => ({
+        ...prev,
+        name: user.name || prev.name,
+        email: user.email || prev.email,
+      }));
+    }
+    loadSupportData();
+  }, [user]);
+
+  const loadSupportData = async () => {
+    try {
+      // In a real app, you would load FAQ from API
+      // For now, we'll use the default FAQ list
+      setFaqList(defaultFaqList);
+      
+      // Load user's support tickets (mock implementation)
+      // In real app: const userTickets = await apiClient.getSupportTickets();
+      setTickets([]);
+    } catch (err) {
+      console.error('Error loading support data:', err);
+    }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -44,15 +103,46 @@ export default function SupportPage() {
     setError(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.message) {
       setError('Пожалуйста, заполните все поля.');
       return;
     }
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 5000);
-    setForm({ name: '', email: '', message: '' });
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // In a real app, you would send this to your support API
+      // await apiClient.createSupportTicket(form);
+      
+      // Mock API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Create mock ticket
+      const newTicket: SupportTicket = {
+        id: Date.now().toString(),
+        name: form.name,
+        email: form.email,
+        message: form.message,
+        status: 'open',
+        createdAt: new Date().toISOString(),
+      };
+      
+      setTickets(prev => [newTicket, ...prev]);
+      setSubmitted(true);
+      setTimeout(() => setSubmitted(false), 5000);
+      setForm({
+        name: user?.name || '',
+        email: user?.email || '',
+        message: ''
+      });
+    } catch (err) {
+      setError('Ошибка отправки обращения. Попробуйте еще раз.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,6 +160,11 @@ export default function SupportPage() {
             Мы всегда готовы помочь! Найдите ответ ниже или отправьте обращение
             — поддержка ответит в течение рабочего дня.
           </p>
+          {user && (
+            <div className="text-sm text-gray-500">
+              Добро пожаловать, {user.name || user.email}!
+            </div>
+          )}
         </header>
 
         {/* FAQ */}
@@ -185,14 +280,64 @@ export default function SupportPage() {
                 )}
                 <button
                   type="submit"
-                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-lime-400 hover:from-emerald-600 hover:to-lime-500 text-white font-semibold px-8 py-3 rounded-xl shadow transition text-lg"
+                  disabled={loading}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-lime-400 hover:from-emerald-600 hover:to-lime-500 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold px-8 py-3 rounded-xl shadow transition text-lg"
                 >
-                  <Send size={20} /> Отправить
+                  {loading ? (
+                    <>
+                      <RefreshCw size={20} className="animate-spin" />
+                      Отправка...
+                    </>
+                  ) : (
+                    <>
+                      <Send size={20} />
+                      Отправить
+                    </>
+                  )}
                 </button>
               </form>
             )}
           </div>
         </section>
+
+        {/* User's Support Tickets */}
+        {tickets.length > 0 && (
+          <section className="mb-14">
+            <div className="flex items-center gap-2 mb-5">
+              <AlertTriangle size={24} className="text-emerald-400" />
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Мои обращения
+              </h2>
+            </div>
+            <div className="rounded-2xl border border-emerald-100 bg-white/80 shadow-md backdrop-blur-lg">
+              <div className="divide-y divide-emerald-100">
+                {tickets.map((ticket) => (
+                  <div key={ticket.id} className="p-6">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="font-medium text-gray-800">
+                        Обращение #{ticket.id.slice(-6)}
+                      </div>
+                      <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        ticket.status === 'open' ? 'bg-yellow-100 text-yellow-800' :
+                        ticket.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
+                        {ticket.status === 'open' ? 'Открыто' :
+                         ticket.status === 'in_progress' ? 'В работе' : 'Решено'}
+                      </div>
+                    </div>
+                    <div className="text-gray-600 text-sm mb-2">
+                      {new Date(ticket.createdAt).toLocaleDateString('ru-RU')}
+                    </div>
+                    <div className="text-gray-700">
+                      {ticket.message}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Контакты */}
         <footer className="py-8 flex flex-col items-center gap-2">

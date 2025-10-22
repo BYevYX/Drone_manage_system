@@ -1,9 +1,14 @@
 // ActiveMenuContext.tsx
 import { createContext, useContext } from 'react';
 
-export const ActiveMenuContext = createContext({
-  activeMenu: 'client/dashboard',
-  setActiveMenu: (val: string) => {},
+interface ActiveMenuContextType {
+  activeMenu: string;
+  setActiveMenu: (menu: string) => void;
+}
+
+export const ActiveMenuContext = createContext<ActiveMenuContextType>({
+  activeMenu: 'dashboard',
+  setActiveMenu: () => {},
 });
 
 export const useActiveMenu = () => useContext(ActiveMenuContext);

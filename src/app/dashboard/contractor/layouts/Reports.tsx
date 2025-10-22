@@ -12,6 +12,8 @@ import {
   Check,
   Search,
   Loader2,
+  RefreshCw,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -27,7 +29,27 @@ import {
   Legend,
 } from 'recharts';
 
-const mockReports = [
+import { apiClient } from '../../../services/api';
+
+interface Report {
+  id: string;
+  date: string;
+  field: string;
+  crop: string;
+  area: number;
+  operation: string;
+  drone: string;
+  operator: string;
+  status: 'completed' | 'in_progress' | 'new' | 'rejected';
+  result: string;
+  ndviChange: number;
+  chemical: string;
+  weather: string;
+  consumption: string;
+  duration: number;
+}
+
+const mockReports: Report[] = [
   {
     id: 1,
     date: '2025-06-01',
@@ -152,11 +174,68 @@ export default function Reports() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
+  
+  // API состояние
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reports, setReports] = useState<Report[]>([]);
+
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  const loadReports = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Load orders and convert to reports
+      const orders = await apiClient.getOrders();
+      const users = await apiClient.getUsers();
+      const fields = await apiClient.getFields();
+      const drones = await apiClient.getDrones();
+
+      // Convert orders to reports format
+      const convertedReports: Report[] = orders
+        .filter(order => order.status === 'completed')
+        .map((order, index) => {
+          const field = fields.find(f => order.fields?.some(of => of.id === f.id));
+          const operator = users.find(u => u.id === order.assignedOperatorId);
+          const drone = drones[index % drones.length]; // Mock drone assignment
+
+          return {
+            id: order.id,
+            date: order.createdAt.split('T')[0],
+            field: field?.name || 'Поле не указано',
+            crop: field?.crop || 'Культура не указана',
+            area: field?.area || 0,
+            operation: order.type || 'Операция не указана',
+            drone: drone?.model || 'Дрон не указан',
+            operator: operator?.name || operator?.email || 'Оператор не указан',
+            status: 'completed' as const,
+            result: order.notes || 'Обработка завершена успешно',
+            ndviChange: Math.random() * 0.2, // Mock NDVI data
+            chemical: 'Препарат не указан',
+            weather: 'Ясно, 20°C',
+            consumption: '1.2 л/га',
+            duration: Math.random() * 3 + 0.5,
+          };
+        });
+
+      setReports(convertedReports.length > 0 ? convertedReports : mockReports);
+    } catch (err) {
+      setError('Ошибка загрузки отчетов: ' + (err as Error).message);
+      // Use fallback data
+      setReports(mockReports);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // ЭФФЕКТИВНЫЙ универсальный поиск
   const filteredReports = useMemo(() => {
     const searchStr = search.trim().toLowerCase();
-    return mockReports.filter((r) => {
+    return reports.filter((r) => {
       if (operation !== 'Все операции' && r.operation !== operation)
         return false;
       if (crop !== 'Все культуры' && r.crop !== crop) return false;
@@ -220,7 +299,38 @@ export default function Reports() {
           <FileText size={28} className="text-blue-500" />
           <h2 className="text-2xl font-bold">Мои отчёты</h2>
         </div>
+        <button
+          onClick={loadReports}
+          className="p-2 rounded-lg bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
+          title="Обновить данные"
+        >
+          <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''} text-gray-600`} />
+        </button>
       </div>
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 text-red-800">
+            <AlertTriangle className="w-5 h-5" />
+            {error}
+          </div>
+          <button
+            onClick={loadReports}
+            className="mt-2 px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+          >
+            Повторить
+          </button>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center h-64">
+          <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
+          <span className="ml-2 text-gray-600">Загрузка отчетов...</span>
+        </div>
+      )}
 
       {/* Фильтры */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
@@ -284,6 +394,7 @@ export default function Reports() {
       </div>
 
       {/* Дашборды и графики */}
+      {!loading && (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
           <div className="text-gray-700 text-sm mb-1 flex items-center gap-2">
@@ -375,8 +486,10 @@ export default function Reports() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Таблица отчётов */}
+      {!loading && (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -494,6 +607,7 @@ export default function Reports() {
           </tbody>
         </table>
       </div>
+      )}
     </motion.div>
   );
 }

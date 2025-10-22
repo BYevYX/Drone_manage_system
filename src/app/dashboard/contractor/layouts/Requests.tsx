@@ -1,72 +1,23 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  Home,
-  ClipboardList,
   ChevronDown,
   Check,
-  MapPin,
   Trash2,
   Edit,
-  Map,
   Eye,
-  FileText,
-  MessageSquare,
-  LogOut,
-  CheckCircle2,
-  User,
-  Settings,
-  Package,
-  Bell,
-  ChartBar,
-  Users,
-  CalendarDays,
-  Fuel,
-  Leaf,
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
   Plus,
   Search,
-  Filter,
-  Download,
-  Upload,
   RefreshCw,
-  BarChart2,
-  Layers,
 } from 'lucide-react';
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  Polyline,
-  useMap,
-} from 'react-leaflet';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  Pie,
-  PieChart,
-  Cell,
-  Legend,
-  BarChart,
-  Bar,
-} from 'recharts';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { div } from 'framer-motion/client';
-import EditBid from './bids/EditBid';
-import { useGlobalContext } from '@/src/app/GlobalContext';
-import Link from 'next/link';
+
+import { apiClient } from '../../../services/api';
+
 interface Request {
-  id: number;
+  id: string;
   date: string;
   field: string;
   crop: string;
@@ -101,48 +52,136 @@ export default function Requests({ setActiveMenu }) {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
-  const [showRequestModal, setShowRequestModal] = useState(false);
-  const [requests, setRequests] = useState<Request[]>([
-    {
-      id: 1,
-      date: '2025-02-15',
-      field: 'Поле №3 (Южное)',
-      crop: 'Пшеница озимая',
-      type: 'Опрыскивание',
-      area: 45,
-      status: 'completed',
-      details: {
-        chemicals: 'Гербицид "Агрохит"',
-        dosage: '1.2 л/га',
-        droneType: 'DJI Agras T40',
-      },
-    },
-    {
-      id: 2,
-      date: '2025-02-10',
-      field: 'Поле №1 (Северное)',
-      crop: 'Кукуруза',
-      type: 'Внесение удобрений',
-      area: 32,
-      status: 'in_progress',
-      details: {
-        chemicals: 'NPK 15-15-15',
-        dosage: '80 кг/га',
-        droneType: 'DJI Agras T30',
-      },
-    },
-    {
-      id: 3,
-      date: '2025-02-05',
-      field: 'Поле №2 (Центральное)',
-      crop: 'Подсолнечник',
-      type: 'Картографирование',
-      area: 28,
-      status: 'new',
-    },
-  ]);
+  const [requests, setRequests] = useState<Request[]>([]);
+
+  // Load requests from API
+  useEffect(() => {
+    loadRequests();
+  }, []);
+
+  const loadRequests = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const orders = await apiClient.getOrders();
+      
+      // Convert API orders to local request format
+      const convertedRequests: Request[] = orders.map((order) => ({
+        id: order.id,
+        date: order.createdAt || new Date().toISOString().split('T')[0],
+        field: order.fields?.[0]?.name || 'Поле не указано',
+        crop: order.fields?.[0]?.crop || 'Культура не указана',
+        type: order.type || 'Тип не указан',
+        area: order.fields?.[0]?.area || 0,
+        status: mapOrderStatusToRequestStatus(order.status),
+        details: {
+          chemicals: Array.isArray(order.materials)
+            ? order.materials
+                .map((m) => m.material?.name || 'Неизвестно')
+                .join(', ')
+            : 'Не указано',
+          dosage: 'Не указано',
+          droneType: order.drones?.[0]?.drone?.model || 'Не указан',
+          operatorNotes: order.notes || '',
+        },
+      }));
+
+      setRequests(convertedRequests);
+    } catch (err) {
+      setError('Ошибка загрузки заявок: ' + (err as Error).message);
+      // Use fallback data
+      setRequests([
+        {
+          id: '1',
+          date: '2025-02-15',
+          field: 'Поле №3 (Южное)',
+          crop: 'Пшеница озимая',
+          type: 'Опрыскивание',
+          area: 45,
+          status: 'completed',
+          details: {
+            chemicals: 'Гербицид "Агрохит"',
+            dosage: '1.2 л/га',
+            droneType: 'DJI Agras T40',
+          },
+        },
+        {
+          id: '2',
+          date: '2025-02-10',
+          field: 'Поле №1 (Северное)',
+          crop: 'Кукуруза',
+          type: 'Внесение удобрений',
+          area: 32,
+          status: 'in_progress',
+          details: {
+            chemicals: 'NPK 15-15-15',
+            dosage: '80 кг/га',
+            droneType: 'DJI Agras T30',
+          },
+        },
+        {
+          id: '3',
+          date: '2025-02-05',
+          field: 'Поле №2 (Центральное)',
+          crop: 'Подсолнечник',
+          type: 'Картографирование',
+          area: 28,
+          status: 'new',
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Map API order status to local request status
+  const mapOrderStatusToRequestStatus = (
+    orderStatus: string,
+  ): 'new' | 'in_progress' | 'completed' | 'rejected' => {
+    switch (orderStatus.toLowerCase()) {
+      case 'pending':
+      case 'created':
+        return 'new';
+      case 'in_progress':
+      case 'processing':
+        return 'in_progress';
+      case 'completed':
+      case 'finished':
+        return 'completed';
+      case 'cancelled':
+      case 'rejected':
+        return 'rejected';
+      default:
+        return 'new';
+    }
+  };
+
+  // Filter requests based on current filters
+  const filteredRequests = requests.filter((request) => {
+    const matchesStatus = status === 'all' || request.status === status;
+    const matchesType =
+      treatmentType === 'all' ||
+      request.type.toLowerCase().includes(treatmentType);
+    const matchesSearch =
+      searchQuery === '' ||
+      request.field.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      request.id.toString().includes(searchQuery);
+
+    let matchesDateRange = true;
+    if (dateFrom) {
+      matchesDateRange =
+        matchesDateRange && new Date(request.date) >= new Date(dateFrom);
+    }
+    if (dateTo) {
+      matchesDateRange =
+        matchesDateRange && new Date(request.date) <= new Date(dateTo);
+    }
+
+    return matchesStatus && matchesType && matchesSearch && matchesDateRange;
+  });
   return (
     <div>
       <motion.div
@@ -226,10 +265,8 @@ export default function Requests({ setActiveMenu }) {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Статус */}
           <div>
-            <label className="block text-sm font-medium text-gray-700/90 mb-1.5 pl-1.5">
-              Статус
-            </label>
             <ModernSelect
+              label="Статус"
               options={statusOptions.map((opt) => opt.label)}
               value={
                 statusOptions.find((opt) => opt.value === status)?.label ||
@@ -246,10 +283,8 @@ export default function Requests({ setActiveMenu }) {
 
           {/* Тип обработки */}
           <div>
-            <label className="block text-sm font-medium text-gray-700/90 mb-1.5 pl-1.5">
-              Тип обработки
-            </label>
             <ModernSelect
+              label="Тип обработки"
               options={treatmentOptions.map((opt) => opt.label)}
               value={
                 treatmentOptions.find((opt) => opt.value === treatmentType)
@@ -309,13 +344,42 @@ export default function Requests({ setActiveMenu }) {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={loadRequests}
             className="p-3 bg-white/90 backdrop-blur-sm rounded-xl border border-gray-300/80 shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center"
+            title="Обновить данные"
           >
-            <RefreshCw size={18} className="text-gray-600" />
+            <RefreshCw
+              className={`w-4 h-4 ${loading ? 'animate-spin' : ''} text-gray-600`}
+            />
           </motion.button>
         </div>
 
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 text-red-800">
+              <AlertTriangle className="w-5 h-5" />
+              {error}
+            </div>
+            <button
+              onClick={loadRequests}
+              className="mt-2 px-3 py-1 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+            >
+              Повторить
+            </button>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center h-64">
+            <RefreshCw className="w-8 h-8 animate-spin text-emerald-600" />
+            <span className="ml-2 text-gray-600">Загрузка заявок...</span>
+          </div>
+        )}
+
         {/* Таблица заявок */}
+        {!loading && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -345,7 +409,7 @@ export default function Requests({ setActiveMenu }) {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {requests.map((request) => (
+                {filteredRequests.map((request) => (
                   <tr key={request.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       #{request.id}
@@ -423,9 +487,8 @@ export default function Requests({ setActiveMenu }) {
           {/* Пагинация */}
           <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
             <div className="text-sm text-gray-700">
-              Показано <span className="font-medium">1</span> -{' '}
-              <span className="font-medium">5</span> из{' '}
-              <span className="font-medium">12</span>
+              Показано <span className="font-medium">{Math.min(filteredRequests.length, 10)}</span> из{' '}
+              <span className="font-medium">{filteredRequests.length}</span>
             </div>
             <div className="flex space-x-2">
               <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
@@ -437,6 +500,7 @@ export default function Requests({ setActiveMenu }) {
             </div>
           </div>
         </div>
+        )}
 
         {/* Модальное окно для просмотра деталей заявки */}
         {/* {selectedRequest && (

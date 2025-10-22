@@ -8,10 +8,11 @@ type DroneType = {
   photo_url: string;
   manufacturer: string;
 };
-type UserRole =
+export type UserRole =
   | 'guest'
   | 'manager'
   | 'contractor'
+  | 'operator'
   | 'drone_supplier'
   | 'material_supplier';
 
@@ -31,11 +32,22 @@ interface Request {
   };
 }
 
+interface UserInfo {
+  email: string;
+  phone: string;
+  firstName: string;
+  lastName: string;
+  surname: string;
+  userRole: string;
+}
+
 interface GlobalContextType {
   dronesList: DroneType[];
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   requests: Request[];
+  userInfo: UserInfo;
+  setUserInfo: (userInfo: UserInfo) => void;
 }
 
 const GlobalContext = createContext<GlobalContextType | undefined>(undefined);
@@ -43,6 +55,7 @@ const GlobalContext = createContext<GlobalContextType | undefined>(undefined);
 const VALID_ROLES: UserRole[] = [
   'guest',
   'contractor',
+  'operator',
   'manager',
   'drone_supplier',
   'material_supplier',
@@ -97,7 +110,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
   ]);
 
   // по умолчанию 'guest' — затем подхватим из localStorage при монтировании
-  const [userRole, setUserRoleState] = useState<UserRole | null>(null);
+  const [userRole, setUserRoleState] = useState<UserRole>('guest');
   const [userInfo, setUserInfo] = useState({
     email: '',
     phone: '',
@@ -122,6 +135,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
       const validRoles = [
         'manager',
         'contractor',
+        'operator',
         'drone_supplier',
         'material_supplier',
         'guest',
@@ -206,7 +220,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     <GlobalContext.Provider
       value={{
         dronesList,
-        userRole,
+        userRole: userRole || 'guest',
         setUserRole,
         requests,
         userInfo,
