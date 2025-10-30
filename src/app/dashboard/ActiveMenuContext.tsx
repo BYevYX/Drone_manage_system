@@ -1,10 +1,8 @@
 // ActiveMenuContext.tsx
 import { createContext, useContext } from 'react';
 
-
-
 export const ActiveMenuContext = createContext({
-  activeMenu: 'dashboard',
+  activeMenu: 'client/dashboard',
   setActiveMenu: (val: string) => {},
 });
 

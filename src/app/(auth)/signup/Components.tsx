@@ -26,7 +26,7 @@ export interface Step2Data {
 
 // Новый массив ролей с нужными подписями:
 const roles = [
-  { value: 'manager', label: 'Менеджер' },
+  // { value: 'manager', label: 'Менеджер' },
   { value: 'customer', label: 'Заказчик услуг' },
   { value: 'drone_supplier', label: 'Поставщиков дронов и оборудования' },
   { value: 'material_supplier', label: 'Поставщиков материалов' },

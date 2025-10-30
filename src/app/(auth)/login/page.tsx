@@ -33,7 +33,7 @@ export default function LoginPage() {
   const isUserIdValid = userId === '' || /^[a-zA-Z0-9_-]{3,20}$/.test(userId);
 
   // --- ВСТАВЛЯЕМ API URL ---
-  const LOGIN_API_URL = 'https://d70kaz-185-42-163-77.ru.tuna.am/v1/auth/login';
+  const LOGIN_API_URL = 'http://51.250.43.77:8080/v1/auth/login';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +46,7 @@ export default function LoginPage() {
         // Пример: если сервер поддерживает вход по userId
         const res = await axios.post(LOGIN_API_URL, { user_id: userId });
         // Успешно — делаем что-то (например, сохраняем токен/делаем редирект)
+
         alert('Вход по ID успешен!');
         // window.location.href = "/"; // или router.push
       } catch (err: any) {
@@ -63,11 +64,28 @@ export default function LoginPage() {
           email,
           password,
         });
-        const test = res.data['accessToken'];
+        // const test = res.data['accessToken'];
+        const userRole = res.data['userRole'];
+        const userId = res.data['id'];
         console.log(res.data);
         // Успешно — делаем что-то (например, сохраняем токен/делаем редирект)
-        alert(test);
-        // window.location.href = "/"; // или router.push
+        // alert(test);
+
+        localStorage.setItem('accessToken', res.data.accessToken);
+        localStorage.setItem('refreshToken', res.data.refreshToken);
+        localStorage.setItem('userRole', userRole);
+        localStorage.setItem('userId', userId);
+        const { data } = await axios.get('http://51.250.43.77:8080/v1/me', {
+          headers: { Authorization: `Bearer ${res.data.accessToken}` },
+        });
+        console.log(data['email']);
+        localStorage.setItem('email', data['email']);
+        localStorage.setItem('phone', data['phone']);
+        localStorage.setItem('firstName', data['firstName']);
+        localStorage.setItem('lastName', data['lastName']);
+        localStorage.setItem('surname', data['surname']);
+
+        window.location.href = '/';
       } catch (err: any) {
         setLoginError(err?.response?.data?.message || 'Ошибка входа по Email');
       } finally {
