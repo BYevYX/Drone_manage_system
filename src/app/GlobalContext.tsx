@@ -108,6 +108,9 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
   });
 
   useEffect(() => {
+    // Check if we're on the client side
+    if (typeof window === 'undefined') return;
+    
     try {
       const storedUser = {
         email: localStorage.getItem('email') || '',
@@ -181,16 +184,22 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
   // обёртка для установки роли — сохраняет в state и localStorage
   const setUserRole = (role: UserRole) => {
     setUserRoleState(role);
-    try {
-      localStorage.setItem('userRole', role);
-    } catch (e) {
-      // localStorage может быть недоступен — молча игнорируем
-      // при необходимости можно логировать
+    // Check if we're on the client side
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('userRole', role);
+      } catch (e) {
+        // localStorage может быть недоступен — молча игнорируем
+        // при необходимости можно логировать
+      }
     }
   };
 
   // при монтировании читаем роль из localStorage (если есть и валидна)
   useEffect(() => {
+    // Check if we're on the client side
+    if (typeof window === 'undefined') return;
+    
     try {
       const stored = localStorage.getItem('userRole');
       if (isValidRole(stored)) {
@@ -206,11 +215,9 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     <GlobalContext.Provider
       value={{
         dronesList,
-        userRole,
+        userRole: userRole || 'guest', // Provide fallback for SSR
         setUserRole,
         requests,
-        userInfo,
-        setUserInfo,
       }}
     >
       {children}

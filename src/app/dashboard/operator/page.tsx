@@ -1,6 +1,6 @@
 // app/dashboard/page.tsx (Operator)
 import { Activity, Calendar, AlertTriangle, CheckCircle } from 'lucide-react';
-import StatCard from '../client/StatCard';
+import StatCard from '../contractor/StatCard';
 // import MissionsList from '@/components/MissionsList';
 
 export default function OperatorDashboard() {

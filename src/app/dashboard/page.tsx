@@ -35,14 +35,6 @@ import {
   Layers,
 } from 'lucide-react';
 import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  Polyline,
-  useMap,
-} from 'react-leaflet';
-import {
   LineChart,
   Line,
   XAxis,
@@ -57,24 +49,45 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import TasksMapPage from './client/layouts/TasksMapPage';
-import Analytics from './client/layouts/Analytics';
-import Shifts from './client/layouts/Shifts';
+import dynamic from 'next/dynamic';
 
-import EditBid from './client/layouts/bids/EditBid';
+// Dynamically import map components to avoid SSR issues
+const MapContainer = dynamic(
+  () => import('react-leaflet').then((mod) => mod.MapContainer),
+  { ssr: false }
+);
+const TileLayer = dynamic(
+  () => import('react-leaflet').then((mod) => mod.TileLayer),
+  { ssr: false }
+);
+const Marker = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Marker),
+  { ssr: false }
+);
+const Popup = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Popup),
+  { ssr: false }
+);
+const Polyline = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Polyline),
+  { ssr: false }
+);
+import TasksMapPage from './contractor/layouts/TasksMapPage';
+import Analytics from './contractor/layouts/Analyticss';
+import Shifts from './contractor/layouts/Shifts';
+
+import EditBid from './contractor/layouts/bids/EditBid';
 import { useGlobalContext } from '../GlobalContext';
-import Dashboard from './client/layouts/Dashboard';
-import AddBid from './client/layouts/bids/AddBid';
+import Dashboard from './contractor/layouts/Dashboard';
+import AddBid from './contractor/layouts/bids/AddBid';
 import Link from 'next/link';
-import Fields from './client/layouts/Fields';
-import Support from './client/layouts/Support';
-import Overview from './client/layouts/manager/Overview';
+import Fields from './contractor/layouts/Fields';
+import Support from './contractor/layouts/Support';
+import Overview from './manager/Overview';
 
-import Requests from './client/layouts/Requests';
+import Requests from './contractor/layouts/Requests';
 import { useActiveMenu } from './ActiveMenuContext';
-import Reports from './client/layouts/Reports';
+import Reports from './contractor/layouts/Reports';
 
 const chartData = [
   { date: '01.06', area: 5, fuel: 22, plan: 25 },
@@ -236,49 +249,14 @@ const NotificationBadge = ({ count }: { count: number }) => (
   </motion.span>
 );
 
-const FieldMap = ({ fieldId }: { fieldId: number }) => {
-  const field = fieldCoordinates.find((f) => f.id === fieldId);
-  const flightPath = flightPaths.find((fp) => fp.fieldId === fieldId);
-  const map = useMap();
-
-  useEffect(() => {
-    if (field) {
-      const bounds = L.latLngBounds(field.coordinates);
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [field, map]);
-
-  if (!field) return null;
-
-  return (
-    <>
-      <Polyline
-        positions={field.coordinates}
-        color="#4f46e5"
-        fillOpacity={0.2}
-        fillColor="#4f46e5"
-      />
-      {flightPath && (
-        <Polyline
-          positions={flightPath.path}
-          color={flightPath.status === 'completed' ? '#10b981' : '#f59e0b'}
-          dashArray={flightPath.status === 'in-progress' ? '10, 10' : undefined}
-        />
-      )}
-      <Marker position={field.coordinates[0]}>
-        <Popup>
-          {field.name} - {field.crop}, {field.area} га
-        </Popup>
-      </Marker>
-    </>
-  );
-};
+// Remove the FieldMap component that uses Leaflet hooks to avoid SSR issues
+// This can be re-implemented as a client-side only component if needed
 interface ChildProps {
   activeMenu: string;
   setActiveMenu: React.Dispatch<React.SetStateAction<string>>;
 }
 
-export default function page() {
+export default function Page() {
   const { activeMenu, setActiveMenu } = useActiveMenu();
 
   const { userRole, setUserRole } = useGlobalContext();
@@ -299,26 +277,26 @@ export default function page() {
     <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 font-sans text-gray-900">
       <main className="flex-1 flex flex-col overflow-hidden">
         <section className="flex-1 overflow-y-hidden p-6 space-y-6">
-          {/* Клиент: BI и агрономия */}
-          {userRole === 'customer' && activeMenu === 'dashboard' && (
+          {/* Подрядчик: BI и агрономия */}
+          {userRole === 'contractor' && activeMenu === 'contractor/main' && (
             <Dashboard></Dashboard>
           )}
-          {userRole === 'customer' && activeMenu === 'requests' && (
+          {userRole === 'contractor' && activeMenu === 'contractor/requests' && (
             <Requests setActiveMenu={setActiveMenu}></Requests>
           )}
-          {userRole === 'customer' && activeMenu === 'editbid' && (
+          {userRole === 'contractor' && activeMenu === 'editbid' && (
             <EditBid setActiveMenu={setActiveMenu}></EditBid>
           )}
-          {userRole === 'customer' && activeMenu === 'addbid' && (
+          {userRole === 'contractor' && activeMenu === 'addbid' && (
             <AddBid setActiveMenu={setActiveMenu}></AddBid>
           )}
-          {userRole === 'customer' && activeMenu === 'fields' && (
+          {userRole === 'contractor' && activeMenu === 'fields' && (
             <Fields></Fields>
           )}
-          {userRole === 'customer' && activeMenu === 'reports' && (
+          {userRole === 'contractor' && activeMenu === 'reports' && (
             <Reports></Reports>
           )}
-          {userRole === 'customer' && activeMenu === 'support' && (
+          {userRole === 'contractor' && activeMenu === 'support' && (
             <Support></Support>
           )}
           {activeMenu === 'tasksMap' && <TasksMapPage></TasksMapPage>}
@@ -648,20 +626,8 @@ export default function page() {
                       </button>
                     </div>
                   </div>
-                  <div className="h-96 rounded-lg overflow-hidden border border-gray-200 relative">
-                    <MapContainer
-                      center={[51.505, -0.09]}
-                      zoom={13}
-                      style={{ height: '100%', width: '100%' }}
-                    >
-                      <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                      />
-                      {fieldCoordinates.map((field) => (
-                        <FieldMap key={field.id} fieldId={field.id} />
-                      ))}
-                    </MapContainer>
+                  <div className="h-96 rounded-lg overflow-hidden border border-gray-200 relative bg-gray-100 flex items-center justify-center">
+                    <div className="text-gray-500">Карта загружается...</div>
                   </div>
                 </motion.div>
               )}
@@ -723,20 +689,8 @@ export default function page() {
                       </div>
                     </div>
                     <div className="lg:col-span-2">
-                      <div className="h-96 rounded-lg overflow-hidden border border-gray-200">
-                        <MapContainer
-                          center={[51.505, -0.09]}
-                          zoom={13}
-                          style={{ height: '100%', width: '100%' }}
-                        >
-                          <TileLayer
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                          />
-                          {fieldCoordinates.map((field) => (
-                            <FieldMap key={field.id} fieldId={field.id} />
-                          ))}
-                        </MapContainer>
+                      <div className="h-96 rounded-lg overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center">
+                        <div className="text-gray-500">Карта планирования загружается...</div>
                       </div>
                       <div className="mt-4 flex justify-end gap-3">
                         <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
