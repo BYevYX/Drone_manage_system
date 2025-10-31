@@ -1,19 +1,11 @@
 'use client';
-import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { usePathname } from 'next/navigation';
 import {
   Home,
   ClipboardList,
   MapPin,
-  Trash2,
-  Edit,
   Map,
-  Eye,
-  FileText,
   MessageSquare,
-  LogOut,
-  CheckCircle2,
   User,
   Settings,
   Package,
@@ -21,29 +13,17 @@ import {
   ChartBar,
   Users,
   CalendarDays,
-  Fuel,
-  Leaf,
-  AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  Plus,
-  Search,
-  Filter,
-  Download,
-  Upload,
   RefreshCw,
-  BarChart2,
   Layers,
 } from 'lucide-react';
-import { ActiveMenuContext } from './ActiveMenuContext';
-
-import EditBid from './customer/layouts/bids/EditBid';
-import { useGlobalContext } from '../GlobalContext';
-import Dashboard from './customer/layouts/Dashboard';
-import AddBid from './customer/layouts/bids/AddBid';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
 
-import Requests from './customer/layouts/Requests';
+import { ActiveMenuContext } from './ActiveMenuContext';
+import { useGlobalContext } from '../GlobalContext';
 import Footer from '@/src/shared/ui/Footer';
 
 const RoleConfig = {
@@ -214,32 +194,39 @@ const NotificationBadge = ({ count }: { count: number }) => (
 );
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { userInfo, setUserInfo } = useGlobalContext();
-
+  const { userRole, setUserRole } = useGlobalContext();
   const fullPathname = usePathname();
-
-  if (!userInfo.userRole) return null; // или <LoadingSpinner />
-
+  const pathname = fullPathname ? fullPathname.replace('/dashboard/', '') : '';
+  
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(
     notifications.filter((n) => !n.read).length,
   );
-
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeMenu, setActiveMenu] = useState(pathname);
+
+  if (!userRole || userRole === 'guest') return null; // или <LoadingSpinner />
 
   // Сохраняем состояние sidebar в localStorage
   useEffect(() => {
+    // Check if we're on the client side
+    if (typeof window === 'undefined') return;
+    
     const ls = localStorage.getItem('sidebarOpen');
     if (ls !== null) setSidebarOpen(ls === 'true');
   }, []);
 
   useEffect(() => {
+    // Check if we're on the client side
+    if (typeof window === 'undefined') return;
+    
     localStorage.setItem('sidebarOpen', String(sidebarOpen));
   }, [sidebarOpen]);
 
   // Авто-закрытие уведомлений при клике вне окна
   useEffect(() => {
     if (!showNotifications) return;
+    
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (
@@ -249,8 +236,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         setShowNotifications(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    
+    // Check if we're on the client side
+    if (typeof window !== 'undefined') {
+      document.addEventListener('mousedown', handler);
+      return () => document.removeEventListener('mousedown', handler);
+    }
   }, [showNotifications]);
 
   const markNotificationsAsRead = () => {
@@ -258,8 +249,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     setShowNotifications(false);
   };
 
-  const pathname = fullPathname ? fullPathname.replace('/dashboard/', '') : '';
-  const [activeMenu, setActiveMenu] = useState(pathname);
 
   return (
     <ActiveMenuContext.Provider value={{ activeMenu, setActiveMenu }}>
@@ -307,7 +296,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
             <nav className="flex-1 px-2 py-4 space-y-1">
-              {RoleConfig[userInfo.userRole].menu.map((item) => (
+              {RoleConfig[userRole as keyof typeof RoleConfig]?.menu.map((item) => (
                 <Link href={`/dashboard/${item.id}`} key={item.id}>
                   {' '}
                   <motion.button
@@ -353,14 +342,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 className="transition-all duration-300"
               >
                 <select
-                  value={userInfo.userRole}
-                  onChange={(e) => setUserRole(e.target.value as UserRole)}
+                  value={userRole}
+                  onChange={(e) => setUserRole(e.target.value as any)}
                   className="w-full p-2 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                 >
-                  <option value="customer">Клиент</option>
+                  <option value="contractor">Подрядчик</option>
                   <option value="operator">Оператор</option>
                   <option value="manager">Менеджер</option>
-                  <option value="supplier">Поставщик</option>
+                  <option value="drone_supplier">Поставщик дронов</option>
+                  <option value="material_supplier">Поставщик материалов</option>
                 </select>
               </motion.div>
             </div>
@@ -371,7 +361,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <header className="flex items-center justify-between h-16 px-6 bg-white border-b border-gray-100 shadow-sm py-[15px]">
               <h2 className="text-xl font-semibold capitalize">
                 {
-                  RoleConfig[userInfo.userRole].menu.find(
+                  RoleConfig[userRole as keyof typeof RoleConfig]?.menu.find(
                     (m) => m.id === activeMenu,
                   )?.label
                 }

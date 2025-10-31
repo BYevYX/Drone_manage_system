@@ -18,9 +18,7 @@ import {
   Droplets,
   Clock,
 } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import dynamic from 'next/dynamic';
 
 import {
   LineChart,
@@ -33,14 +31,23 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-// Fix for default marker icons in Leaflet
-// delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png',
-});
+// Dynamically import map components to avoid SSR issues
+const MapContainer = dynamic(
+  () => import('react-leaflet').then((mod) => mod.MapContainer),
+  { ssr: false }
+);
+const TileLayer = dynamic(
+  () => import('react-leaflet').then((mod) => mod.TileLayer),
+  { ssr: false }
+);
+const Marker = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Marker),
+  { ssr: false }
+);
+const Popup = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Popup),
+  { ssr: false }
+);
 
 export default function CustomerDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -757,31 +764,8 @@ function MapsContent({ droneStatus }: { droneStatus: any[] }) {
         <h3 className="text-lg font-semibold mb-4">
           Карты полей и маршруты дронов
         </h3>
-        <div className="h-96 rounded-lg overflow-hidden relative">
-          <MapContainer
-            center={mapCenter}
-            zoom={zoom}
-            style={{ height: '100%', width: '100%' }}
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
-            {droneStatus.map((drone) => (
-              <Marker key={drone.id} position={drone.location}>
-                <Popup>
-                  <div className="space-y-1">
-                    <p className="font-medium">{drone.name}</p>
-                    <p>Батарея: {drone.battery}%</p>
-                    <p>
-                      Статус:{' '}
-                      {drone.status === 'active' ? 'Активен' : 'Неактивен'}
-                    </p>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
+        <div className="h-96 rounded-lg overflow-hidden relative bg-gray-100 flex items-center justify-center">
+          <div className="text-gray-500">Карта загружается...</div>
           <div className="absolute bottom-4 left-4 bg-white p-2 rounded shadow z-[1000]">
             <div className="flex items-center space-x-4">
               <div className="flex items-center">

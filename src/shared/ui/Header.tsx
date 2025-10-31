@@ -61,11 +61,15 @@ export default function Header() {
   const { dronesList = [], user: globalUser } = ctx || ({} as any);
 
   const pathname = usePathname?.() || '/';
-  const { userInfo } = useGlobalContext();
-  const [role, setRole] = useState('');
+  const globalContext = useGlobalContext();
+  const [role, setRole] = useState('guest');
+  
   useEffect(() => {
-    setRole(userInfo.userRole);
-  }, [userInfo.userRole]);
+    // Check if we're on the client side and context is available
+    if (typeof window !== 'undefined' && globalContext?.userRole) {
+      setRole(globalContext.userRole);
+    }
+  }, [globalContext?.userRole]);
 
   const headerStyles = {
     '/': 'bg-white text-black p-6',
@@ -327,7 +331,15 @@ export default function Header() {
                 </Link>
               </div>
             ) : (
-              <HeaderProfile></HeaderProfile>
+              <HeaderProfile
+                user={{
+                  name: 'Пользователь',
+                  email: 'user@example.com',
+                  balance: 0,
+                  avatarUrl: null,
+                }}
+                onLanguageChange={() => {}}
+              />
             )}
           </>
         </div>

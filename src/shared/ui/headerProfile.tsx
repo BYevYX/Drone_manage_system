@@ -30,11 +30,16 @@ const roleLabels = {
 
 export default function HeaderProfile({
   user: userProp,
-  role: roleProp = 'CONTRACTOR',
+  role: roleProp = 'contractor',
   notifications: notificationsProp = 2,
   onLanguageChange, // optional callback from parent
-}) {
-  const { userInfo } = useGlobalContext();
+}: {
+  user?: any;
+  role?: string;
+  notifications?: number;
+  onLanguageChange?: (lang: string) => void;
+} = {}) {
+  const globalContext = useGlobalContext();
 
   const [user] = useState(
     userProp ?? {
@@ -46,12 +51,21 @@ export default function HeaderProfile({
   );
 
   // role — "рабочая" роль (используется в UI)
-  const [role, setRole] = useState(userInfo.userRole);
-  useEffect(() => setRole(userInfo.userRole), [userInfo.userRole]);
+  const [role, setRole] = useState('guest');
+  
+  useEffect(() => {
+    // Check if we're on the client side and context is available
+    if (typeof window !== 'undefined' && globalContext?.userRole) {
+      setRole(globalContext.userRole);
+    }
+  }, [globalContext?.userRole]);
 
   const onSignOut = () => {
-    localStorage.setItem('userRole', 'guest');
-    window.location.href = '/';
+    // Check if we're on the client side
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('userRole', 'guest');
+      window.location.href = '/';
+    }
   };
 
   const [isOpen, setIsOpen] = useState(false);
@@ -84,6 +98,9 @@ export default function HeaderProfile({
   };
 
   useEffect(() => {
+    // Check if we're on the client side
+    if (typeof window === 'undefined') return;
+    
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target))
         setIsOpen(false);
@@ -303,7 +320,7 @@ export default function HeaderProfile({
 
         <div className="hidden md:flex flex-col text-left leading-tight">
           <span className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
-            {userInfo.firstName} {userInfo.lastName}
+            {user.name || 'Пользователь'}
           </span>
           <span className="text-xs text-gray-500">
             {roleLabels[role] ?? role}
@@ -339,9 +356,9 @@ export default function HeaderProfile({
               <div className="flex justify-between items-start">
                 <div>
                   <div className="text-sm font-semibold text-gray-900">
-                    {userInfo.firstName} {userInfo.lastName}
+                    {user.name || 'Пользователь'}
                   </div>
-                  <div className="text-xs text-gray-500">{userInfo.email}</div>
+                  <div className="text-xs text-gray-500">{user.email}</div>
                 </div>
 
                 <div className="text-right">
