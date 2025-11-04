@@ -33,7 +33,7 @@ export default function LoginPage() {
   const isUserIdValid = userId === '' || /^[a-zA-Z0-9_-]{3,20}$/.test(userId);
 
   // --- ВСТАВЛЯЕМ API URL ---
-  const LOGIN_API_URL = 'http://51.250.43.77:8080/v1/auth/login';
+  const LOGIN_API_URL = 'https://droneagro.duckdns.org/v1/auth/login';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,9 +75,12 @@ export default function LoginPage() {
         localStorage.setItem('refreshToken', res.data.refreshToken);
         localStorage.setItem('userRole', userRole);
         localStorage.setItem('userId', userId);
-        const { data } = await axios.get('http://51.250.43.77:8080/v1/me', {
-          headers: { Authorization: `Bearer ${res.data.accessToken}` },
-        });
+        const { data } = await axios.get(
+          'https://droneagro.duckdns.org/v1/me',
+          {
+            headers: { Authorization: `Bearer ${res.data.accessToken}` },
+          },
+        );
         console.log(data['email']);
         localStorage.setItem('email', data['email']);
         localStorage.setItem('phone', data['phone']);
@@ -127,7 +130,7 @@ export default function LoginPage() {
         {/* --- Основная форма --- */}
         {!showForgot ? (
           <form className="space-y-6" onSubmit={handleSubmit}>
-            <Input
+            {/* <Input
               label="ID"
               id="userId"
               placeholder="Введите ваш ID или оставьте пустым"
@@ -143,7 +146,7 @@ export default function LoginPage() {
                   : ''
               }
               required={false}
-            />
+            /> */}
             <Input
               label="Email"
               id="email"

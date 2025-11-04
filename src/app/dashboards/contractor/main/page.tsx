@@ -1,47 +1,15 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Home,
-  ClipboardList,
-  MapPin,
-  Trash2,
-  Edit,
-  Map,
-  Eye,
-  FileText,
-  MessageSquare,
-  LogOut,
-  CheckCircle2,
-  User,
-  Settings,
-  Package,
-  Bell,
   ChartBar,
-  Users,
   CalendarDays,
-  Fuel,
   Leaf,
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Search,
-  Filter,
   Download,
-  Upload,
-  RefreshCw,
+  Filter,
   BarChart2,
-  Layers,
 } from 'lucide-react';
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-  Polyline,
-  useMap,
-} from 'react-leaflet';
+import React from 'react';
 import {
   LineChart,
   Line,
@@ -53,14 +21,8 @@ import {
   Pie,
   PieChart,
   Cell,
-  Legend,
-  BarChart,
-  Bar,
 } from 'recharts';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import { div } from 'framer-motion/client';
-import EditBid from '../layouts/bids/EditBid';
+
 import { useGlobalContext } from '@/src/app/GlobalContext';
 
 const TrendIcon = ({ trend }: { trend: 'up' | 'down' | 'stable' }) => {
@@ -85,98 +47,8 @@ const chartData = [
   { date: '06.06', area: 12, fuel: 30, plan: 28 },
 ];
 
-const fieldCoordinates = [
-  {
-    id: 1,
-    name: 'Поле 1',
-    crop: 'Пшеница',
-    area: 12,
-    coordinates: [
-      [51.505, -0.09],
-      [51.505, -0.08],
-      [51.51, -0.08],
-      [51.51, -0.09],
-    ],
-  },
-  {
-    id: 2,
-    name: 'Поле 2',
-    crop: 'Кукуруза',
-    area: 8,
-    coordinates: [
-      [51.51, -0.1],
-      [51.51, -0.09],
-      [51.515, -0.09],
-      [51.515, -0.1],
-    ],
-  },
-];
-
-const FieldMap = ({ fieldId }: { fieldId: number }) => {
-  const field = fieldCoordinates.find((f) => f.id === fieldId);
-  const flightPath = flightPaths.find((fp) => fp.fieldId === fieldId);
-  const map = useMap();
-
-  useEffect(() => {
-    if (field) {
-      const bounds = L.latLngBounds(field.coordinates);
-      map.fitBounds(bounds, { padding: [50, 50] });
-    }
-  }, [field, map]);
-
-  if (!field) return null;
-
-  return (
-    <>
-      <Polyline
-        positions={field.coordinates}
-        color="#4f46e5"
-        fillOpacity={0.2}
-        fillColor="#4f46e5"
-      />
-      {flightPath && (
-        <Polyline
-          positions={flightPath.path}
-          color={flightPath.status === 'completed' ? '#10b981' : '#f59e0b'}
-          dashArray={flightPath.status === 'in-progress' ? '10, 10' : undefined}
-        />
-      )}
-      <Marker position={field.coordinates[0]}>
-        <Popup>
-          {field.name} - {field.crop}, {field.area} га
-        </Popup>
-      </Marker>
-    </>
-  );
-};
-
-const flightPaths = [
-  {
-    id: 1,
-    fieldId: 1,
-    path: [
-      [51.505, -0.09],
-      [51.505, -0.085],
-      [51.508, -0.085],
-      [51.508, -0.09],
-    ],
-    status: 'completed',
-  },
-  {
-    id: 2,
-    fieldId: 2,
-    path: [
-      [51.51, -0.1],
-      [51.51, -0.095],
-      [51.513, -0.095],
-      [51.513, -0.1],
-    ],
-    status: 'in-progress',
-  },
-];
-
 export default function Dashboard() {
-  const { userRole } = useGlobalContext();
+  useGlobalContext(); // Keep context connection but don't use userRole for now
   return (
     <div>
       <motion.div

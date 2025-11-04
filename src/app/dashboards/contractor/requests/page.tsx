@@ -21,16 +21,16 @@ import Link from 'next/link';
  *  --------------------------- */
 interface Request {
   id: number;
-  date: string; // желаемая дата выполнения (YYYY-MM-DD)
+  date: string; // желаемая дата выполнения
   field: string;
-  crop?: string;
+  crop: string;
   type: string;
-  area?: number;
+  area: number;
   status: 'new' | 'in_progress' | 'completed' | 'rejected';
   coords?: [number, number][];
   contactPhone?: string;
   wavelengthMode?: 'auto' | 'manual';
-  wavelengths?: string;
+  wavelengths?: string; // если ручной режим — список/строка с длинами волн
   details?: {
     chemicals?: string;
     dosage?: string;
@@ -48,23 +48,6 @@ interface Request {
     fieldPreview?: string | null;
     segmentsPreview?: string | null;
   };
-}
-
-interface FieldModel {
-  fieldId: number;
-  cadastralNumber?: string | null;
-  mapFile?: string | null;
-}
-
-interface UserModel {
-  id: number;
-  email: string;
-  phone?: string;
-  userRole?: string;
-  firstName?: string;
-  lastName?: string;
-  surname?: string;
-  contractorProfile?: any;
 }
 
 /** ---------------------------
@@ -171,13 +154,17 @@ const ModernSelect = ({
 };
 
 /** ---------------------------
- *  FieldUploader — принимает JSON (файл) и вызывает callback на родителя
+ *  FieldUploader — упрощённая версия (без прокладки путей)
+ *  - Загружаем фото поля
+ *  - Авто-извлечение метаданных
+ *  - Опционально разбиваем на сегменты
  *  --------------------------- */
+const SEGMENTS_IMAGE = '/images/segments-placeholder.jpg';
+
 function FieldUploaderInline({
   initialPreview,
   onChangePreview,
   onChangeMetadata,
-  onUploadJson,
 }: {
   initialPreview?: {
     fieldPreview?: string | null;
@@ -188,68 +175,69 @@ function FieldUploaderInline({
     segmentsPreview?: string | null;
   }) => void;
   onChangeMetadata: (m: Request['metadata'] | null) => void;
-  // callback: передаём разобранный json и получаем Promise — родитель может отправить на бэк
-  onUploadJson?: (json: any) => Promise<void> | void;
 }) {
-  const [jsonPreview, setJsonPreview] = useState<any | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [fieldPreview, setFieldPreview] = useState<string | null>(
+    initialPreview?.fieldPreview ?? null,
+  );
+  const [isUploadingField, setIsUploadingField] = useState(false);
+  const [fieldProgress, setFieldProgress] = useState(0);
+
+  const [isSplitting, setIsSplitting] = useState(false);
+  const [splitProgress, setSplitProgress] = useState(0);
+  const [segmentsPreview, setSegmentsPreview] = useState<string | null>(
+    initialPreview?.segmentsPreview ?? null,
+  );
+
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    onChangePreview({ fieldPreview: null, segmentsPreview: null });
-  }, [onChangePreview]);
+    onChangePreview({ fieldPreview, segmentsPreview });
+  }, [fieldPreview, segmentsPreview, onChangePreview]);
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-  const handleFile = async (file?: File) => {
-    if (!file) {
+  const handleFile = async (f?: File) => {
+    if (!f) {
       fileRef.current?.click();
       return;
     }
-
-    setIsUploading(true);
-    setProgress(0);
-
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      // имитация прогресса
-      for (let i = 1; i <= 8; i++) {
-        // eslint-disable-next-line no-await-in-loop
-        await sleep(60);
-        setProgress(Math.round((i / 8) * 100));
-      }
-      setJsonPreview(parsed);
-
-      // автозаполнение метаданных если есть
-      const meta: Request['metadata'] = {
-        name:
-          parsed.name ?? parsed.cadastralNumber ?? parsed.title ?? undefined,
-        area: parsed.area
-          ? String(parsed.area)
-          : (parsed.areaString ?? undefined),
-        parcels: parsed.parcels ? String(parsed.parcels) : undefined,
-        crop: parsed.crop ?? undefined,
-        notes: parsed.notes ?? undefined,
-      };
-      onChangeMetadata(meta);
-
-      // вызываем callback для отправки на сервер (placeholder endpoint)
-      if (onUploadJson) {
-        await onUploadJson(parsed);
-      }
-    } catch (err) {
-      console.error('FieldUploaderInline parse error', err);
-      onChangeMetadata(null);
-      setJsonPreview(null);
-      alert('Не удалось распарсить JSON файла поля.');
-    } finally {
-      setIsUploading(false);
-      setProgress(100);
-      await sleep(200);
-      setProgress(0);
+    const url = URL.createObjectURL(f);
+    setFieldPreview(url);
+    setIsUploadingField(true);
+    setFieldProgress(0);
+    for (let i = 1; i <= 12; i++) {
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(60);
+      setFieldProgress(Math.round((i / 12) * 100));
     }
+    setIsUploadingField(false);
+    setFieldProgress(100);
+    // авто-извлечение метаданных
+    await sleep(200);
+    onChangeMetadata({
+      name: `Поле-${Math.floor(Math.random() * 999)}`,
+      area: `${(10 + Math.round(Math.random() * 90) / 10).toFixed(1)} ha`,
+      parcels: String(1 + Math.round(Math.random() * 5)),
+      crop: ['Пшеница', 'Кукуруза', 'Подсолнечник'][
+        Math.floor(Math.random() * 3)
+      ],
+      notes: 'Авто-метаданные',
+    });
+  };
+
+  const handleSplit = async () => {
+    if (!fieldPreview) return;
+    setIsSplitting(true);
+    setSplitProgress(0);
+    setSegmentsPreview(null);
+    for (let i = 1; i <= 16; i++) {
+      // eslint-disable-next-line no-await-in-loop
+      await sleep(70);
+      setSplitProgress(Math.round((i / 16) * 100));
+    }
+    setIsSplitting(false);
+    setSplitProgress(100);
+    setSegmentsPreview(SEGMENTS_IMAGE);
   };
 
   return (
@@ -257,52 +245,90 @@ function FieldUploaderInline({
       <input
         ref={fileRef}
         type="file"
-        accept=".json,application/json"
+        accept="image/*"
         className="hidden"
         onChange={(e) => e.target.files && handleFile(e.target.files[0])}
       />
       <div className="rounded-xl border border-gray-100 p-3 bg-white/90">
-        {!jsonPreview && (
+        {!fieldPreview && (
           <div className="flex flex-col items-stretch gap-2">
             <button
               onClick={() => fileRef.current?.click()}
               className="py-2 rounded-lg bg-emerald-500 text-white"
             >
-              Выбрать JSON характеристик поля
+              Выбрать фото поля
             </button>
             <div className="text-sm text-gray-500">
-              Загрузите JSON с описанием поля (cadastralNumber, area, parcels и
-              т.д.).
+              Или перетащите сюда. После загрузки — можно при необходимости
+              разбить поле на участки.
             </div>
           </div>
         )}
 
-        {isUploading && (
+        {isUploadingField && (
           <div className="mt-2">
             <div className="text-sm text-gray-600">Загрузка...</div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
               <div
-                style={{ width: `${progress}%` }}
+                style={{ width: `${fieldProgress}%` }}
                 className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"
               />
             </div>
           </div>
         )}
 
-        {jsonPreview && (
+        {!isUploadingField && fieldPreview && !segmentsPreview && (
           <div className="mt-3">
-            <pre className="max-h-36 overflow-auto text-xs bg-gray-50 p-2 rounded-md">
-              {JSON.stringify(jsonPreview, null, 2)}
-            </pre>
-            <div className="mt-3 flex gap-2">
+            <img
+              src={fieldPreview}
+              alt="field"
+              className="w-full h-44 object-cover rounded-md cursor-pointer"
+            />
+            <div className="mt-3 flex gap-2 ">
+              <button
+                onClick={() => handleSplit()}
+                className="px-3 py-1 rounded-lg  bg-emerald-500 text-white"
+              >
+                Разбить на участки
+              </button>
               <button
                 onClick={() => {
-                  setJsonPreview(null);
+                  setFieldPreview(null);
                   onChangeMetadata(null);
                 }}
                 className="px-3 py-1 rounded-lg border"
               >
                 Убрать
+              </button>
+            </div>
+          </div>
+        )}
+
+        {isSplitting && (
+          <div className="mt-3">
+            <div className="text-sm text-gray-600">Разбиение на участки…</div>
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+              <div
+                style={{ width: `${splitProgress}%` }}
+                className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"
+              />
+            </div>
+          </div>
+        )}
+
+        {segmentsPreview && (
+          <div className="mt-3">
+            <img
+              src={segmentsPreview}
+              alt="segments"
+              className="w-full h-44 object-contain rounded-md"
+            />
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={() => setSegmentsPreview(null)}
+                className="px-3 py-1 rounded-lg border"
+              >
+                Вернуть
               </button>
             </div>
           </div>
@@ -320,52 +346,77 @@ export default function RequestsWithEditor({
 }: {
   setActiveMenu?: (s: string) => void;
 }) {
-  const API_BASE = 'https://droneagro.duckdns.org';
-
-  // универсальная обёртка, добавляет Bearer если есть
-  const authFetch = async (url: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('accessToken');
-    const headers: Record<string, string> = {
-      // Content-Type ставим ТОЛЬКО если есть body и body не FormData
-    };
-    if (token) headers.Authorization = `Bearer ${token}`;
-
-    const body = options.body as any;
-    const isFormData =
-      typeof FormData !== 'undefined' && body instanceof FormData;
-    if (body && !isFormData) headers['Content-Type'] = 'application/json';
-
-    const mergedHeaders = {
-      ...(options.headers as Record<string, string>),
-      ...headers,
-    };
-    return fetch(url, { ...options, headers: mergedHeaders });
-  };
-
   const [status, setStatus] = useState('all');
   const [treatmentType, setTreatmentType] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [requests, setRequests] = useState<Request[]>([]);
+  const [requests, setRequests] = useState<Request[]>([
+    {
+      id: 1,
+      date: '2025-02-15',
+      field: 'Поле №3 (Южное)',
+      crop: 'Пшеница озимая',
+      type: 'Опрыскивание',
+      area: 45,
+      status: 'completed',
+      coords: [
+        [54.88, 37.62],
+        [54.881, 37.621],
+        [54.882, 37.62],
+      ],
+      details: {
+        chemicals: 'Агрохит',
+        dosage: '1.2 л/га',
+        droneType: 'DJI Agras T40',
+      },
+    },
+    {
+      id: 2,
+      date: '2025-02-10',
+      field: 'Поле №1 (Северное)',
+      crop: 'Кукуруза',
+      type: 'Внесение удобрений',
+      area: 32,
+      status: 'in_progress',
+      details: {
+        chemicals: 'NPK 15-15-15',
+        dosage: '80 кг/га',
+        droneType: 'DJI Agras T30',
+      },
+    },
+    {
+      id: 3,
+      date: '2025-02-05',
+      field: 'Поле №2 (Центральное)',
+      crop: 'Подсолнечник',
+      type: 'Картографирование',
+      area: 28,
+      status: 'new',
+    },
+  ]);
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<Request | null>(null);
   const [isNew, setIsNew] = useState(false);
 
-  // Загруженные поля и текущий контрактор
-  const [fieldsList, setFieldsList] = useState<FieldModel[]>([]);
-  const [contractor, setContractor] = useState<UserModel | null>(null);
-
   const [form, setForm] = useState({
     id: 0,
-    date: '', // YYYY-MM-DD
+    date: '', // желаемая дата выполнения
     field: 'Выберите поле',
-    selectedFieldId: -1 as number,
+    crop: '',
     type: 'Выберите тип обработки',
+    area: '',
     status: 'new' as Request['status'],
-    materialsProvided: false,
+    chemicals: '',
+    dosage: '',
+    height: '',
+    speed: '',
+    comments: '',
+    wavelengthMode: 'auto' as 'auto' | 'manual',
+    wavelengths: '',
+    contactPhone: '',
   });
 
   const [preview, setPreview] = useState<{
@@ -374,345 +425,45 @@ export default function RequestsWithEditor({
   } | null>(null);
   const [metadata, setMetadata] = useState<Request['metadata'] | null>(null);
 
-  // ---------- helpers for mapping / linking ----------
-  const mapStatus = (s?: string): Request['status'] => {
-    if (!s) return 'new';
-    const low = String(s).toLowerCase();
-    if (low.includes('complete') || low.includes('done')) return 'completed';
-    if (
-      low.includes('in_progress') ||
-      low.includes('in progress') ||
-      low.includes('progress')
-    )
-      return 'in_progress';
-    if (
-      low.includes('reject') ||
-      low.includes('rejected') ||
-      low.includes('denied')
-    )
-      return 'rejected';
-    if (low.includes('new')) return 'new';
-    return 'new';
-  };
-
-  const typeProcessIdToLabel = (id?: number) => {
-    if (!id && id !== 0) return 'Неизвестно';
-    if (id === 1) return 'Опрыскивание';
-    if (id === 2) return 'Внесение удобрений';
-    if (id === 3) return 'Картографирование';
-    return 'Неизвестно';
-  };
-
-  const getLatestOrderId = async (): Promise<number | null> => {
-    try {
-      // fallback -> GET /api/orders
-      const resOrders = await authFetch(
-        `${API_BASE}/api/orders?page=1&limit=200`,
-      );
-      if (!resOrders.ok) return null;
-      const dataOrders = await resOrders.json();
-      const arr = Array.isArray(dataOrders.orders) ? dataOrders.orders : [];
-      if (arr.length === 0) return null;
-      const maxId = arr.reduce((acc: number, cur: any) => {
-        const id = Number(cur.orderId ?? cur.id ?? 0);
-        return Number.isFinite(id) ? Math.max(acc, id) : acc;
-      }, 0);
-      return maxId > 0 ? maxId : null;
-    } catch (err) {
-      console.error('getLatestOrderId error', err);
-      return null;
-    }
-  };
-
-  const attachFieldToOrder = async (orderId: number, fieldId: number) => {
-    try {
-      const res = await authFetch(
-        `${API_BASE}/api/orders/${orderId}/fields/${fieldId}`,
-        {
-          method: 'POST',
-        },
-      );
-      if (!res.ok) {
-        console.warn(`attachFieldToOrder failed ${res.status}`);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error('attachFieldToOrder error', err);
-      return false;
-    }
-  };
-
-  const activateOrder = async (orderId: number) => {
-    try {
-      const res = await authFetch(
-        `${API_BASE}/api/orders/${orderId}/activate`,
-        {
-          method: 'POST',
-        },
-      );
-      if (!res.ok) {
-        console.warn(`activateOrder failed ${res.status}`);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error('activateOrder error', err);
-      return false;
-    }
-  };
-
-  // improved deleteField with logging + fallback
-  const deleteField = async (fieldId: number) => {
-    if (!confirm(`Удалить поле #${fieldId}?`)) return;
-    try {
-      const urlField = `${API_BASE}/api/orders/${fieldId}`;
-      console.info('deleteField: DELETE', urlField);
-      const res = await authFetch(urlField, { method: 'DELETE' });
-      let bodyText = '';
-      try {
-        bodyText = await res.text();
-      } catch {}
-      console.info('deleteField response', res.status, bodyText);
-
-      if (res.ok) {
-        setFieldsList((prev) => prev.filter((f) => f.fieldId !== fieldId));
-        if ((form as any).selectedFieldId === fieldId) {
-          setForm((s) => ({
-            ...s,
-            selectedFieldId: -1,
-            field: 'Выберите поле',
-          }));
-          setMetadata(null);
-        }
-        alert('Поле удалено');
-        return;
-      }
-
-      // fallback: maybe backend deletes via /api/orders/{id} (as you saw in Postman)
-      if ([400, 404, 405, 501].includes(res.status)) {
-        try {
-          const urlOrder = `${API_BASE}/api/orders/${fieldId}`;
-          console.info('deleteField: trying fallback DELETE', urlOrder);
-          const res2 = await authFetch(urlOrder, { method: 'DELETE' });
-          let txt2 = '';
-          try {
-            txt2 = await res2.text();
-          } catch {}
-          console.info('deleteField fallback', res2.status, txt2);
-          if (res2.ok) {
-            setFieldsList((prev) => prev.filter((f) => f.fieldId !== fieldId));
-            if ((form as any).selectedFieldId === fieldId) {
-              setForm((s) => ({
-                ...s,
-                selectedFieldId: -1,
-                field: 'Выберите поле',
-              }));
-              setMetadata(null);
-            }
-            alert('Поле удалено (через fallback /api/orders/{id})');
-            return;
-          }
-        } catch (e) {
-          console.warn('deleteField fallback error', e);
-        }
-      }
-
-      alert(
-        `Не удалось удалить поле. Сервер вернул ${res.status}. Смотри консоль.`,
-      );
-    } catch (err: any) {
-      console.error('deleteField error', err);
-      alert(
-        'Не удалось отправить запрос на удаление. Проверьте консоль (CORS / network).',
-      );
-    }
-  };
-
-  const fetchFields = async () => {
-    try {
-      const res = await authFetch(`${API_BASE}/api/fields?page=1&limit=100`);
-      if (!res.ok) throw new Error(`Ошибка получения полей (${res.status})`);
-      const data = await res.json();
-      setFieldsList(Array.isArray(data.fields) ? data.fields : []);
-    } catch (err) {
-      console.error('fetchFields error', err);
-    }
-  };
-
-  const fetchContractorFromLocalStorage = async () => {
-    try {
-      const res = await authFetch(`${API_BASE}/v1/me`);
-      if (!res.ok) {
-        throw new Error(`Ошибка получения профиля (${res.status})`);
-      }
-      const data = await res.json();
-      setContractor(data);
-    } catch (err) {
-      console.error('fetchContractor error', err);
-    }
-  };
-
-  const fetchOrderFields = async (orderId: number): Promise<number[]> => {
-    try {
-      const res = await authFetch(`${API_BASE}/api/orders/${orderId}/fields`);
-      if (!res.ok) {
-        console.warn(`fetchOrderFields ${orderId} failed ${res.status}`);
-        return [];
-      }
-      const data = await res.json();
-      // ожидаем { "fieldIds": [1,2,...] }
-      if (Array.isArray(data.fieldIds))
-        return data.fieldIds.map((n: any) => Number(n)).filter(Number.isFinite);
-      // иногда бек может вернуть { fields: [...] } или { fieldIds: null } — ловим простые варианты
-      if (Array.isArray(data.fields))
-        return data.fields
-          .map((f: any) => Number(f.fieldId ?? f.id ?? f))
-          .filter(Number.isFinite);
-      return [];
-    } catch (err) {
-      console.error('fetchOrderFields error', err);
-      return [];
-    }
-  };
-
-  // fetch orders + for each order load field ids via GET /api/orders/{orderId}/fields
-  const fetchOrders = async (page = 1, limit = 100) => {
-    try {
-      const res = await authFetch(
-        `${API_BASE}/api/orders?page=${page}&limit=${limit}`,
-      );
-      if (!res.ok) {
-        console.warn(`Ошибка получения заявок (${res.status})`);
-        setRequests([]);
-        return;
-      }
-      const data = await res.json();
-      const arr = Array.isArray(data.orders) ? data.orders : [];
-
-      // Первый проход — маппим базовые поля заказа
-      const baseRequests: Request[] = arr.map((o: any) => {
-        const id = Number(
-          o.orderId ?? o.id ?? Math.floor(Math.random() * 1000000),
-        );
-        const rawDate = o.dataStart ?? o.dataEnd ?? o.createdAt;
-        const dateIso = rawDate
-          ? new Date(rawDate).toISOString().slice(0, 10)
-          : new Date().toISOString().slice(0, 10);
-
-        const typeLabel = o.typeProcessId
-          ? typeProcessIdToLabel(Number(o.typeProcessId))
-          : (o.type ?? 'Неизвестно');
-        const stat = mapStatus(o.status);
-
-        const previewObj =
-          o.preview ??
-          (o.fieldPreview || o.segmentsPreview
-            ? {
-                fieldPreview: o.fieldPreview ?? null,
-                segmentsPreview: o.segmentsPreview ?? null,
-              }
-            : undefined);
-        const metadataObj =
-          o.metadata ?? (o.extraMetadata ? o.extraMetadata : undefined);
-        const coords = Array.isArray(o.coords) ? o.coords : [];
-
-        // временно ставим заглушку — заменим ниже после запроса /api/orders/{orderId}/fields
-        const initialFieldName =
-          o.fieldName ??
-          o.field ??
-          (o.metadata && o.metadata.name) ??
-          `ID:${o.fieldId ?? id}`;
-
-        return {
-          id,
-          date: dateIso,
-          field: initialFieldName,
-          type: typeLabel,
-          status: stat,
-          coords,
-          contactPhone: o.contactPhone ?? undefined,
-          wavelengthMode: o.wavelengthMode ?? 'auto',
-          wavelengths: o.wavelengths ?? undefined,
-          details: o.details ?? undefined,
-          metadata: metadataObj ?? undefined,
-          preview: previewObj ?? undefined,
-        } as Request;
-      });
-
-      // Сразу выставляем базовый список, чтобы UI не был пустым
-      setRequests(baseRequests);
-
-      // Параллельно запрашиваем поля для каждого заказа и обновляем имена полей
-      const updates = await Promise.all(
-        baseRequests.map(async (r) => {
-          const fieldIds = await fetchOrderFields(r.id);
-          if (fieldIds.length === 0) return null; // нет привязанных полей
-          // Берём первый fieldId (если может быть несколько — логика может быть изменена)
-          const fid = fieldIds[0];
-          // ищем его в loaded fieldsList
-          const f = fieldsList.find((x) => x.fieldId === fid);
-          const name = f
-            ? (f.cadastralNumber ?? `ID: #${f.fieldId}`)
-            : `ID: #${fid}`;
-          return { orderId: r.id, fieldId: fid, name };
-        }),
-      );
-
-      // Применяем найденные имена к локальным requests
-      const updatedRequests = baseRequests.map((r) => {
-        const upd = updates.find((u) => u && u.orderId === r.id) as any;
-        if (!upd) return r;
-        return {
-          ...r,
-          field: upd.name,
-          metadata: { ...(r.metadata ?? {}), name: upd.name },
-        };
-      });
-
-      setRequests(updatedRequests);
-    } catch (err) {
-      console.error('fetchOrders error', err);
-      setRequests([]);
-    }
-  };
-
-  useEffect(() => {
-    (async () => {
-      // сначала подгружаем поля, чтобы иметь cadastralNumber при обработке orders
-      await fetchFields();
-      // затем профиль
-      await fetchContractorFromLocalStorage();
-      // затем заказы (внутри fetchOrders мы используем fieldsList для более точных названий)
-      await fetchOrders();
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   useEffect(() => {
     if (editingRequest) {
       setForm({
         id: editingRequest.id,
         date: editingRequest.date,
         field: editingRequest.field,
-        selectedFieldId: -1,
+        crop: editingRequest.crop,
         type: editingRequest.type,
+        area: String(editingRequest.area),
         status: editingRequest.status,
-        materialsProvided: true,
+        chemicals: editingRequest.details?.chemicals ?? '',
+        dosage: editingRequest.details?.dosage ?? '',
+        height: editingRequest.details?.droneType ?? '',
+        speed: '',
+        comments: editingRequest.details?.operatorNotes ?? '',
+        wavelengthMode: editingRequest.wavelengthMode ?? 'auto',
+        wavelengths: editingRequest.wavelengths ?? '',
+        contactPhone: editingRequest.contactPhone ?? '',
       });
       setPreview(editingRequest.preview ?? null);
       setMetadata(editingRequest.metadata ?? null);
     } else {
-      setForm((s) => ({
-        ...s,
+      setForm({
         id: 0,
         date: new Date().toISOString().slice(0, 10),
         field: 'Выберите поле',
-        selectedFieldId: -1,
+        crop: '',
         type: 'Выберите тип обработки',
+        area: '',
         status: 'new',
-        materialsProvided: false,
-      }));
+        chemicals: '',
+        dosage: '',
+        height: '',
+        speed: '',
+        comments: '',
+        wavelengthMode: 'auto',
+        wavelengths: '',
+        contactPhone: '',
+      });
       setPreview(null);
       setMetadata(null);
     }
@@ -736,7 +487,11 @@ export default function RequestsWithEditor({
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      if (!String(r.id).includes(q) && !r.field.toLowerCase().includes(q))
+      if (
+        !String(r.id).includes(q) &&
+        !r.field.toLowerCase().includes(q) &&
+        !r.crop.toLowerCase().includes(q)
+      )
         return false;
     }
     if (dateFrom && new Date(r.date) < new Date(dateFrom)) return false;
@@ -748,8 +503,6 @@ export default function RequestsWithEditor({
     setIsNew(true);
     setEditingRequest(null);
     setEditorOpen(true);
-    fetchFields();
-    fetchContractorFromLocalStorage();
   };
 
   const openEdit = (r: Request) => {
@@ -758,15 +511,7 @@ export default function RequestsWithEditor({
     setEditorOpen(true);
   };
 
-  const typeToId = (typeLabel: string) => {
-    const normalized = typeLabel.toLowerCase();
-    if (/опрыс/i.test(normalized)) return 1;
-    if (/внес/i.test(normalized)) return 2;
-    if (/картограф/i.test(normalized)) return 3;
-    return 0;
-  };
-
-  const saveForm = async () => {
+  const saveForm = () => {
     if (
       !form.field ||
       form.field === 'Выберите поле' ||
@@ -777,149 +522,46 @@ export default function RequestsWithEditor({
       return;
     }
 
-    const payloadRequest: Request = {
+    const payload: Request = {
       id: isNew ? Math.max(0, ...requests.map((x) => x.id)) + 1 : form.id,
       date: form.date,
       field: form.field,
+      crop: form.crop || metadata?.crop || '—',
       type: form.type,
+      area: Number(form.area) || 0,
       status: form.status,
+      coords: editingRequest?.coords ?? undefined,
+      contactPhone: form.contactPhone || undefined,
+      wavelengthMode: form.wavelengthMode as 'auto' | 'manual',
+      wavelengths:
+        form.wavelengthMode === 'manual'
+          ? form.wavelengths || undefined
+          : undefined,
+      details: {
+        chemicals: form.chemicals || undefined,
+        dosage: form.dosage || undefined,
+        droneType: form.height || undefined,
+        operatorNotes: form.comments || undefined,
+      },
       metadata: metadata ?? undefined,
       preview: preview ?? undefined,
     };
 
     setRequests((prev) => {
-      if (isNew) return [payloadRequest, ...prev];
-      return prev.map((p) => (p.id === payloadRequest.id ? payloadRequest : p));
+      if (isNew) return [payload, ...prev];
+      return prev.map((p) => (p.id === payload.id ? payload : p));
     });
 
-    try {
-      const body: any = {
-        typeProcessId: typeToId(form.type),
-        status: 'In progress',
-        dataStart: new Date(form.date).toISOString(),
-        dataEnd: new Date(form.date).toISOString(),
-        materialsProvided: Boolean(form.materialsProvided),
-      };
-
-      if (contractor?.id) body.contractorId = contractor.id;
-
-      const res = await authFetch(`${API_BASE}/api/orders`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`Ошибка сервера: ${res.status} ${txt}`);
-      }
-
-      const data = await res.json();
-      let createdOrderId: number | null = data?.orderId
-        ? Number(data.orderId)
-        : null;
-
-      if (!createdOrderId) {
-        const latest = await getLatestOrderId();
-        if (latest) createdOrderId = latest;
-        else
-          console.warn('Не удалось определить orderId после создания заказа');
-      }
-
-      if (createdOrderId) {
-        setRequests((prev) =>
-          prev.map((r) =>
-            r.id === payloadRequest.id
-              ? { ...r, id: createdOrderId as number }
-              : r,
-          ),
-        );
-      }
-
-      const selFieldId = (form as any).selectedFieldId;
-      if (createdOrderId && typeof selFieldId === 'number' && selFieldId >= 0) {
-        const attached = await attachFieldToOrder(createdOrderId, selFieldId);
-        if (!attached) console.warn('attachFieldToOrder failed');
-        else {
-          const activated = await activateOrder(createdOrderId);
-          if (!activated) console.warn('activateOrder failed');
-        }
-      }
-
-      alert('Заявка успешно отправлена менеджеру.');
-      setEditorOpen(false);
-      setEditingRequest(null);
-      setIsNew(false);
-      fetchOrders();
-    } catch (err: any) {
-      console.error('saveForm error', err);
-      alert('Не удалось отправить заявку: ' + (err?.message ?? err));
-    }
+    setEditorOpen(false);
+    setEditingRequest(null);
+    setIsNew(false);
   };
 
-  // Replace existing deleteRequest with this async implementation
-  const deleteRequest = async (id: number) => {
+  const deleteRequest = (id: number) => {
     if (!confirm('Удалить заявку?')) return;
-
-    try {
-      console.log('deleteRequest ->', id);
-      // show a quick optimistic UI cue? we'll wait for server response before removing
-      const url = `${API_BASE}/api/orders/${id}`;
-      console.log('DELETE ->', url);
-
-      const res = await authFetch(url, { method: 'DELETE' });
-      console.log('deleteRequest response', res);
-
-      if (!res.ok) {
-        // try to extract server message for better error info
-        let body = '';
-        try {
-          body = await res.text();
-        } catch (e) {
-          /* ignore */
-        }
-        throw new Error(`Ошибка удаления заказа: ${res.status} ${body}`);
-      }
-
-      // успешное удаление — обновляем локальный список заказов
-      setRequests((prev) => prev.filter((r) => r.id !== id));
-
-      // если редактор открыт на этом заказе — закрываем
-      setEditorOpen(false);
-      setEditingRequest(null);
-      // если открыт просмотр — закрываем
-      setViewRequest((v) => (v && v.id === id ? null : v));
-
-      // можно дополнительно рефрешнуть список с сервера, чтобы наверняка
-      // await fetchOrders(); // <-- раскомментируй если хочешь полную синхронизацию
-
-      alert(`Заказ #${id} удалён`);
-    } catch (err: any) {
-      console.error('deleteRequest error', err);
-      alert('Не удалось удалить заявку: ' + (err?.message ?? err));
-    }
-  };
-
-  // helper for upload JSON from FieldUploaderInline — placeholder endpoint; you can change to real one later
-  const handleUploadFieldJson = async (json: any) => {
-    try {
-      // placeholder endpoint — поменяй на реальный, когда бэк сделает
-      const url = `${API_BASE}/api/fields/upload-json`;
-      console.info('Uploading field json to', url);
-      const res = await authFetch(url, {
-        method: 'POST',
-        body: JSON.stringify(json),
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        console.warn('upload json failed', res.status, txt);
-      } else {
-        console.info('upload json ok');
-        // опционально обновим список полей
-        fetchFields();
-      }
-    } catch (e) {
-      console.error('handleUploadFieldJson error', e);
-    }
+    setRequests((prev) => prev.filter((r) => r.id !== id));
+    setEditorOpen(false);
+    setEditingRequest(null);
   };
 
   const [viewRequest, setViewRequest] = useState<Request | null>(null);
@@ -1022,7 +664,7 @@ export default function RequestsWithEditor({
               </div>
               <input
                 type="text"
-                placeholder="Поиск по номеру заявки или полю..."
+                placeholder="Поиск по номеру заявки, полю или культуре..."
                 className="w-full pl-10 pr-4 py-3 bg-white/90 rounded-xl border border-gray-300/80 focus:ring-2 focus:ring-emerald-400 outline-none"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -1063,6 +705,9 @@ export default function RequestsWithEditor({
                     Тип
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Площадь (га)
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Статус
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1081,9 +726,15 @@ export default function RequestsWithEditor({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {request.field}
+                      <div className="text-xs text-gray-500">
+                        {request.crop}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {request.type}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {request.area}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
@@ -1200,7 +851,10 @@ export default function RequestsWithEditor({
                       <strong>Тип обработки:</strong> {viewRequest.type}
                     </div>
                     <div className="mt-1">
-                      <strong>Площадь/Культура:</strong> —
+                      <strong>Культура:</strong> {viewRequest.crop}
+                    </div>
+                    <div className="mt-1">
+                      <strong>Площадь:</strong> {viewRequest.area} га
                     </div>
                     {viewRequest.details?.chemicals && (
                       <div className="mt-1">
@@ -1270,7 +924,14 @@ export default function RequestsWithEditor({
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-2xl bg-white border border-gray-100">
+                  <div className="p-3 rounded-xl bg-white border border-gray-100">
+                    <div className="text-xs text-gray-500">Контакты</div>
+                    <div className="mt-2 text-sm text-gray-700">
+                      {viewRequest.contactPhone ?? 'Телефон не указан'}
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-white border border-gray-100">
                     <div className="text-xs text-gray-500">Дополнительно</div>
                     <div className="mt-2 text-sm text-gray-700">
                       Режим длин волн:{' '}
@@ -1381,74 +1042,28 @@ export default function RequestsWithEditor({
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Поле (выбор по id) */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
-                          Поле
-                        </label>
-                        <div className="relative flex items-center gap-2">
-                          <select
-                            value={form.selectedFieldId}
-                            onChange={(e) => {
-                              const id = Number(e.target.value);
-                              const f = fieldsList.find(
-                                (x) => x.fieldId === id,
-                              );
-                              setForm((s) => ({
-                                ...s,
-                                selectedFieldId: id,
-                                field: f
-                                  ? (f.cadastralNumber ?? `Поле ${f.fieldId}`)
-                                  : 'Выберите поле',
-                              }));
-                              if (f)
-                                setMetadata((m) => ({
-                                  ...(m ?? {}),
-                                  name: f.cadastralNumber ?? undefined,
-                                }));
-                            }}
-                            className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none"
-                          >
-                            <option value={-1}>Выберите поле</option>
-                            {fieldsList.map((f) => (
-                              <option key={f.fieldId} value={f.fieldId}>
-                                {f.cadastralNumber ?? `Поле #${f.fieldId}`}
-                              </option>
-                            ))}
-                          </select>
+                      <ModernSelect
+                        label="Поле"
+                        options={[
+                          'Выберите поле',
+                          'Поле №1 (Пшеница, 45 га)',
+                          'Поле №2 (Кукуруза, 32 га)',
+                        ]}
+                        value={form.field}
+                        onChange={(v) => setForm((s) => ({ ...s, field: v }))}
+                      />
 
-                          {/* кнопка удаления выбранного поля */}
-                          {/* {(form as any).selectedFieldId >= 0 && (
-                            <button
-                              onClick={() =>
-                                deleteField((form as any).selectedFieldId)
-                              }
-                              className="p-2 rounded-md bg-red-50 hover:bg-red-100 border border-red-100"
-                              title="Удалить поле"
-                            >
-                              <Trash2 size={16} className="text-red-600" />
-                            </button> */}
-                          {/* )} */}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
-                          Тип обработки
-                        </label>
-                        <select
-                          value={form.type}
-                          onChange={(e) =>
-                            setForm((s) => ({ ...s, type: e.target.value }))
-                          }
-                          className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none"
-                        >
-                          <option>Выберите тип обработки</option>
-                          <option>Опрыскивание</option>
-                          <option>Внесение удобрений</option>
-                          <option>Картографирование</option>
-                        </select>
-                      </div>
+                      <ModernSelect
+                        label="Тип обработки"
+                        options={[
+                          'Выберите тип обработки',
+                          'Опрыскивание',
+                          'Внесение удобрений',
+                          'Картографирование',
+                        ]}
+                        value={form.type}
+                        onChange={(v) => setForm((s) => ({ ...s, type: v }))}
+                      />
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
@@ -1464,33 +1079,150 @@ export default function RequestsWithEditor({
                         />
                       </div>
 
-                      {/* materialsProvided */}
-                      <div className="md:col-span-2 flex items-center gap-3">
-                        <label className="flex items-center gap-3 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={form.materialsProvided}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                          Площадь (га)
+                        </label>
+                        <input
+                          type="number"
+                          value={form.area}
+                          onChange={(e) =>
+                            setForm((s) => ({ ...s, area: e.target.value }))
+                          }
+                          className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                          Препарат
+                        </label>
+                        <input
+                          type="text"
+                          value={form.chemicals}
+                          onChange={(e) =>
+                            setForm((s) => ({
+                              ...s,
+                              chemicals: e.target.value,
+                            }))
+                          }
+                          className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                          Доза
+                        </label>
+                        <input
+                          type="text"
+                          value={form.dosage}
+                          onChange={(e) =>
+                            setForm((s) => ({ ...s, dosage: e.target.value }))
+                          }
+                          className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                          Комментарии
+                        </label>
+                        <textarea
+                          value={form.comments}
+                          onChange={(e) =>
+                            setForm((s) => ({ ...s, comments: e.target.value }))
+                          }
+                          rows={3}
+                          className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                          Контактный телефон
+                        </label>
+                        <input
+                          type="tel"
+                          value={form.contactPhone}
+                          onChange={(e) =>
+                            setForm((s) => ({
+                              ...s,
+                              contactPhone: e.target.value,
+                            }))
+                          }
+                          placeholder="+7 900 000-00-00"
+                          className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2 space-y-2">
+                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                          Длины волн / режим
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <label
+                            className={`px-3 py-2 rounded-lg border ${form.wavelengthMode === 'auto' ? 'border-emerald-400 bg-emerald-50' : ''}`}
+                          >
+                            <input
+                              type="radio"
+                              name="wlen"
+                              checked={form.wavelengthMode === 'auto'}
+                              onChange={() =>
+                                setForm((s) => ({
+                                  ...s,
+                                  wavelengthMode: 'auto',
+                                }))
+                              }
+                              className="mr-2"
+                            />{' '}
+                            Выполните расчёт за меня
+                          </label>
+                          <label
+                            className={`px-3 py-2 rounded-lg border ${form.wavelengthMode === 'manual' ? 'border-emerald-400 bg-emerald-50' : ''}`}
+                          >
+                            <input
+                              type="radio"
+                              name="wlen"
+                              checked={form.wavelengthMode === 'manual'}
+                              onChange={() =>
+                                setForm((s) => ({
+                                  ...s,
+                                  wavelengthMode: 'manual',
+                                }))
+                              }
+                              className="mr-2"
+                            />{' '}
+                            Я предоставляю длины волн
+                          </label>
+                        </div>
+                        {form.wavelengthMode === 'manual' && (
+                          <textarea
+                            value={form.wavelengths}
                             onChange={(e) =>
                               setForm((s) => ({
                                 ...s,
-                                materialsProvided: e.target.checked,
+                                wavelengths: e.target.value,
                               }))
                             }
-                            className="form-checkbox h-5 w-5"
+                            rows={3}
+                            placeholder="Введите длины волн через запятую или пробел, например: 450, 550, 650"
+                            className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none mt-2"
                           />
-                          <span className="text-sm">
-                            Материалы предоставлены
-                          </span>
-                        </label>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   <div className="bg-white/90 rounded-2xl border border-gray-100 p-4">
+                    <h3 className="font-medium mb-3 flex items-center gap-2">
+                      <MapPin size={16} className="text-emerald-600" />{' '}
+                      Загрузить фото поля
+                    </h3>
                     <FieldUploaderInline
                       initialPreview={preview ?? undefined}
                       onChangePreview={(p) => setPreview(p)}
-                      onChangeMetadata={(m) => setMetadata(m ?? null)}
+                      onChangeMetadata={(m) => setMetadata(m)}
                     />
                   </div>
                 </div>
@@ -1499,6 +1231,19 @@ export default function RequestsWithEditor({
                   <div className="rounded-2xl p-4 bg-white/90 border border-gray-100">
                     <h4 className="font-medium mb-3">Информация о поле</h4>
                     <div className="text-sm text-gray-600 space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Культура</span>
+                        <span className="font-medium">
+                          {metadata?.crop ?? (form.crop || '—')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Площадь</span>
+                        <span className="font-medium">
+                          {metadata?.area ??
+                            (form.area ? `${form.area} га` : '—')}
+                        </span>
+                      </div>
                       <div className="flex justify-between">
                         <span className="text-gray-500">Участков</span>
                         <span className="font-medium">

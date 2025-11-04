@@ -6,6 +6,7 @@ import axios from 'axios';
 import {
   Step1,
   CustomerForm,
+  managerForm,
   DroneSupplierPart1,
   DroneSupplierPart2,
   MaterialSupplierForm,
@@ -17,12 +18,12 @@ import {
 } from './steps';
 
 // Константа с адресом бэкенда
-const API_URL = 'http://51.250.43.77:8080/v1/auth/register';
+const API_URL = 'https://droneagro.duckdns.org/v1/auth/register';
 
 export default function MultiStepSignup() {
   const [step, setStep] = useState(1);
   const [role, setRole] = useState<
-    'customer' | 'drone_supplier' | 'material_supplier' | ''
+    'customer' | 'drone_supplier' | 'material_supplier' | 'manager' | ''
   >('');
   const [allOk, setAllOk] = useState(false);
 
@@ -42,6 +43,23 @@ export default function MultiStepSignup() {
 
   // Для заказчиков услуг
   const [customerData, setCustomerData] = useState<Step2Data>({
+    type: 'COMPANY', // ENUM (COMPANY | INDIVIDUAL)
+    nameCompany: '',
+    inn: '',
+    kpp: '',
+    okpo: '',
+    urAddres: '',
+    factAddres: '',
+    contactPerson: false,
+    contact: {
+      lastName: '',
+      firstName: '',
+      middleName: '',
+      phone: '',
+      email: '',
+    },
+  });
+  const [managerData, setManagerData] = useState<Step2Data>({
     type: 'COMPANY', // ENUM (COMPANY | INDIVIDUAL)
     nameCompany: '',
     inn: '',
@@ -327,6 +345,25 @@ export default function MultiStepSignup() {
         },
       };
     }
+    if (role === 'manager') {
+      return {
+        ...base,
+        userRole: 'MANAGER',
+        contractor: {
+          organization: customerData.type,
+          organizationName: customerData.nameCompany,
+          organizationType:
+            customerData.type === 'COMPANY'
+              ? 'LEGAL_ENTITY'
+              : 'INDIVIDUAL_ENTITY',
+          inn: customerData.inn,
+          kpp: customerData.kpp,
+          okpoCode: customerData.okpo,
+          addressUr: customerData.urAddres,
+          addressFact: customerData.factAddres,
+        },
+      };
+    }
 
     if (role === 'drone_supplier') {
       return {
@@ -367,8 +404,16 @@ export default function MultiStepSignup() {
     if (!validateStep(step)) return;
 
     setLoading(true);
+
     try {
       const dataToSend = collectData();
+      if (dataToSend.role === 'manager') {
+        dataToSend.role = 'manager'; // оставляем менеджера, не конвертим в contractor
+      }
+
+      // 🩹 КОСТЫЛЬ: если роль manager — отправляем на сервер как CONTRACTOR (как заказчик)
+      // это меняет только поле userRole в полезной нагрузке
+
       const res = await axios.post(API_URL, dataToSend);
 
       // сохраняем сообщение/дату от бэка и переходим к верификации
@@ -404,11 +449,12 @@ export default function MultiStepSignup() {
     setIsVerifying(true);
     try {
       // GET /v1/auth/verify?code=123
-      const url = `http://51.250.43.77:8080/v1/verification?code=${verificationCode}`;
+      const url = `https://droneagro.duckdns.org/v1/verification?code=${verificationCode}`;
       const res = await axios.get(url);
       alert(res.data?.message || 'Почта подтверждена!');
       // можно: redirect to login
-      // router.push('/login') — если нужно
+      // router.push('/login');
+      window.location.href = '/login';
     } catch (err: any) {
       if (err.response?.data?.message)
         setVerificationError(err.response.data.message);
@@ -539,6 +585,21 @@ export default function MultiStepSignup() {
         />
       );
     }
+    if (step === 2 && role === 'manager') {
+      return (
+        <CustomerForm
+          data={customerData}
+          setData={(cbOrObj) =>
+            setCustomerData((prev) =>
+              typeof cbOrObj === 'function'
+                ? cbOrObj(prev)
+                : { ...prev, ...cbOrObj },
+            )
+          }
+          errors={customerErrors}
+        />
+      );
+    }
     if (step === 2 && role === 'material_supplier') {
       return (
         <MaterialSupplierForm
@@ -556,12 +617,22 @@ export default function MultiStepSignup() {
     }
 
     // fio for customer/material
-    if ((role === 'customer' || role === 'material_supplier') && step === 3) {
+    if (
+      (role === 'customer' ||
+        role === 'manager' ||
+        role === 'material_supplier') &&
+      step === 3
+    ) {
       return <StepFio data={fioData} setData={setFioData} errors={fioErrors} />;
     }
 
     // password for customer/material (second to last)
-    if ((role === 'customer' || role === 'material_supplier') && step === 4) {
+    if (
+      (role === 'customer' ||
+        role === 'manager' ||
+        role === 'material_supplier') &&
+      step === 4
+    ) {
       return (
         <Step3
           password={password}
@@ -576,7 +647,12 @@ export default function MultiStepSignup() {
     }
 
     // verification for customer/material (last)
-    if ((role === 'customer' || role === 'material_supplier') && step === 5) {
+    if (
+      (role === 'customer' ||
+        role === 'manager' ||
+        role === 'material_supplier') &&
+      step === 5
+    ) {
       return (
         <EmailVerification
           serverMessage={serverMessage}

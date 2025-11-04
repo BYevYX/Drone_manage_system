@@ -60,7 +60,7 @@ import {
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { div } from 'framer-motion/client';
-import EditBid from '../layouts/bids/EditBid';
+import EditBid from './bids/EditBid';
 import { useGlobalContext } from '@/src/app/GlobalContext';
 
 const TrendIcon = ({ trend }: { trend: 'up' | 'down' | 'stable' }) => {

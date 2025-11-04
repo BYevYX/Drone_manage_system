@@ -28,8 +28,8 @@ export interface Step2Data {
 const roles = [
   // { value: 'manager', label: 'Менеджер' },
   { value: 'customer', label: 'Заказчик услуг' },
-  { value: 'drone_supplier', label: 'Поставщиков дронов и оборудования' },
-  { value: 'material_supplier', label: 'Поставщиков материалов' },
+  { value: 'drone_supplier', label: 'Поставщик дронов и оборудования' },
+  { value: 'material_supplier', label: 'Поставщик материалов' },
 ];
 
 export function RoleSelect({ value, onChange, error }) {

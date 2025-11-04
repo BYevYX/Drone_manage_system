@@ -19,7 +19,6 @@ import {
 import React, { useState } from 'react';
 
 import { Input, RoleSelect } from './Components';
-import axios from 'axios';
 
 /**
  * Типы и интерфейсы
@@ -133,7 +132,207 @@ export function Step1({
   );
 }
 
-/* ================= CustomerForm (Step2) ================= */
+/* ================= ManagerForm (тот же что CustomerForm) ================= */
+export function ManagerForm({
+  data,
+  setData,
+  errors = {},
+}: {
+  data: Step2Data;
+  setData: React.Dispatch<React.SetStateAction<Step2Data>>;
+  errors?: Record<string, string>;
+}) {
+  // Контент тот же, что и CustomerForm — оставил дублирование для явной экспортной точки
+  return (
+    <>
+      <div className="flex gap-2 mb-6 justify-center">
+        {[
+          { label: 'Компания', value: 'COMPANY' },
+          { label: 'ИП', value: 'INDIVIDUAL' },
+          { label: 'Физ лицо', value: 'PERSON' },
+        ].map(({ label, value }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() =>
+              setData((prev) => ({ ...prev, type: value as Step2Data['type'] }))
+            }
+            className={`px-4 py-2 rounded-full font-nekstmedium ${
+              data.type === value
+                ? 'bg-gradient-to-r from-green-500 to-green-700 text-white'
+                : 'bg-transparent border text-gray-600 border-gray-600 '
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input
+          label={
+            <>
+              Название компании <span className="text-red-500">*</span>
+            </>
+          }
+          value={data.nameCompany}
+          onChange={(e) =>
+            setData((prev) => ({ ...prev, nameCompany: e.target.value }))
+          }
+          id="name_company"
+          icon={<Building size={20} />}
+        />
+        {errors.nameCompany && (
+          <p className="text-red-600 text-sm mt-1">{errors.nameCompany}</p>
+        )}
+
+        <Input
+          label={
+            <>
+              ИНН{' '}
+              {data.type === 'COMPANY' && (
+                <span className="text-red-500">*</span>
+              )}
+            </>
+          }
+          value={data.inn}
+          onChange={(e) =>
+            setData((prev) => ({ ...prev, inn: e.target.value }))
+          }
+          id="inn"
+        />
+        {errors.inn && (
+          <p className="text-red-600 text-sm mt-1">{errors.inn}</p>
+        )}
+
+        <Input
+          label="КПП"
+          value={data.kpp}
+          onChange={(e) =>
+            setData((prev) => ({ ...prev, kpp: e.target.value }))
+          }
+          id="kpp"
+        />
+        <Input
+          label="Код по ОКПО"
+          value={data.okpo}
+          onChange={(e) =>
+            setData((prev) => ({ ...prev, okpo: e.target.value }))
+          }
+          id="okpo"
+        />
+        <Input
+          label="Юридический адрес"
+          value={data.urAddres}
+          onChange={(e) =>
+            setData((prev) => ({ ...prev, urAddres: e.target.value }))
+          }
+          id="ur_addres"
+        />
+        <Input
+          label="Фактический адрес"
+          value={data.factAddres}
+          onChange={(e) =>
+            setData((prev) => ({ ...prev, factAddres: e.target.value }))
+          }
+          id="fact_addres"
+        />
+      </div>
+
+      <div className="mt-6 border border-gray-700 rounded-lg p-4">
+        <label className="flex items-center gap-2 font-nekstmedium text-sm mb-4">
+          <input
+            type="checkbox"
+            checked={data.contactPerson}
+            onChange={(e) =>
+              setData((prev) => ({ ...prev, contactPerson: e.target.checked }))
+            }
+            className="accent-purple-600 hover:cursor-pointer"
+          />
+          Указать данные контактного лица (будет создано контактное лицо
+          контрагента)
+        </label>
+
+        <AnimatePresence>
+          {data.contactPerson && (
+            <motion.div
+              key="contact-person"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Фамилия"
+                  value={data.contact.lastName}
+                  onChange={(e) =>
+                    setData((prev) => ({
+                      ...prev,
+                      contact: { ...prev.contact, lastName: e.target.value },
+                    }))
+                  }
+                  id="surname_agent"
+                  icon={<User size={18} />}
+                />
+                <Input
+                  label="Телефон"
+                  value={data.contact.phone}
+                  onChange={(e) =>
+                    setData((prev) => ({
+                      ...prev,
+                      contact: { ...prev.contact, phone: e.target.value },
+                    }))
+                  }
+                  id="telephone_agent"
+                  icon={<Phone size={18} />}
+                />
+                <Input
+                  label="Имя"
+                  value={data.contact.firstName}
+                  onChange={(e) =>
+                    setData((prev) => ({
+                      ...prev,
+                      contact: { ...prev.contact, firstName: e.target.value },
+                    }))
+                  }
+                  id="name_agent"
+                  icon={<User size={18} />}
+                />
+                <Input
+                  label="E-mail"
+                  value={data.contact.email}
+                  onChange={(e) =>
+                    setData((prev) => ({
+                      ...prev,
+                      contact: { ...prev.contact, email: e.target.value },
+                    }))
+                  }
+                  id="email_agent"
+                  icon={<Mail size={18} />}
+                />
+                <Input
+                  label="Отчество"
+                  value={data.contact.middleName}
+                  onChange={(e) =>
+                    setData((prev) => ({
+                      ...prev,
+                      contact: { ...prev.contact, middleName: e.target.value },
+                    }))
+                  }
+                  id="patronumic_agent"
+                  icon={<User size={18} />}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </>
+  );
+}
+
 export function CustomerForm({
   data,
   setData,
@@ -726,9 +925,8 @@ export function Step3({
 }
 
 /* ================= EmailVerification =================
-   Новый шаг — подтверждение почты после пароля.
-   Показывает сверху данные/сообщение от бэка (serverMessage, serverData).
-   Ошибки возле звездочки (не двигают поле).
+   Теперь EmailVerification НЕ делает запросы самостоятельно —
+   он вызывает onVerify/onResend, которые должны быть переданы извне.
 */
 export function EmailVerification({
   serverMessage,
@@ -736,6 +934,7 @@ export function EmailVerification({
   code,
   setCode,
   codeError,
+  onVerify,
   onResend,
   isVerifying,
 }: {
@@ -749,37 +948,20 @@ export function EmailVerification({
   isVerifying?: boolean;
 }) {
   const [error, setError] = useState('');
-  const onVerify = async () => {
-    try {
-      const res = await axios.get(
-        `http://51.250.43.77:8080/v1/verification`,
-        { params: { code } }, // безопасный способ передать query
-      );
 
-      if (Object.keys(res.data).length === 0) {
-        // код верный
-        window.location.href = '/login';
-      } else {
-        // код неверный
-        setError('Неверный код');
-      }
-    } catch (err) {
-      console.error(err);
-      setError('Неверный код');
-      setError('Ошибка при проверке кода');
-    }
-  };
+  // локальная ошибка остаётся, но основная логика проверки происходит извне (в onVerify)
   return (
     <div className="space-y-4">
       {serverMessage && (
         <div className="flex items-center gap-2 p-4 rounded-lg bg-gradient-to-r from-blue-100 via-blue-50 to-blue-100 border border-blue-300 text-blue-900 text-sm shadow-sm animate-fade-in">
-          <AlertCircle></AlertCircle>
+          <AlertCircle />
           <span>Введите код, отправленный на почту</span>
         </div>
       )}
+
       {error && (
         <div className="p-3 rounded-md bg-blue-50 border border-red-200 text-red-800 text-sm mb-3">
-          Неверный код
+          {error}
         </div>
       )}
 
@@ -807,7 +989,14 @@ export function EmailVerification({
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={onVerify}
+          onClick={() => {
+            setError('');
+            try {
+              onVerify();
+            } catch (err) {
+              setError('Ошибка при проверке кода');
+            }
+          }}
           disabled={isVerifying}
           className={`px-4 py-2 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition-transform hover:scale-105 duration-300 shadow-lg ${
             isVerifying ? 'opacity-60 cursor-not-allowed' : ''

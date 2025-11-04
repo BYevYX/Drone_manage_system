@@ -30,42 +30,28 @@ const roleLabels = {
 
 export default function HeaderProfile({
   user: userProp,
-  role: roleProp = 'contractor',
+  role: roleProp = 'CONTRACTOR',
   notifications: notificationsProp = 2,
   onLanguageChange, // optional callback from parent
-}: {
-  user?: any;
-  role?: string;
-  notifications?: number;
-  onLanguageChange?: (lang: string) => void;
-} = {}) {
-  const globalContext = useGlobalContext();
+}) {
+  const { userInfo } = useGlobalContext();
 
   const [user] = useState(
     userProp ?? {
       name: 'Иван Петров',
       email: 'ivan.petrov@example.com',
-      balance: 1240.5,
+      balance: 1243230.5,
       avatarUrl: null,
     },
   );
 
   // role — "рабочая" роль (используется в UI)
-  const [role, setRole] = useState('guest');
-  
-  useEffect(() => {
-    // Check if we're on the client side and context is available
-    if (typeof window !== 'undefined' && globalContext?.userRole) {
-      setRole(globalContext.userRole);
-    }
-  }, [globalContext?.userRole]);
+  const [role, setRole] = useState(userInfo.userRole);
+  useEffect(() => setRole(userInfo.userRole), [userInfo.userRole]);
 
   const onSignOut = () => {
-    // Check if we're on the client side
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('userRole', 'guest');
-      window.location.href = '/';
-    }
+    localStorage.setItem('userRole', 'guest');
+    window.location.href = '/';
   };
 
   const [isOpen, setIsOpen] = useState(false);
@@ -98,9 +84,6 @@ export default function HeaderProfile({
   };
 
   useEffect(() => {
-    // Check if we're on the client side
-    if (typeof window === 'undefined') return;
-    
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target))
         setIsOpen(false);
@@ -190,17 +173,17 @@ export default function HeaderProfile({
       },
       {
         label: 'Загрузить карту поля',
-        href: '/orders/new#upload',
+        href: '/dashboard/contractor/requests',
         icon: <Map size={16} />,
       },
       {
         label: 'Отслеживание заказа',
-        href: '/orders/track',
+        href: '/dashboard/contractor/requests',
         icon: <List size={16} />,
       },
       {
         label: 'Получить отчёт',
-        href: '/orders/reports',
+        href: '/dashboard/contractor/requests',
         icon: <Package size={16} />,
         badge: demoCounts.contractor.unreadReports,
       },
@@ -209,18 +192,18 @@ export default function HeaderProfile({
     drone_supplier: [
       {
         label: 'Мой парк',
-        href: '/supplier/drones',
+        href: '/drones',
         icon: <Truck size={16} />,
         badge: demoCounts.drone_supplier.availableDrones,
       },
       {
         label: 'Добавить дрон',
-        href: '/supplier/drones/new',
+        href: '/drones',
         icon: <Plus size={16} />,
       },
       {
         label: 'Доступность',
-        href: '/supplier/availability',
+        href: '/drones',
         icon: <List size={16} />,
       },
       {
@@ -234,24 +217,24 @@ export default function HeaderProfile({
     material_supplier: [
       {
         label: 'Каталог материалов',
-        href: '/materials/catalog',
+        href: '/materials',
         icon: <List size={16} />,
       },
       {
         label: 'Склад',
-        href: '/materials/stock',
+        href: '/materials',
         icon: <Server size={16} />,
         badge: demoCounts.material_supplier.lowStockAlerts,
       },
       {
         label: 'Заявки на поставку',
-        href: '/materials/requests',
+        href: '/materials',
         icon: <Package size={16} />,
         badge: demoCounts.material_supplier.supplyRequests,
       },
       {
         label: 'Подтвердить поставку',
-        href: '/materials/confirm',
+        href: '/materials',
         icon: <Check size={16} />,
       },
     ],
@@ -273,8 +256,9 @@ export default function HeaderProfile({
     { href: '/notifications', label: 'Уведомления', icon: <Bell size={16} /> },
   ];
 
+  const normalizedRole = (role || '').toLowerCase();
   const quickActions =
-    roleQuickActionsMap[role] || roleQuickActionsMap.contractor;
+    roleQuickActionsMap[normalizedRole] || roleQuickActionsMap.guest;
 
   // Language switcher (stub): updates local state and notifies parent via callback.
   const changeLanguage = (lang) => {
@@ -320,7 +304,7 @@ export default function HeaderProfile({
 
         <div className="hidden md:flex flex-col text-left leading-tight">
           <span className="text-sm font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">
-            {user.name || 'Пользователь'}
+            {userInfo.firstName} {userInfo.lastName}
           </span>
           <span className="text-xs text-gray-500">
             {roleLabels[role] ?? role}
@@ -356,17 +340,17 @@ export default function HeaderProfile({
               <div className="flex justify-between items-start">
                 <div>
                   <div className="text-sm font-semibold text-gray-900">
-                    {user.name || 'Пользователь'}
+                    {userInfo.firstName} {userInfo.lastName}
                   </div>
-                  <div className="text-xs text-gray-500">{user.email}</div>
+                  <div className="text-xs text-gray-500">{userInfo.email}</div>
                 </div>
 
-                <div className="text-right">
+                {/* <div className="text-right">
                   <div className="text-xs text-gray-400">Баланс</div>
                   <div className="text-sm font-semibold text-gray-900">
                     {fmt(user.balance)}
                   </div>
-                </div>
+                </div> */}
               </div>
 
               <div className="mt-2 flex items-center gap-2">
@@ -376,7 +360,7 @@ export default function HeaderProfile({
 
                 <button
                   onClick={copyEmail}
-                  className="ml-auto inline-flex items-center gap-1 px-2 py-1 text-xs bg-gray-50 hover:bg-gray-100 rounded-md transition"
+                  className="ml-auto hidden items-center gap-1 px-2 py-1 text-xs bg-gray-50 hover:bg-gray-100 rounded-md transition"
                 >
                   {copied ? (
                     <Check size={14} className="text-emerald-500" />

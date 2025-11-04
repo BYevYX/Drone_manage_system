@@ -466,7 +466,7 @@ export default function RequestsWithEditor({
   const deleteField = async (fieldId: number) => {
     if (!confirm(`Удалить поле #${fieldId}?`)) return;
     try {
-      const urlField = `${API_BASE}/api/orders/${fieldId}`;
+      const urlField = `${API_BASE}/api/fields/${fieldId}`;
       console.info('deleteField: DELETE', urlField);
       const res = await authFetch(urlField, { method: 'DELETE' });
       let bodyText = '';
@@ -553,29 +553,6 @@ export default function RequestsWithEditor({
     }
   };
 
-  const fetchOrderFields = async (orderId: number): Promise<number[]> => {
-    try {
-      const res = await authFetch(`${API_BASE}/api/orders/${orderId}/fields`);
-      if (!res.ok) {
-        console.warn(`fetchOrderFields ${orderId} failed ${res.status}`);
-        return [];
-      }
-      const data = await res.json();
-      // ожидаем { "fieldIds": [1,2,...] }
-      if (Array.isArray(data.fieldIds))
-        return data.fieldIds.map((n: any) => Number(n)).filter(Number.isFinite);
-      // иногда бек может вернуть { fields: [...] } или { fieldIds: null } — ловим простые варианты
-      if (Array.isArray(data.fields))
-        return data.fields
-          .map((f: any) => Number(f.fieldId ?? f.id ?? f))
-          .filter(Number.isFinite);
-      return [];
-    } catch (err) {
-      console.error('fetchOrderFields error', err);
-      return [];
-    }
-  };
-
   // fetch orders + for each order load field ids via GET /api/orders/{orderId}/fields
   const fetchOrders = async (page = 1, limit = 100) => {
     try {
@@ -590,8 +567,40 @@ export default function RequestsWithEditor({
       const data = await res.json();
       const arr = Array.isArray(data.orders) ? data.orders : [];
 
-      // Первый проход — маппим базовые поля заказа
-      const baseRequests: Request[] = arr.map((o: any) => {
+      // ensure fields list present (we need it to resolve names)
+      if (fieldsList.length === 0) await fetchFields();
+
+      // параллельно получаем field ids для каждого заказа
+      const fieldsPerOrder = await Promise.all(
+        arr.map(async (o: any) => {
+          const orderId = Number(o.orderId ?? o.id ?? 0);
+          if (!orderId) return { orderId: null, fieldIds: [] };
+          try {
+            const r = await authFetch(
+              `${API_BASE}/api/orders/${orderId}/fields`,
+            );
+            if (!r.ok) return { orderId, fieldIds: [] };
+            const d = await r.json();
+            const ids = Array.isArray(d.fieldIds)
+              ? d.fieldIds.map((x: any) => Number(x))
+              : [];
+            return { orderId, fieldIds: ids };
+          } catch (e) {
+            console.warn(
+              'fetchOrders: get fields for order failed',
+              orderId,
+              e,
+            );
+            return { orderId, fieldIds: [] };
+          }
+        }),
+      );
+
+      const fieldsMap = new Map<number, number[]>();
+      for (const it of fieldsPerOrder)
+        if (it.orderId) fieldsMap.set(it.orderId, it.fieldIds);
+
+      const mapped: Request[] = arr.map((o: any) => {
         const id = Number(
           o.orderId ?? o.id ?? Math.floor(Math.random() * 1000000),
         );
@@ -600,11 +609,26 @@ export default function RequestsWithEditor({
           ? new Date(rawDate).toISOString().slice(0, 10)
           : new Date().toISOString().slice(0, 10);
 
+        // try to resolve field name from fieldsMap -> fieldsList
+        const linkedFieldIds = fieldsMap.get(id) ?? [];
+        let fieldName = `Поле #${id}`;
+        if (linkedFieldIds.length > 0) {
+          const f = fieldsList.find((ff) => ff.fieldId === linkedFieldIds[0]);
+          if (f) fieldName = f.cadastralNumber ?? `Поле #${f.fieldId}`;
+          else fieldName = `Поле #${linkedFieldIds[0]}`;
+        } else {
+          // fallback to possible properties
+          fieldName =
+            o.fieldName ??
+            o.field ??
+            (o.metadata && o.metadata.name) ??
+            `Поле #${o.fieldId ?? id}`;
+        }
+
         const typeLabel = o.typeProcessId
           ? typeProcessIdToLabel(Number(o.typeProcessId))
           : (o.type ?? 'Неизвестно');
         const stat = mapStatus(o.status);
-
         const previewObj =
           o.preview ??
           (o.fieldPreview || o.segmentsPreview
@@ -617,17 +641,10 @@ export default function RequestsWithEditor({
           o.metadata ?? (o.extraMetadata ? o.extraMetadata : undefined);
         const coords = Array.isArray(o.coords) ? o.coords : [];
 
-        // временно ставим заглушку — заменим ниже после запроса /api/orders/{orderId}/fields
-        const initialFieldName =
-          o.fieldName ??
-          o.field ??
-          (o.metadata && o.metadata.name) ??
-          `ID:${o.fieldId ?? id}`;
-
         return {
           id,
           date: dateIso,
-          field: initialFieldName,
+          field: fieldName,
           type: typeLabel,
           status: stat,
           coords,
@@ -640,37 +657,7 @@ export default function RequestsWithEditor({
         } as Request;
       });
 
-      // Сразу выставляем базовый список, чтобы UI не был пустым
-      setRequests(baseRequests);
-
-      // Параллельно запрашиваем поля для каждого заказа и обновляем имена полей
-      const updates = await Promise.all(
-        baseRequests.map(async (r) => {
-          const fieldIds = await fetchOrderFields(r.id);
-          if (fieldIds.length === 0) return null; // нет привязанных полей
-          // Берём первый fieldId (если может быть несколько — логика может быть изменена)
-          const fid = fieldIds[0];
-          // ищем его в loaded fieldsList
-          const f = fieldsList.find((x) => x.fieldId === fid);
-          const name = f
-            ? (f.cadastralNumber ?? `ID: #${f.fieldId}`)
-            : `ID: #${fid}`;
-          return { orderId: r.id, fieldId: fid, name };
-        }),
-      );
-
-      // Применяем найденные имена к локальным requests
-      const updatedRequests = baseRequests.map((r) => {
-        const upd = updates.find((u) => u && u.orderId === r.id) as any;
-        if (!upd) return r;
-        return {
-          ...r,
-          field: upd.name,
-          metadata: { ...(r.metadata ?? {}), name: upd.name },
-        };
-      });
-
-      setRequests(updatedRequests);
+      setRequests(mapped);
     } catch (err) {
       console.error('fetchOrders error', err);
       setRequests([]);
@@ -678,14 +665,9 @@ export default function RequestsWithEditor({
   };
 
   useEffect(() => {
-    (async () => {
-      // сначала подгружаем поля, чтобы иметь cadastralNumber при обработке orders
-      await fetchFields();
-      // затем профиль
-      await fetchContractorFromLocalStorage();
-      // затем заказы (внутри fetchOrders мы используем fieldsList для более точных названий)
-      await fetchOrders();
-    })();
+    fetchFields();
+    fetchContractorFromLocalStorage();
+    fetchOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -856,47 +838,11 @@ export default function RequestsWithEditor({
     }
   };
 
-  // Replace existing deleteRequest with this async implementation
-  const deleteRequest = async (id: number) => {
+  const deleteRequest = (id: number) => {
     if (!confirm('Удалить заявку?')) return;
-
-    try {
-      console.log('deleteRequest ->', id);
-      // show a quick optimistic UI cue? we'll wait for server response before removing
-      const url = `${API_BASE}/api/orders/${id}`;
-      console.log('DELETE ->', url);
-
-      const res = await authFetch(url, { method: 'DELETE' });
-      console.log('deleteRequest response', res);
-
-      if (!res.ok) {
-        // try to extract server message for better error info
-        let body = '';
-        try {
-          body = await res.text();
-        } catch (e) {
-          /* ignore */
-        }
-        throw new Error(`Ошибка удаления заказа: ${res.status} ${body}`);
-      }
-
-      // успешное удаление — обновляем локальный список заказов
-      setRequests((prev) => prev.filter((r) => r.id !== id));
-
-      // если редактор открыт на этом заказе — закрываем
-      setEditorOpen(false);
-      setEditingRequest(null);
-      // если открыт просмотр — закрываем
-      setViewRequest((v) => (v && v.id === id ? null : v));
-
-      // можно дополнительно рефрешнуть список с сервера, чтобы наверняка
-      // await fetchOrders(); // <-- раскомментируй если хочешь полную синхронизацию
-
-      alert(`Заказ #${id} удалён`);
-    } catch (err: any) {
-      console.error('deleteRequest error', err);
-      alert('Не удалось удалить заявку: ' + (err?.message ?? err));
-    }
+    setRequests((prev) => prev.filter((r) => r.id !== id));
+    setEditorOpen(false);
+    setEditingRequest(null);
   };
 
   // helper for upload JSON from FieldUploaderInline — placeholder endpoint; you can change to real one later
@@ -1418,7 +1364,7 @@ export default function RequestsWithEditor({
                           </select>
 
                           {/* кнопка удаления выбранного поля */}
-                          {/* {(form as any).selectedFieldId >= 0 && (
+                          {(form as any).selectedFieldId >= 0 && (
                             <button
                               onClick={() =>
                                 deleteField((form as any).selectedFieldId)
@@ -1427,8 +1373,8 @@ export default function RequestsWithEditor({
                               title="Удалить поле"
                             >
                               <Trash2 size={16} className="text-red-600" />
-                            </button> */}
-                          {/* )} */}
+                            </button>
+                          )}
                         </div>
                       </div>
 

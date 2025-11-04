@@ -1,19 +1,11 @@
 'use client';
-import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { usePathname } from 'next/navigation';
 import {
   Home,
   ClipboardList,
   MapPin,
-  Trash2,
-  Edit,
   Map,
-  Eye,
-  FileText,
   MessageSquare,
-  LogOut,
-  CheckCircle2,
   User,
   Settings,
   Package,
@@ -21,41 +13,31 @@ import {
   ChartBar,
   Users,
   CalendarDays,
-  Fuel,
-  Leaf,
-  AlertTriangle,
   ChevronLeft,
   ChevronRight,
-  Plus,
-  Search,
-  Filter,
-  Download,
-  Upload,
   RefreshCw,
-  BarChart2,
   Layers,
 } from 'lucide-react';
-import { ActiveMenuContext } from './ActiveMenuContext';
-
-import EditBid from './customer/layouts/bids/EditBid';
-import { useGlobalContext } from '../GlobalContext';
-import Dashboard from './customer/layouts/Dashboard';
-import AddBid from './customer/layouts/bids/AddBid';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
 
-import Requests from './customer/layouts/Requests';
+import { ActiveMenuContext } from './ActiveMenuContext';
+import { useGlobalContext } from '../GlobalContext';
 import Footer from '@/src/shared/ui/Footer';
 
-// Новый набор ролей: contractor (бывший customer), manager, drone_supplier, material_supplier
 const RoleConfig = {
   contractor: {
     menu: [
+      { id: 'contractor/main', icon: <Home size={20} />, label: 'Главная' },
       {
         id: 'contractor/requests',
         icon: <ClipboardList size={20} />,
         label: 'Мои заявки',
       },
-      { id: 'contractor/fields', icon: <Map size={20} />, label: 'Мои поля' },
+      { id: 'fields', icon: <Map size={20} />, label: 'Карта полей' },
+      { id: 'reports', icon: <ChartBar size={20} />, label: 'Отчёты' },
+      { id: 'support', icon: <MessageSquare size={20} />, label: 'Поддержка' },
     ],
     stats: [
       { title: 'Активные заявки', value: 3, color: 'bg-blue-100', trend: 'up' },
@@ -74,7 +56,35 @@ const RoleConfig = {
       },
     ],
   },
-
+  operator: {
+    menu: [
+      { id: 'tasks', icon: <ClipboardList size={20} />, label: 'Задачи' },
+      { id: 'tasksMap', icon: <Map size={20} />, label: 'Карта заданий' },
+      { id: 'analytics', icon: <ChartBar size={20} />, label: 'Аналитика' },
+      { id: 'shifts', icon: <CalendarDays size={20} />, label: 'График смен' },
+      {
+        id: 'flight-planning',
+        icon: <Layers size={20} />,
+        label: 'Планирование полетов',
+      },
+    ],
+    stats: [
+      {
+        title: 'Активные задачи',
+        value: 5,
+        color: 'bg-yellow-100',
+        trend: 'up',
+      },
+      {
+        title: 'Дроны в работе',
+        value: 3,
+        color: 'bg-purple-100',
+        trend: 'stable',
+      },
+      { title: 'Смен сегодня', value: 2, color: 'bg-blue-100', trend: 'down' },
+      { title: 'Пройдено (км)', value: 120, color: 'bg-cyan-100', trend: 'up' },
+    ],
+  },
   manager: {
     menu: [
       { id: 'overview', icon: <Home size={20} />, label: 'Обзор' },
@@ -110,77 +120,13 @@ const RoleConfig = {
       },
     ],
   },
-
-  drone_supplier: {
-    // меню для поставщиков дронов
+  supplier: {
     menu: [
-      {
-        id: 'drone-orders',
-        icon: <Package size={20} />,
-        label: 'Заказы на дроны',
-      },
-      {
-        id: 'drone-inventory',
-        icon: <ClipboardList size={20} />,
-        label: 'Склад дронов',
-      },
-      {
-        id: 'drone-deliveries',
-        icon: <MapPin size={20} />,
-        label: 'Доставка дронов',
-      },
-      {
-        id: 'drone-support',
-        icon: <MessageSquare size={20} />,
-        label: 'Поддержка',
-      },
-    ],
-    stats: [
-      {
-        title: 'Активные заказы',
-        value: 6,
-        color: 'bg-orange-100',
-        trend: 'up',
-      },
-      {
-        title: 'В наличии (ед.)',
-        value: 42,
-        color: 'bg-cyan-100',
-        trend: 'stable',
-      },
-      {
-        title: 'Отгрузки сегодня',
-        value: 3,
-        color: 'bg-green-100',
-        trend: 'up',
-      },
-      { title: 'Просрочено', value: 0, color: 'bg-red-100', trend: 'down' },
-    ],
-  },
-
-  material_supplier: {
-    // меню для поставщиков материалов (удобрения, гербициды и т.п.)
-    menu: [
-      {
-        id: 'material-orders',
-        icon: <Package size={20} />,
-        label: 'Заказы на материалы',
-      },
-      {
-        id: 'material-inventory',
-        icon: <ClipboardList size={20} />,
-        label: 'Склад материалов',
-      },
-      {
-        id: 'material-deliveries',
-        icon: <MapPin size={20} />,
-        label: 'Поставки',
-      },
-      {
-        id: 'material-analytics',
-        icon: <ChartBar size={20} />,
-        label: 'Аналитика',
-      },
+      { id: 'orders', icon: <Package size={20} />, label: 'Заказы' },
+      { id: 'inventory', icon: <ClipboardList size={20} />, label: 'Склад' },
+      { id: 'deliveries', icon: <MapPin size={20} />, label: 'Поставки' },
+      { id: 'analytics', icon: <ChartBar size={20} />, label: 'Аналитика' },
+      { id: 'support', icon: <MessageSquare size={20} />, label: 'Поддержка' },
     ],
     stats: [
       {
@@ -190,16 +136,16 @@ const RoleConfig = {
         trend: 'up',
       },
       {
-        title: 'В наличии (т)',
-        value: 340,
-        color: 'bg-green-100',
+        title: 'Завершено поставок',
+        value: 23,
+        color: 'bg-cyan-100',
         trend: 'stable',
       },
       {
-        title: 'Поставки сегодня',
-        value: 5,
-        color: 'bg-cyan-100',
-        trend: 'up',
+        title: 'Склад (ед.)',
+        value: 340,
+        color: 'bg-green-100',
+        trend: 'down',
       },
       { title: 'Просрочено', value: 1, color: 'bg-red-100', trend: 'down' },
     ],
@@ -248,32 +194,39 @@ const NotificationBadge = ({ count }: { count: number }) => (
 );
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { userInfo, setUserInfo } = useGlobalContext();
+  const { userRole, setUserRole } = useGlobalContext();
   const fullPathname = usePathname();
-
-  // --- хуки всегда вверху компонента ---
+  const pathname = fullPathname ? fullPathname.replace('/dashboard/', '') : '';
+  
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(
     notifications.filter((n) => !n.read).length,
   );
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const pathname = fullPathname ? fullPathname.replace('/dashboard/', '') : '';
   const [activeMenu, setActiveMenu] = useState(pathname);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+
+  if (!userRole || userRole === 'guest') return null; // или <LoadingSpinner />
+
+  // Сохраняем состояние sidebar в localStorage
   useEffect(() => {
+    // Check if we're on the client side
+    if (typeof window === 'undefined') return;
+    
     const ls = localStorage.getItem('sidebarOpen');
     if (ls !== null) setSidebarOpen(ls === 'true');
   }, []);
 
   useEffect(() => {
+    // Check if we're on the client side
+    if (typeof window === 'undefined') return;
+    
     localStorage.setItem('sidebarOpen', String(sidebarOpen));
-    setFirstName(localStorage.getItem('firstName') || '');
-    setLastName(localStorage.getItem('lastName') || '');
   }, [sidebarOpen]);
 
+  // Авто-закрытие уведомлений при клике вне окна
   useEffect(() => {
     if (!showNotifications) return;
+    
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (
@@ -283,8 +236,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         setShowNotifications(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    
+    // Check if we're on the client side
+    if (typeof window !== 'undefined') {
+      document.addEventListener('mousedown', handler);
+      return () => document.removeEventListener('mousedown', handler);
+    }
   }, [showNotifications]);
 
   const markNotificationsAsRead = () => {
@@ -292,37 +249,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     setShowNotifications(false);
   };
 
-  // если userInfo ещё не загружен — показываем загрузку
-  if (!userInfo || !userInfo.userRole) {
-    return (
-      <div className="flex items-center justify-center h-screen text-gray-500">
-        Загрузка...
-      </div>
-    );
-  }
-
-  // backward-compat: старые значения ролей могут быть 'customer' или 'supplier' и т.д.
-  const roleMap: Record<string, keyof typeof RoleConfig> = {
-    customer: 'contractor',
-    contractor: 'contractor',
-    manager: 'manager',
-    supplier: 'material_supplier',
-    drone_supplier: 'drone_supplier',
-    material_supplier: 'material_supplier',
-    // если придут другие значения — по умолчанию возьмём contractor
-  };
-
-  const roleKey =
-    (roleMap[userInfo.userRole] as keyof typeof RoleConfig) ?? 'contractor';
-  const roleData = RoleConfig[roleKey] ?? RoleConfig.contractor;
-
-  // безопасная обработка смены роли в селекте
-  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newRole = e.target.value;
-    if (typeof setUserInfo === 'function') {
-      setUserInfo({ ...userInfo, userRole: newRole });
-    }
-  };
 
   return (
     <ActiveMenuContext.Provider value={{ activeMenu, setActiveMenu }}>
@@ -337,7 +263,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 ? '0 6px 32px 0 rgba(31,38,135,0.17), 0 1.5px 8px 0 rgba(31,38,135,0.06)'
                 : '0 1px 2px 0 rgba(31,38,135,0.07)',
               borderRadius: sidebarOpen ? '0 2rem 2rem 0' : '0 2.3rem 2.3rem 0',
-              margin: '0',
+              margin: '0', // Убираем все внешние отступы
               background: 'white',
             }}
             className={`border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden`}
@@ -369,10 +295,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 )}
               </button>
             </div>
-
             <nav className="flex-1 px-2 py-4 space-y-1">
-              {roleData.menu.map((item) => (
+              {RoleConfig[userRole as keyof typeof RoleConfig]?.menu.map((item) => (
                 <Link href={`/dashboard/${item.id}`} key={item.id}>
+                  {' '}
                   <motion.button
                     key={item.id}
                     onClick={() => setActiveMenu(item.id)}
@@ -406,8 +332,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               ))}
             </nav>
-
-            <div className="p-4 border-t hidden border-gray-100">
+            <div className="p-4 border-t border-gray-100">
               <motion.div
                 initial={false}
                 animate={{
@@ -417,16 +342,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 className="transition-all duration-300"
               >
                 <select
-                  value={roleKey}
-                  onChange={handleRoleChange}
+                  value={userRole}
+                  onChange={(e) => setUserRole(e.target.value as any)}
                   className="w-full p-2 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                 >
-                  <option value="contractor">Клиент (contractor)</option>
+                  <option value="contractor">Подрядчик</option>
+                  <option value="operator">Оператор</option>
                   <option value="manager">Менеджер</option>
                   <option value="drone_supplier">Поставщик дронов</option>
-                  <option value="material_supplier">
-                    Поставщик материалов
-                  </option>
+                  <option value="material_supplier">Поставщик материалов</option>
                 </select>
               </motion.div>
             </div>
@@ -436,10 +360,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <main className="flex-1 flex flex-col overflow-hidden">
             <header className="flex items-center justify-between h-16 px-6 bg-white border-b border-gray-100 shadow-sm py-[15px]">
               <h2 className="text-xl font-semibold capitalize">
-                {roleData.menu.find((m) => m.id === activeMenu)?.label ??
-                  roleData.menu[0].label}
+                {
+                  RoleConfig[userRole as keyof typeof RoleConfig]?.menu.find(
+                    (m) => m.id === activeMenu,
+                  )?.label
+                }
               </h2>
-
               <div className="flex items-center gap-4">
                 <div className="relative">
                   <button
@@ -452,7 +378,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       <NotificationBadge count={unreadNotifications} />
                     )}
                   </button>
-
                   <AnimatePresence>
                     {showNotifications && (
                       <motion.div
@@ -474,11 +399,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                           {notifications.map((notification) => (
                             <div
                               key={notification.id}
-                              className={`p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer transition-colors ${notification.read ? 'bg-gray-50' : 'bg-white'}`}
+                              className={`p-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 cursor-pointer transition-colors ${
+                                notification.read ? 'bg-gray-50' : 'bg-white'
+                              }`}
                             >
                               <div className="flex items-start gap-2">
                                 <div
-                                  className={`mt-1 w-2 h-2 rounded-full ${notification.type === 'alert' ? 'bg-red-500' : notification.type === 'warning' ? 'bg-yellow-500' : notification.type === 'success' ? 'bg-green-500' : 'bg-blue-500'}`}
+                                  className={`mt-1 w-2 h-2 rounded-full ${
+                                    notification.type === 'alert'
+                                      ? 'bg-red-500'
+                                      : notification.type === 'warning'
+                                        ? 'bg-yellow-500'
+                                        : notification.type === 'success'
+                                          ? 'bg-green-500'
+                                          : 'bg-blue-500'
+                                  }`}
                                 ></div>
                                 <div>
                                   <p className="text-sm">{notification.text}</p>
@@ -494,18 +429,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     )}
                   </AnimatePresence>
                 </div>
-
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shadow-inner">
                     <User size={20} className="text-emerald-600" />
                   </div>
                   <span className="hidden md:inline font-medium">
-                    {firstName} {lastName}
+                    Алексей Петров
                   </span>
                 </div>
               </div>
             </header>
-
             <section className="min-h-[calc(100vh-70px)] p-[20px] bg-transparent">
               {children}
             </section>
