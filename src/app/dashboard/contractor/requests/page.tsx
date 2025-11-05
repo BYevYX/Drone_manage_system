@@ -14,14 +14,11 @@ import {
   Save,
   X,
 } from 'lucide-react';
-import Link from 'next/link';
 
-/** ---------------------------
- *  Типы
- *  --------------------------- */
+/** Types */
 interface Request {
   id: number;
-  date: string; // желаемая дата выполнения (YYYY-MM-DD)
+  date: string;
   field: string;
   crop?: string;
   type: string;
@@ -43,6 +40,7 @@ interface Request {
     parcels?: string;
     crop?: string;
     notes?: string;
+    analyticsResponse?: any;
   };
   preview?: {
     fieldPreview?: string | null;
@@ -67,9 +65,7 @@ interface UserModel {
   contractorProfile?: any;
 }
 
-/** ---------------------------
- *  Статические опции
- *  --------------------------- */
+/** Static options */
 const statusOptions = [
   { value: 'all', label: 'Все' },
   { value: 'new', label: 'Новые' },
@@ -84,9 +80,11 @@ const treatmentOptions = [
   { value: 'mapping', label: 'Картографирование' },
 ];
 
-/** ---------------------------
- *  ModernSelect (ваша версия)
- *  --------------------------- */
+/** small helper */
+const cn = (...parts: Array<string | false | null | undefined>) =>
+  parts.filter(Boolean).join(' ');
+
+/** ModernSelect (compact) */
 const ModernSelect = ({
   label,
   options,
@@ -118,11 +116,12 @@ const ModernSelect = ({
       <div className="relative">
         <button
           onClick={() => setIsOpen((s) => !s)}
-          className={`w-full px-4 py-3.5 text-left bg-white/90 rounded-xl border ${
+          className={cn(
+            'w-full px-4 py-3.5 text-left bg-white/90 rounded-xl border text-gray-800 shadow-sm flex items-center justify-between',
             isOpen
               ? 'border-emerald-400 ring-2 ring-emerald-400/30'
-              : 'border-gray-300/80'
-          } text-gray-800 shadow-sm flex items-center justify-between`}
+              : 'border-gray-300/80',
+          )}
         >
           <span
             className={
@@ -133,7 +132,7 @@ const ModernSelect = ({
           </span>
           <ChevronDown
             size={18}
-            className={`text-gray-500 ${isOpen ? 'text-emerald-500' : ''}`}
+            className={cn('text-gray-500', isOpen && 'text-emerald-500')}
           />
         </button>
 
@@ -152,9 +151,11 @@ const ModernSelect = ({
                     onChange(opt);
                     setIsOpen(false);
                   }}
-                  className={`px-4 py-2.5 cursor-pointer flex items-center justify-between ${
-                    value === opt ? 'bg-emerald-50' : 'hover:bg-gray-50'
-                  } ${idx === 0 ? '' : 'border-t border-gray-100'}`}
+                  className={cn(
+                    'px-4 py-2.5 cursor-pointer flex items-center justify-between',
+                    value === opt ? 'bg-emerald-50' : 'hover:bg-gray-50',
+                    idx === 0 ? '' : 'border-t border-gray-100',
+                  )}
                 >
                   <span className="text-gray-700">{opt}</span>
                   {value === opt && (
@@ -170,35 +171,31 @@ const ModernSelect = ({
   );
 };
 
-/** ---------------------------
- *  FieldUploader — принимает JSON (файл) и вызывает callback на родителя
- *  --------------------------- */
 function FieldUploaderInline({
   initialPreview,
   onChangePreview,
   onChangeMetadata,
-  onUploadJson,
+  onParsedJson,
 }: {
-  initialPreview?: {
-    fieldPreview?: string | null;
-    segmentsPreview?: string | null;
-  };
+  initialPreview?:
+    | { fieldPreview?: string | null; segmentsPreview?: string | null }
+    | undefined;
   onChangePreview: (p: {
     fieldPreview?: string | null;
     segmentsPreview?: string | null;
   }) => void;
   onChangeMetadata: (m: Request['metadata'] | null) => void;
-  // callback: передаём разобранный json и получаем Promise — родитель может отправить на бэк
-  onUploadJson?: (json: any) => Promise<void> | void;
+  onParsedJson?: (json: any | null) => void;
 }) {
   const [jsonPreview, setJsonPreview] = useState<any | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
   const [progress, setProgress] = useState(0);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    onChangePreview({ fieldPreview: null, segmentsPreview: null });
-  }, [onChangePreview]);
+  useEffect(
+    () => onChangePreview({ fieldPreview: null, segmentsPreview: null }),
+    [onChangePreview],
+  );
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -207,22 +204,18 @@ function FieldUploaderInline({
       fileRef.current?.click();
       return;
     }
-
-    setIsUploading(true);
+    setIsParsing(true);
     setProgress(0);
-
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
-      // имитация прогресса
-      for (let i = 1; i <= 8; i++) {
+      for (let i = 1; i <= 6; i++) {
+        // UX progress
         // eslint-disable-next-line no-await-in-loop
-        await sleep(60);
-        setProgress(Math.round((i / 8) * 100));
+        await sleep(30);
+        setProgress(Math.round((i / 6) * 100));
       }
       setJsonPreview(parsed);
-
-      // автозаполнение метаданных если есть
       const meta: Request['metadata'] = {
         name:
           parsed.name ?? parsed.cadastralNumber ?? parsed.title ?? undefined,
@@ -234,20 +227,17 @@ function FieldUploaderInline({
         notes: parsed.notes ?? undefined,
       };
       onChangeMetadata(meta);
-
-      // вызываем callback для отправки на сервер (placeholder endpoint)
-      if (onUploadJson) {
-        await onUploadJson(parsed);
-      }
+      if (onParsedJson) onParsedJson(parsed);
     } catch (err) {
       console.error('FieldUploaderInline parse error', err);
       onChangeMetadata(null);
       setJsonPreview(null);
+      if (onParsedJson) onParsedJson(null);
       alert('Не удалось распарсить JSON файла поля.');
     } finally {
-      setIsUploading(false);
+      setIsParsing(false);
       setProgress(100);
-      await sleep(200);
+      await sleep(120);
       setProgress(0);
     }
   };
@@ -271,15 +261,15 @@ function FieldUploaderInline({
               Выбрать JSON характеристик поля
             </button>
             <div className="text-sm text-gray-500">
-              Загрузите JSON с описанием поля (cadastralNumber, area, parcels и
-              т.д.).
+              Загрузите JSON с описанием поля (он будет отправлен в неизменном
+              виде при сохранении заявки).
             </div>
           </div>
         )}
 
-        {isUploading && (
+        {isParsing && (
           <div className="mt-2">
-            <div className="text-sm text-gray-600">Загрузка...</div>
+            <div className="text-sm text-gray-600">Парсинг файла...</div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
               <div
                 style={{ width: `${progress}%` }}
@@ -299,6 +289,7 @@ function FieldUploaderInline({
                 onClick={() => {
                   setJsonPreview(null);
                   onChangeMetadata(null);
+                  if (onParsedJson) onParsedJson(null);
                 }}
                 className="px-3 py-1 rounded-lg border"
               >
@@ -312,9 +303,7 @@ function FieldUploaderInline({
   );
 }
 
-/** ---------------------------
- *  Главный компонент: RequestsWithEditor
- *  --------------------------- */
+/** Main component */
 export default function RequestsWithEditor({
   setActiveMenu,
 }: {
@@ -322,24 +311,22 @@ export default function RequestsWithEditor({
 }) {
   const API_BASE = 'https://droneagro.duckdns.org';
 
-  // универсальная обёртка, добавляет Bearer если есть
   const authFetch = async (url: string, options: RequestInit = {}) => {
-    const token = localStorage.getItem('accessToken');
-    const headers: Record<string, string> = {
-      // Content-Type ставим ТОЛЬКО если есть body и body не FormData
-    };
+    const token =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('accessToken')
+        : null;
+    const headers: Record<string, string> = {};
     if (token) headers.Authorization = `Bearer ${token}`;
-
     const body = options.body as any;
     const isFormData =
       typeof FormData !== 'undefined' && body instanceof FormData;
     if (body && !isFormData) headers['Content-Type'] = 'application/json';
-
-    const mergedHeaders = {
+    const merged = {
       ...(options.headers as Record<string, string>),
       ...headers,
     };
-    return fetch(url, { ...options, headers: mergedHeaders });
+    return fetch(url, { ...options, headers: merged });
   };
 
   const [status, setStatus] = useState('all');
@@ -347,236 +334,106 @@ export default function RequestsWithEditor({
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-
   const [requests, setRequests] = useState<Request[]>([]);
-
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<Request | null>(null);
   const [isNew, setIsNew] = useState(false);
-
-  // Загруженные поля и текущий контрактор
   const [fieldsList, setFieldsList] = useState<FieldModel[]>([]);
   const [contractor, setContractor] = useState<UserModel | null>(null);
 
   const [form, setForm] = useState({
     id: 0,
-    date: '', // YYYY-MM-DD
+    date: '',
     field: 'Выберите поле',
     selectedFieldId: -1 as number,
     type: 'Выберите тип обработки',
     status: 'new' as Request['status'],
-    materialsProvided: false,
+    materialsProvided: false, // radio choice kept, but manual inputs removed
   });
 
+  // pending parsed JSON from uploader (kept as-is, will be sent unchanged)
+  const [pendingJson, setPendingJson] = useState<any | null>(null);
   const [preview, setPreview] = useState<{
     fieldPreview?: string | null;
     segmentsPreview?: string | null;
   } | null>(null);
   const [metadata, setMetadata] = useState<Request['metadata'] | null>(null);
+  const [viewRequest, setViewRequest] = useState<Request | null>(null);
 
-  // ---------- helpers for mapping / linking ----------
+  // helpers
   const mapStatus = (s?: string): Request['status'] => {
     if (!s) return 'new';
     const low = String(s).toLowerCase();
-    if (low.includes('complete') || low.includes('done')) return 'completed';
-    if (
-      low.includes('in_progress') ||
-      low.includes('in progress') ||
-      low.includes('progress')
-    )
-      return 'in_progress';
-    if (
-      low.includes('reject') ||
-      low.includes('rejected') ||
-      low.includes('denied')
-    )
-      return 'rejected';
-    if (low.includes('new')) return 'new';
+    if (/complete|done/.test(low)) return 'completed';
+    if (/in[_\s]?progress|progress/.test(low)) return 'in_progress';
+    if (/reject|denied/.test(low)) return 'rejected';
+    if (/new/.test(low)) return 'new';
     return 'new';
   };
-
-  const typeProcessIdToLabel = (id?: number) => {
-    if (!id && id !== 0) return 'Неизвестно';
-    if (id === 1) return 'Опрыскивание';
-    if (id === 2) return 'Внесение удобрений';
-    if (id === 3) return 'Картографирование';
-    return 'Неизвестно';
+  const typeProcessIdToLabel = (id?: number) =>
+    id === 1
+      ? 'Опрыскивание'
+      : id === 2
+        ? 'Внесение удобрений'
+        : id === 3
+          ? 'Картографирование'
+          : 'Неизвестно';
+  const typeToId = (typeLabel: string) => {
+    const n = typeLabel.toLowerCase();
+    if (/опрыс/i.test(n)) return 1;
+    if (/внес/i.test(n)) return 2;
+    if (/картограф/i.test(n)) return 3;
+    return 0;
   };
+  const renderStatusBadge = (st: Request['status']) =>
+    st === 'completed'
+      ? { text: 'Завершено', cls: 'bg-green-100 text-green-800' }
+      : st === 'in_progress'
+        ? { text: 'В обработке', cls: 'bg-blue-100 text-blue-800' }
+        : st === 'new'
+          ? { text: 'Новая', cls: 'bg-yellow-100 text-yellow-800' }
+          : { text: 'Отклонена', cls: 'bg-red-100 text-red-800' };
 
-  const getLatestOrderId = async (): Promise<number | null> => {
-    try {
-      // fallback -> GET /api/orders
-      const resOrders = await authFetch(
-        `${API_BASE}/api/orders?page=1&limit=200`,
-      );
-      if (!resOrders.ok) return null;
-      const dataOrders = await resOrders.json();
-      const arr = Array.isArray(dataOrders.orders) ? dataOrders.orders : [];
-      if (arr.length === 0) return null;
-      const maxId = arr.reduce((acc: number, cur: any) => {
-        const id = Number(cur.orderId ?? cur.id ?? 0);
-        return Number.isFinite(id) ? Math.max(acc, id) : acc;
-      }, 0);
-      return maxId > 0 ? maxId : null;
-    } catch (err) {
-      console.error('getLatestOrderId error', err);
-      return null;
-    }
-  };
-
-  const attachFieldToOrder = async (orderId: number, fieldId: number) => {
-    try {
-      const res = await authFetch(
-        `${API_BASE}/api/orders/${orderId}/fields/${fieldId}`,
-        {
-          method: 'POST',
-        },
-      );
-      if (!res.ok) {
-        console.warn(`attachFieldToOrder failed ${res.status}`);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error('attachFieldToOrder error', err);
-      return false;
-    }
-  };
-
-  const activateOrder = async (orderId: number) => {
-    try {
-      const res = await authFetch(
-        `${API_BASE}/api/orders/${orderId}/activate`,
-        {
-          method: 'POST',
-        },
-      );
-      if (!res.ok) {
-        console.warn(`activateOrder failed ${res.status}`);
-        return false;
-      }
-      return true;
-    } catch (err) {
-      console.error('activateOrder error', err);
-      return false;
-    }
-  };
-
-  // improved deleteField with logging + fallback
-  const deleteField = async (fieldId: number) => {
-    if (!confirm(`Удалить поле #${fieldId}?`)) return;
-    try {
-      const urlField = `${API_BASE}/api/orders/${fieldId}`;
-      console.info('deleteField: DELETE', urlField);
-      const res = await authFetch(urlField, { method: 'DELETE' });
-      let bodyText = '';
-      try {
-        bodyText = await res.text();
-      } catch {}
-      console.info('deleteField response', res.status, bodyText);
-
-      if (res.ok) {
-        setFieldsList((prev) => prev.filter((f) => f.fieldId !== fieldId));
-        if ((form as any).selectedFieldId === fieldId) {
-          setForm((s) => ({
-            ...s,
-            selectedFieldId: -1,
-            field: 'Выберите поле',
-          }));
-          setMetadata(null);
-        }
-        alert('Поле удалено');
-        return;
-      }
-
-      // fallback: maybe backend deletes via /api/orders/{id} (as you saw in Postman)
-      if ([400, 404, 405, 501].includes(res.status)) {
-        try {
-          const urlOrder = `${API_BASE}/api/orders/${fieldId}`;
-          console.info('deleteField: trying fallback DELETE', urlOrder);
-          const res2 = await authFetch(urlOrder, { method: 'DELETE' });
-          let txt2 = '';
-          try {
-            txt2 = await res2.text();
-          } catch {}
-          console.info('deleteField fallback', res2.status, txt2);
-          if (res2.ok) {
-            setFieldsList((prev) => prev.filter((f) => f.fieldId !== fieldId));
-            if ((form as any).selectedFieldId === fieldId) {
-              setForm((s) => ({
-                ...s,
-                selectedFieldId: -1,
-                field: 'Выберите поле',
-              }));
-              setMetadata(null);
-            }
-            alert('Поле удалено (через fallback /api/orders/{id})');
-            return;
-          }
-        } catch (e) {
-          console.warn('deleteField fallback error', e);
-        }
-      }
-
-      alert(
-        `Не удалось удалить поле. Сервер вернул ${res.status}. Смотри консоль.`,
-      );
-    } catch (err: any) {
-      console.error('deleteField error', err);
-      alert(
-        'Не удалось отправить запрос на удаление. Проверьте консоль (CORS / network).',
-      );
-    }
-  };
-
+  // API helpers (kept)
   const fetchFields = async () => {
     try {
       const res = await authFetch(`${API_BASE}/api/fields?page=1&limit=100`);
       if (!res.ok) throw new Error(`Ошибка получения полей (${res.status})`);
       const data = await res.json();
       setFieldsList(Array.isArray(data.fields) ? data.fields : []);
-    } catch (err) {
-      console.error('fetchFields error', err);
+    } catch (e) {
+      console.error(e);
     }
   };
-
   const fetchContractorFromLocalStorage = async () => {
     try {
       const res = await authFetch(`${API_BASE}/v1/me`);
-      if (!res.ok) {
-        throw new Error(`Ошибка получения профиля (${res.status})`);
-      }
+      if (!res.ok) throw new Error(`Ошибка получения профиля (${res.status})`);
       const data = await res.json();
       setContractor(data);
-    } catch (err) {
-      console.error('fetchContractor error', err);
+    } catch (e) {
+      console.error(e);
     }
   };
 
   const fetchOrderFields = async (orderId: number): Promise<number[]> => {
     try {
       const res = await authFetch(`${API_BASE}/api/orders/${orderId}/fields`);
-      if (!res.ok) {
-        console.warn(`fetchOrderFields ${orderId} failed ${res.status}`);
-        return [];
-      }
-      const data = await res.json();
-      // ожидаем { "fieldIds": [1,2,...] }
-      if (Array.isArray(data.fieldIds))
-        return data.fieldIds.map((n: any) => Number(n)).filter(Number.isFinite);
-      // иногда бек может вернуть { fields: [...] } или { fieldIds: null } — ловим простые варианты
-      if (Array.isArray(data.fields))
-        return data.fields
+      if (!res.ok) return [];
+      const d = await res.json();
+      if (Array.isArray(d.fieldIds))
+        return d.fieldIds.map((n: any) => Number(n)).filter(Number.isFinite);
+      if (Array.isArray(d.fields))
+        return d.fields
           .map((f: any) => Number(f.fieldId ?? f.id ?? f))
           .filter(Number.isFinite);
       return [];
-    } catch (err) {
-      console.error('fetchOrderFields error', err);
+    } catch (e) {
+      console.error(e);
       return [];
     }
   };
 
-  // fetch orders + for each order load field ids via GET /api/orders/{orderId}/fields
   const fetchOrders = async (page = 1, limit = 100) => {
     try {
       const res = await authFetch(
@@ -589,22 +446,16 @@ export default function RequestsWithEditor({
       }
       const data = await res.json();
       const arr = Array.isArray(data.orders) ? data.orders : [];
-
-      // Первый проход — маппим базовые поля заказа
       const baseRequests: Request[] = arr.map((o: any) => {
-        const id = Number(
-          o.orderId ?? o.id ?? Math.floor(Math.random() * 1000000),
-        );
+        const id = Number(o.orderId ?? o.id ?? Math.floor(Math.random() * 1e6));
         const rawDate = o.dataStart ?? o.dataEnd ?? o.createdAt;
         const dateIso = rawDate
           ? new Date(rawDate).toISOString().slice(0, 10)
           : new Date().toISOString().slice(0, 10);
-
         const typeLabel = o.typeProcessId
           ? typeProcessIdToLabel(Number(o.typeProcessId))
           : (o.type ?? 'Неизвестно');
         const stat = mapStatus(o.status);
-
         const previewObj =
           o.preview ??
           (o.fieldPreview || o.segmentsPreview
@@ -616,14 +467,11 @@ export default function RequestsWithEditor({
         const metadataObj =
           o.metadata ?? (o.extraMetadata ? o.extraMetadata : undefined);
         const coords = Array.isArray(o.coords) ? o.coords : [];
-
-        // временно ставим заглушку — заменим ниже после запроса /api/orders/{orderId}/fields
         const initialFieldName =
           o.fieldName ??
           o.field ??
           (o.metadata && o.metadata.name) ??
           `ID:${o.fieldId ?? id}`;
-
         return {
           id,
           date: dateIso,
@@ -639,18 +487,13 @@ export default function RequestsWithEditor({
           preview: previewObj ?? undefined,
         } as Request;
       });
-
-      // Сразу выставляем базовый список, чтобы UI не был пустым
       setRequests(baseRequests);
 
-      // Параллельно запрашиваем поля для каждого заказа и обновляем имена полей
       const updates = await Promise.all(
         baseRequests.map(async (r) => {
-          const fieldIds = await fetchOrderFields(r.id);
-          if (fieldIds.length === 0) return null; // нет привязанных полей
-          // Берём первый fieldId (если может быть несколько — логика может быть изменена)
-          const fid = fieldIds[0];
-          // ищем его в loaded fieldsList
+          const fids = await fetchOrderFields(r.id);
+          if (!fids.length) return null;
+          const fid = fids[0];
           const f = fieldsList.find((x) => x.fieldId === fid);
           const name = f
             ? (f.cadastralNumber ?? `ID: #${f.fieldId}`)
@@ -659,31 +502,115 @@ export default function RequestsWithEditor({
         }),
       );
 
-      // Применяем найденные имена к локальным requests
-      const updatedRequests = baseRequests.map((r) => {
-        const upd = updates.find((u) => u && u.orderId === r.id) as any;
-        if (!upd) return r;
+      const updated = baseRequests.map((r) => {
+        const u = updates.find((x) => x && x.orderId === r.id) as any;
+        if (!u) return r;
         return {
           ...r,
-          field: upd.name,
-          metadata: { ...(r.metadata ?? {}), name: upd.name },
+          field: u.name,
+          metadata: { ...(r.metadata ?? {}), name: u.name },
         };
       });
-
-      setRequests(updatedRequests);
-    } catch (err) {
-      console.error('fetchOrders error', err);
+      setRequests(updated);
+    } catch (e) {
+      console.error(e);
       setRequests([]);
+    }
+  };
+
+  const getLatestOrderId = async (): Promise<number | null> => {
+    try {
+      const res = await authFetch(`${API_BASE}/api/orders?page=1&limit=200`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const arr = Array.isArray(data.orders) ? data.orders : [];
+      if (!arr.length) return null;
+      const maxId = arr.reduce((acc: number, cur: any) => {
+        const id = Number(cur.orderId ?? cur.id ?? 0);
+        return Number.isFinite(id) ? Math.max(acc, id) : acc;
+      }, 0);
+      return maxId > 0 ? maxId : null;
+    } catch (e) {
+      console.error(e);
+      return null;
+    }
+  };
+
+  const attachFieldToOrder = async (orderId: number, fieldId: number) => {
+    try {
+      const res = await authFetch(
+        `${API_BASE}/api/orders/${orderId}/fields/${fieldId}`,
+        { method: 'POST' },
+      );
+      return res.ok;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+  const activateOrder = async (orderId: number) => {
+    try {
+      const res = await authFetch(
+        `${API_BASE}/api/orders/${orderId}/activate`,
+        { method: 'POST' },
+      );
+      return res.ok;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const deleteField = async (fieldId: number) => {
+    if (!confirm(`Удалить поле #${fieldId}?`)) return;
+    try {
+      const res = await authFetch(`${API_BASE}/api/orders/${fieldId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setFieldsList((p) => p.filter((f) => f.fieldId !== fieldId));
+        if ((form as any).selectedFieldId === fieldId)
+          setForm((s) => ({
+            ...s,
+            selectedFieldId: -1,
+            field: 'Выберите поле',
+          }));
+        setMetadata(null);
+        alert('Поле удалено');
+        return;
+      }
+      if ([400, 404, 405, 501].includes(res.status)) {
+        try {
+          const res2 = await authFetch(`${API_BASE}/api/orders/${fieldId}`, {
+            method: 'DELETE',
+          });
+          if (res2.ok) {
+            setFieldsList((p) => p.filter((f) => f.fieldId !== fieldId));
+            if ((form as any).selectedFieldId === fieldId)
+              setForm((s) => ({
+                ...s,
+                selectedFieldId: -1,
+                field: 'Выберите поле',
+              }));
+            setMetadata(null);
+            alert('Поле удалено (через fallback /api/orders/{id})');
+            return;
+          }
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+      alert(`Не удалось удалить поле. Сервер вернул ${res.status}.`);
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка запроса на удаление поля.');
     }
   };
 
   useEffect(() => {
     (async () => {
-      // сначала подгружаем поля, чтобы иметь cadastralNumber при обработке orders
       await fetchFields();
-      // затем профиль
       await fetchContractorFromLocalStorage();
-      // затем заказы (внутри fetchOrders мы используем fieldsList для более точных названий)
       await fetchOrders();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -715,6 +642,7 @@ export default function RequestsWithEditor({
       }));
       setPreview(null);
       setMetadata(null);
+      setPendingJson(null);
     }
   }, [editingRequest, editorOpen]);
 
@@ -751,19 +679,35 @@ export default function RequestsWithEditor({
     fetchFields();
     fetchContractorFromLocalStorage();
   };
-
   const openEdit = (r: Request) => {
     setIsNew(false);
     setEditingRequest(r);
     setEditorOpen(true);
   };
 
-  const typeToId = (typeLabel: string) => {
-    const normalized = typeLabel.toLowerCase();
-    if (/опрыс/i.test(normalized)) return 1;
-    if (/внес/i.test(normalized)) return 2;
-    if (/картограф/i.test(normalized)) return 3;
-    return 0;
+  /** sendPayload:
+   *  - sends the raw parsed JSON from uploader (no modification)
+   */
+  const sendPayload = async (payload: any) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/field-analysis/inputs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload }),
+      });
+      const text = await res.text().catch(() => '');
+      if (!res.ok)
+        throw new Error(`Ошибка отправки аналитики: ${res.status} ${text}`);
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(text || '{}');
+      } catch {}
+      setMetadata((m) => ({ ...(m ?? {}), analyticsResponse: parsed }));
+      return true;
+    } catch (e) {
+      console.error('sendPayload error', e);
+      return false;
+    }
   };
 
   const saveForm = async () => {
@@ -777,6 +721,25 @@ export default function RequestsWithEditor({
       return;
     }
 
+    // require uploaded JSON — regardless of radio choice we send pendingJson as-is
+    if (!pendingJson) {
+      alert(
+        'Пожалуйста, загрузите JSON с характеристиками поля (тот JSON, который должен быть отправлен на бэк).',
+      );
+      return;
+    }
+    const payload = pendingJson;
+
+    // send payload to analytics endpoint
+    const ok = await sendPayload(payload);
+    if (!ok) {
+      alert(
+        'Не удалось отправить JSON на анализ. Проверьте соединение и попробуйте ещё раз.',
+      );
+      return;
+    }
+
+    // proceed to create order
     const payloadRequest: Request = {
       id: isNew ? Math.max(0, ...requests.map((x) => x.id)) + 1 : form.id,
       date: form.date,
@@ -786,11 +749,14 @@ export default function RequestsWithEditor({
       metadata: metadata ?? undefined,
       preview: preview ?? undefined,
     };
+    setRequests((prev) =>
+      isNew
+        ? [payloadRequest, ...prev]
+        : prev.map((p) => (p.id === payloadRequest.id ? payloadRequest : p)),
+    );
 
-    setRequests((prev) => {
-      if (isNew) return [payloadRequest, ...prev];
-      return prev.map((p) => (p.id === payloadRequest.id ? payloadRequest : p));
-    });
+    let createdOrderId: number | null = null;
+    const errors: string[] = [];
 
     try {
       const body: any = {
@@ -800,23 +766,20 @@ export default function RequestsWithEditor({
         dataEnd: new Date(form.date).toISOString(),
         materialsProvided: Boolean(form.materialsProvided),
       };
-
       if (contractor?.id) body.contractorId = contractor.id;
 
       const res = await authFetch(`${API_BASE}/api/orders`, {
         method: 'POST',
         body: JSON.stringify(body),
       });
-
       if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(`Ошибка сервера: ${res.status} ${txt}`);
+        const txt = await res.text().catch(() => '');
+        throw new Error(
+          `Ошибка сервера при создании заказа: ${res.status} ${txt}`,
+        );
       }
-
-      const data = await res.json();
-      let createdOrderId: number | null = data?.orderId
-        ? Number(data.orderId)
-        : null;
+      const data = await res.json().catch(() => ({}));
+      createdOrderId = data?.orderId ? Number(data.orderId) : null;
 
       if (!createdOrderId) {
         const latest = await getLatestOrderId();
@@ -838,91 +801,56 @@ export default function RequestsWithEditor({
       const selFieldId = (form as any).selectedFieldId;
       if (createdOrderId && typeof selFieldId === 'number' && selFieldId >= 0) {
         const attached = await attachFieldToOrder(createdOrderId, selFieldId);
-        if (!attached) console.warn('attachFieldToOrder failed');
+        if (!attached)
+          errors.push(
+            `attachFieldToOrder failed for order ${createdOrderId}, field ${selFieldId}`,
+          );
         else {
           const activated = await activateOrder(createdOrderId);
-          if (!activated) console.warn('activateOrder failed');
+          if (!activated)
+            errors.push(`activateOrder failed for order ${createdOrderId}`);
         }
       }
 
-      alert('Заявка успешно отправлена менеджеру.');
-      setEditorOpen(false);
-      setEditingRequest(null);
-      setIsNew(false);
-      fetchOrders();
-    } catch (err: any) {
-      console.error('saveForm error', err);
-      alert('Не удалось отправить заявку: ' + (err?.message ?? err));
+      if (!errors.length) {
+        alert('Заявка успешно отправлена менеджеру.');
+        setEditorOpen(false);
+        setEditingRequest(null);
+        setIsNew(false);
+        await fetchOrders();
+      } else {
+        console.warn('saveForm completed with errors', errors);
+        alert('Частично успешно: ' + errors.join('; '));
+      }
+    } catch (e: any) {
+      console.error('saveForm error', e);
+      alert('Не удалось отправить заявку: ' + (e?.message ?? e));
     }
   };
 
-  // Replace existing deleteRequest with this async implementation
   const deleteRequest = async (id: number) => {
     if (!confirm('Удалить заявку?')) return;
-
     try {
-      console.log('deleteRequest ->', id);
-      // show a quick optimistic UI cue? we'll wait for server response before removing
-      const url = `${API_BASE}/api/orders/${id}`;
-      console.log('DELETE ->', url);
-
-      const res = await authFetch(url, { method: 'DELETE' });
-      console.log('deleteRequest response', res);
-
+      const res = await authFetch(`${API_BASE}/api/orders/${id}`, {
+        method: 'DELETE',
+      });
       if (!res.ok) {
-        // try to extract server message for better error info
         let body = '';
         try {
           body = await res.text();
-        } catch (e) {
-          /* ignore */
-        }
+        } catch {}
         throw new Error(`Ошибка удаления заказа: ${res.status} ${body}`);
       }
-
-      // успешное удаление — обновляем локальный список заказов
-      setRequests((prev) => prev.filter((r) => r.id !== id));
-
-      // если редактор открыт на этом заказе — закрываем
+      setRequests((p) => p.filter((r) => r.id !== id));
       setEditorOpen(false);
       setEditingRequest(null);
-      // если открыт просмотр — закрываем
       setViewRequest((v) => (v && v.id === id ? null : v));
-
-      // можно дополнительно рефрешнуть список с сервера, чтобы наверняка
-      // await fetchOrders(); // <-- раскомментируй если хочешь полную синхронизацию
-
       alert(`Заказ #${id} удалён`);
-    } catch (err: any) {
-      console.error('deleteRequest error', err);
-      alert('Не удалось удалить заявку: ' + (err?.message ?? err));
+    } catch (e: any) {
+      console.error(e);
+      alert('Не удалось удалить заявку: ' + (e?.message ?? e));
     }
   };
-
-  // helper for upload JSON from FieldUploaderInline — placeholder endpoint; you can change to real one later
-  const handleUploadFieldJson = async (json: any) => {
-    try {
-      // placeholder endpoint — поменяй на реальный, когда бэк сделает
-      const url = `${API_BASE}/api/fields/upload-json`;
-      console.info('Uploading field json to', url);
-      const res = await authFetch(url, {
-        method: 'POST',
-        body: JSON.stringify(json),
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        console.warn('upload json failed', res.status, txt);
-      } else {
-        console.info('upload json ok');
-        // опционально обновим список полей
-        fetchFields();
-      }
-    } catch (e) {
-      console.error('handleUploadFieldJson error', e);
-    }
-  };
-
-  const [viewRequest, setViewRequest] = useState<Request | null>(null);
 
   return (
     <div>
@@ -955,6 +883,7 @@ export default function RequestsWithEditor({
           </div>
         </div>
 
+        {/* Filters */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
@@ -1045,6 +974,7 @@ export default function RequestsWithEditor({
           </div>
         </div>
 
+        {/* Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -1071,63 +1001,63 @@ export default function RequestsWithEditor({
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filtered.map((request) => (
-                  <tr key={request.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      #{request.id}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(request.date).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {request.field}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {request.type}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${request.status === 'completed' ? 'bg-green-100 text-green-800' : request.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : request.status === 'new' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}
-                      >
-                        {request.status === 'completed'
-                          ? 'Завершено'
-                          : request.status === 'in_progress'
-                            ? 'В обработке'
-                            : request.status === 'new'
-                              ? 'Новая'
-                              : 'Отклонена'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          className="text-emerald-600 hover:text-emerald-900"
-                          onClick={() => setViewRequest(request)}
-                          title="Просмотр"
+                {filtered.map((request) => {
+                  const badge = renderStatusBadge(request.status);
+                  return (
+                    <tr key={request.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        #{request.id}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(request.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {request.field}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {request.type}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={cn(
+                            'px-2 py-1 text-xs rounded-full',
+                            badge.cls,
+                          )}
                         >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          className="text-blue-600 hover:text-blue-900"
-                          onClick={() => openEdit(request)}
-                          title="Редактировать"
-                        >
-                          <Edit size={16} />
-                        </button>
-                        {(request.status === 'new' ||
-                          request.status === 'in_progress') && (
+                          {badge.text}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
                           <button
-                            className="text-red-600 hover:text-red-900"
-                            onClick={() => deleteRequest(request.id)}
-                            title="Удалить"
+                            className="text-emerald-600 hover:text-emerald-900"
+                            onClick={() => setViewRequest(request)}
+                            title="Просмотр"
                           >
-                            <Trash2 size={18} />
+                            <Eye size={18} />
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <button
+                            className="text-blue-600 hover:text-blue-900"
+                            onClick={() => openEdit(request)}
+                            title="Редактировать"
+                          >
+                            <Edit size={16} />
+                          </button>
+                          {(request.status === 'new' ||
+                            request.status === 'in_progress') && (
+                            <button
+                              className="text-red-600 hover:text-red-900"
+                              onClick={() => deleteRequest(request.id)}
+                              title="Удалить"
+                            >
+                              <Trash2 size={18} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -1150,6 +1080,7 @@ export default function RequestsWithEditor({
         </div>
       </motion.div>
 
+      {/* View modal */}
       <AnimatePresence>
         {viewRequest && (
           <motion.div
@@ -1257,15 +1188,12 @@ export default function RequestsWithEditor({
                     <div className="text-xs text-gray-500">Статус</div>
                     <div className="mt-2">
                       <span
-                        className={`px-3 py-2 rounded-full text-sm ${viewRequest.status === 'completed' ? 'bg-green-100 text-green-800' : viewRequest.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : viewRequest.status === 'new' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}
+                        className={cn(
+                          'px-3 py-2 rounded-full text-sm',
+                          renderStatusBadge(viewRequest.status).cls,
+                        )}
                       >
-                        {viewRequest.status === 'completed'
-                          ? 'Завершено'
-                          : viewRequest.status === 'in_progress'
-                            ? 'В обработке'
-                            : viewRequest.status === 'new'
-                              ? 'Новая'
-                              : 'Отклонена'}
+                        {renderStatusBadge(viewRequest.status).text}
                       </span>
                     </div>
                   </div>
@@ -1319,6 +1247,7 @@ export default function RequestsWithEditor({
         )}
       </AnimatePresence>
 
+      {/* Editor aside */}
       <AnimatePresence>
         {editorOpen && (
           <motion.aside
@@ -1344,9 +1273,7 @@ export default function RequestsWithEditor({
                   </button>
                 )}
                 <button
-                  onClick={() => {
-                    saveForm();
-                  }}
+                  onClick={() => saveForm()}
                   className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg flex items-center gap-2"
                 >
                   <Save size={16} /> Сохранить
@@ -1369,19 +1296,28 @@ export default function RequestsWithEditor({
                   <div className="bg-white/90 rounded-2xl border border-gray-100 p-4">
                     <div className="flex gap-4 border-b border-gray-100 pb-3 mb-4">
                       <button
-                        className={`pb-2 px-1 font-medium ${'details' === 'details' ? 'text-emerald-600 border-b-2 border-emerald-500' : 'text-gray-500'}`}
+                        className={cn(
+                          'pb-2 px-1 font-medium',
+                          'details' === 'details'
+                            ? 'text-emerald-600 border-b-2 border-emerald-500'
+                            : 'text-gray-500',
+                        )}
                       >
                         Данные
                       </button>
                       <button
-                        className={`pb-2 px-1 font-medium ${'upload' === 'upload' ? 'text-emerald-600 border-b-2 border-emerald-500' : 'text-gray-500'}`}
+                        className={cn(
+                          'pb-2 px-1 font-medium',
+                          'upload' === 'upload'
+                            ? 'text-emerald-600 border-b-2 border-emerald-500'
+                            : 'text-gray-500',
+                        )}
                       >
                         Загрузка поля
                       </button>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Поле (выбор по id) */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
                           Поле
@@ -1416,19 +1352,6 @@ export default function RequestsWithEditor({
                               </option>
                             ))}
                           </select>
-
-                          {/* кнопка удаления выбранного поля */}
-                          {/* {(form as any).selectedFieldId >= 0 && (
-                            <button
-                              onClick={() =>
-                                deleteField((form as any).selectedFieldId)
-                              }
-                              className="p-2 rounded-md bg-red-50 hover:bg-red-100 border border-red-100"
-                              title="Удалить поле"
-                            >
-                              <Trash2 size={16} className="text-red-600" />
-                            </button> */}
-                          {/* )} */}
                         </div>
                       </div>
 
@@ -1464,88 +1387,70 @@ export default function RequestsWithEditor({
                         />
                       </div>
 
-                      {/* materialsProvided */}
-                      <div className="md:col-span-2 flex items-center gap-3">
+                      <div className="md:col-span-2 flex flex-col gap-2">
+                        <div className="text-sm font-medium text-gray-700/90 mb-1.5">
+                          Длины волн
+                        </div>
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input
-                            type="checkbox"
-                            checked={form.materialsProvided}
-                            onChange={(e) =>
+                            type="radio"
+                            name="wavelengths"
+                            checked={!form.materialsProvided}
+                            onChange={() => {
                               setForm((s) => ({
                                 ...s,
-                                materialsProvided: e.target.checked,
-                              }))
-                            }
-                            className="form-checkbox h-5 w-5"
+                                materialsProvided: false,
+                              }));
+                              setPendingJson(null);
+                              setMetadata(null);
+                            }}
+                            className="form-radio h-4 w-4"
+                          />
+                          <span className="text-sm">У меня нет длины волн</span>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="wavelengths"
+                            checked={form.materialsProvided}
+                            onChange={() => {
+                              setForm((s) => ({
+                                ...s,
+                                materialsProvided: true,
+                              }));
+                            }}
+                            className="form-radio h-4 w-4"
                           />
                           <span className="text-sm">
-                            Материалы предоставлены
+                            У меня есть длины волн (загружу JSON)
                           </span>
                         </label>
+                        <div className="text-xs text-gray-400">
+                          Выбор оставлен для совместимости — но сейчас
+                          обязательной является загрузка JSON с характеристиками
+                          поля. То, что загрузит пользователь, уйдёт на бэк без
+                          изменений.
+                        </div>
                       </div>
                     </div>
                   </div>
 
+                  {/* uploader - always visible now (user must upload JSON) */}
                   <div className="bg-white/90 rounded-2xl border border-gray-100 p-4">
                     <FieldUploaderInline
                       initialPreview={preview ?? undefined}
                       onChangePreview={(p) => setPreview(p)}
                       onChangeMetadata={(m) => setMetadata(m ?? null)}
+                      onParsedJson={(parsed) => setPendingJson(parsed)}
                     />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="rounded-2xl p-4 bg-white/90 border border-gray-100">
-                    <h4 className="font-medium mb-3">Информация о поле</h4>
-                    <div className="text-sm text-gray-600 space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Участков</span>
-                        <span className="font-medium">
-                          {metadata?.parcels ?? '—'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Примечание</span>
-                        <span className="font-medium">
-                          {metadata?.notes ?? '—'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl p-4 bg-white/90 border border-gray-100">
-                    <h4 className="font-medium mb-3">История обработок</h4>
-                    <div className="space-y-3 text-sm">
-                      <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-100">
-                        <div className="flex justify-between">
-                          <div>
-                            <div className="font-medium">Опрыскивание</div>
-                            <div className="text-xs text-gray-500">
-                              15.02.2024
-                            </div>
-                          </div>
-                          <div className="text-xs px-2 py-1 bg-emerald-100 rounded-full text-emerald-800">
-                            Завершено
-                          </div>
-                        </div>
-                      </div>
-                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-100">
-                        <div className="flex justify-between">
-                          <div>
-                            <div className="font-medium">Картографирование</div>
-                            <div className="text-xs text-gray-500">
-                              10.02.2024
-                            </div>
-                          </div>
-                          <div className="text-xs px-2 py-1 bg-blue-100 rounded-full text-blue-800">
-                            Анализ
-                          </div>
-                        </div>
-                      </div>
+                    <div className="text-xs text-gray-500 mt-2">
+                      Загрузите JSON характеристик поля. JSON будет отправлен на
+                      сервер в неизменном виде при сохранении заявки.
                     </div>
                   </div>
                 </div>
+
+                <div className="space-y-4" />
               </div>
 
               <div className="mt-6 flex justify-end gap-3">

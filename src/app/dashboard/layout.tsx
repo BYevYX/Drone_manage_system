@@ -336,7 +336,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               boxShadow: sidebarOpen
                 ? '0 6px 32px 0 rgba(31,38,135,0.17), 0 1.5px 8px 0 rgba(31,38,135,0.06)'
                 : '0 1px 2px 0 rgba(31,38,135,0.07)',
-              borderRadius: sidebarOpen ? '0 2rem 2rem 0' : '0 2.3rem 2.3rem 0',
+              // borderRadius: sidebarOpen ? '0 2rem 2rem 0' : '0 2.3rem 2.3rem 0',
               margin: '0',
               background: 'white',
             }}
@@ -441,7 +441,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </h2>
 
               <div className="flex items-center gap-4">
-                <div className="relative">
+                {/* <div className="relative">
                   <button
                     onClick={() => setShowNotifications((v) => !v)}
                     className="notification-btn relative p-2 text-gray-600 hover:text-emerald-600 rounded-full hover:bg-gray-100 transition-colors"
@@ -493,7 +493,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
+                </div> */}
 
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shadow-inner">

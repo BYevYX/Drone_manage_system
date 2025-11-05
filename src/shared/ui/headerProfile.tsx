@@ -25,6 +25,7 @@ const roleLabels = {
   contractor: 'Заказчик',
   drone_supplier: 'Поставщик дронов',
   material_supplier: 'Поставщик материалов',
+  operator: 'Оператор процессов',
   guest: 'Гость',
 };
 
@@ -159,6 +160,35 @@ export default function HeaderProfile({
       },
     ],
 
+    operator: [
+      // {
+      //   label: 'Создать заказ',
+      //   href: '/dashboard/contractor/requests',
+      //   icon: <Plus size={16} />,
+      // },
+      {
+        label: 'Заказы',
+        href: '/dashboard/operator/requests',
+        icon: <Package size={16} />,
+        badge: demoCounts.contractor.activeOrders,
+      },
+      {
+        label: 'Загрузить карту поля',
+        href: '/dashboard/contractor/requests',
+        icon: <Map size={16} />,
+      },
+      {
+        label: 'Отслеживание заказа',
+        href: '/dashboard/contractor/requests',
+        icon: <List size={16} />,
+      },
+      {
+        label: 'Получить отчёт',
+        href: '/dashboard/contractor/requests',
+        icon: <Package size={16} />,
+        badge: demoCounts.contractor.unreadReports,
+      },
+    ],
     contractor: [
       {
         label: 'Создать заказ',

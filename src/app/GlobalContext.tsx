@@ -13,6 +13,7 @@ type UserRole =
   | 'manager'
   | 'contractor'
   | 'drone_supplier'
+  | 'operator'
   | 'material_supplier';
 
 interface Request {
@@ -44,6 +45,7 @@ const VALID_ROLES: UserRole[] = [
   'guest',
   'contractor',
   'manager',
+  'operator',
   'drone_supplier',
   'material_supplier',
 ];
@@ -122,6 +124,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
       const validRoles = [
         'manager',
         'contractor',
+        'operator',
         'drone_supplier',
         'material_supplier',
         'guest',
