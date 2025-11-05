@@ -394,7 +394,7 @@ export default function RequestsWithEditor({
           ? { text: 'Новая', cls: 'bg-yellow-100 text-yellow-800' }
           : { text: 'Отклонена', cls: 'bg-red-100 text-red-800' };
 
-  // API helpers (kept)
+  // API helpers
   const fetchFields = async () => {
     try {
       const res = await authFetch(`${API_BASE}/api/fields?page=1&limit=100`);
@@ -687,13 +687,18 @@ export default function RequestsWithEditor({
 
   /** sendPayload:
    *  - sends the raw parsed JSON from uploader (no modification)
+   *  - now also accepts optional orderId as the second parameter and sends it alongside payload:
+   *    body: { payload, order_id }
    */
-  const sendPayload = async (payload: any) => {
+  const sendPayload = async (payload: any, orderId?: number | null) => {
     try {
+      const bodyToSend: any = { payload };
+      // include order_id as second parameter (outside of payload)
+      bodyToSend.order_id = typeof orderId === 'number' ? orderId : null;
       const res = await fetch(`${API_BASE}/api/field-analysis/inputs`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload }),
+        body: JSON.stringify(bodyToSend),
       });
       const text = await res.text().catch(() => '');
       if (!res.ok)
@@ -730,8 +735,13 @@ export default function RequestsWithEditor({
     }
     const payload = pendingJson;
 
-    // send payload to analytics endpoint
-    const ok = await sendPayload(payload);
+    // send payload to analytics endpoint, include order id as second parameter:
+    // use the temporary id we'll assign to payloadRequest so backend can link if needed
+    const tempOrderId = isNew
+      ? Math.max(0, ...requests.map((x) => x.id)) + 1
+      : form.id;
+
+    const ok = await sendPayload(payload, tempOrderId);
     if (!ok) {
       alert(
         'Не удалось отправить JSON на анализ. Проверьте соединение и попробуйте ещё раз.',
@@ -741,7 +751,7 @@ export default function RequestsWithEditor({
 
     // proceed to create order
     const payloadRequest: Request = {
-      id: isNew ? Math.max(0, ...requests.map((x) => x.id)) + 1 : form.id,
+      id: tempOrderId,
       date: form.date,
       field: form.field,
       type: form.type,
@@ -1425,12 +1435,6 @@ export default function RequestsWithEditor({
                             У меня есть длины волн (загружу JSON)
                           </span>
                         </label>
-                        <div className="text-xs text-gray-400">
-                          Выбор оставлен для совместимости — но сейчас
-                          обязательной является загрузка JSON с характеристиками
-                          поля. То, что загрузит пользователь, уйдёт на бэк без
-                          изменений.
-                        </div>
                       </div>
                     </div>
                   </div>

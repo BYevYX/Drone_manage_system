@@ -1,25 +1,25 @@
 'use client';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Search,
-  RefreshCw,
-  Eye,
-  Zap,
-  X,
-  Check,
-  ArrowRight,
-} from 'lucide-react';
+import { Search, RefreshCw, Eye, X, Check, ArrowRight } from 'lucide-react';
 import { useGlobalContext } from '@/src/app/GlobalContext';
 
 /**
- * OperatorOrders
+ * OperatorOrders — улучшения UI
  *
- * Показ списка заявок и панели оператора (не модально — в том же окне).
- * - При клике на заявку открывается панель оператора в том же вью (с кнопкой "Назад")
- * - Добавлены индексы: RGB Field, NDVI Masked, Split RGB, Split NDVI
- * - Добавлен моковый выбор дронов
- * - Логика расчёта/сегментации/маршрутов сохранена (симуляция)
+ * Изменения в этой версии:
+ * - Убрал кнопку "← Назад" внизу панели и вместо неё добавил кнопку "Run Analytics" в правом нижнем углу.
+ *   Кнопка изначально неактивна (серая). Становится активной, когда для выбранной заявки загружён JSON
+ *   (selectedOrder.metadata?.uploadedJson).
+ * - Кнопка запуска аналитики использует ту же логику runSparseAnalytics.
+ * - Модальное окно просмотра картинок стало адаптивным: изображение масштабируется с учетом viewport,
+ *   используется max-width и max-height (с отступами), фон кликабелен для закрытия, закрытие по ESC и крестик.
+ * - Слегка упрощён и приведён в порядок код показа итогов и загрузчика JSON (FieldJsonUploader принимает initialParsed).
+ *
+ * Поведение:
+ * - Загрузка JSON сохраняется в metadata заявки и один раз загруженный JSON виден при переключении вкладок.
+ * - Как только JSON загружен (для выбранной заявки), кнопка "Run Analytics" внизу включается.
+ * - После успешной аналитики мы автоматически переключаемся на вкладку "Итог" (activeTab='result').
  */
 
 // -------------------- Типы --------------------
@@ -44,18 +44,23 @@ interface Order {
   preview?: {
     fieldPhoto?: string | null;
     indexPhoto?: string | null;
-    segments?: { id: string; preview?: string | null }[];
-    routesPreview?: string | null;
   };
   stats?: {
     totalFlightTimeMin?: number;
     routesCount?: number;
     segmentsCount?: number;
   };
-  metadata?: Record<string, any>;
+  metadata?: {
+    raw?: any;
+    fieldId?: number;
+    fieldRaw?: any;
+    uploadedJson?: any;
+    analyticsResponse?: any;
+    analyticsImages?: Record<string, string | null>;
+  };
 }
 
-// -------------------- ModernSelect (компактный) --------------------
+// -------------------- ModernSelect --------------------
 function ModernSelect({
   label,
   options,
@@ -70,12 +75,12 @@ function ModernSelect({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    const h = (e: MouseEvent) => {
+    const onDoc = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node))
         setOpen(false);
     };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
   }, []);
   return (
     <div className="space-y-2" ref={ref}>
@@ -83,13 +88,13 @@ function ModernSelect({
       <div className="relative">
         <button
           onClick={() => setOpen((s) => !s)}
-          className={`w-full px-4 py-3.5 text-left bg-white/90 rounded-xl border ${
+          className={`w-full px-4 py-3 text-left bg-white rounded-xl border shadow-sm flex items-center justify-between transition ${
             open
-              ? 'border-emerald-400 ring-2 ring-emerald-400/30'
-              : 'border-gray-300/80'
-          } shadow-sm flex items-center justify-between`}
+              ? 'ring-2 ring-emerald-300 border-emerald-300'
+              : 'border-gray-200'
+          }`}
         >
-          <span className={value ? 'text-gray-700' : 'text-gray-400'}>
+          <span className={value ? 'text-gray-800' : 'text-gray-400'}>
             {value || '—'}
           </span>
           <ArrowRight size={16} className="text-gray-400" />
@@ -100,7 +105,7 @@ function ModernSelect({
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="absolute z-30 w-full mt-2 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200/80"
+            className="absolute z-40 w-full mt-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
           >
             {options.map((o) => (
               <li
@@ -109,14 +114,12 @@ function ModernSelect({
                   onChange(o);
                   setOpen(false);
                 }}
-                className="px-4 py-2.5 cursor-pointer hover:bg-gray-50"
+                className="px-4 py-2.5 cursor-pointer hover:bg-gray-50 flex justify-between items-center"
               >
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-700">{o}</span>
-                  {value === o && (
-                    <Check size={14} className="text-emerald-500" />
-                  )}
-                </div>
+                <span className="text-gray-700">{o}</span>
+                {value === o && (
+                  <Check size={14} className="text-emerald-500" />
+                )}
               </li>
             ))}
           </motion.ul>
@@ -126,14 +129,22 @@ function ModernSelect({
   );
 }
 
-// -------------------- FieldUploaderInline (упрощённый) --------------------
-function FieldUploaderInline({
-  onUploaded,
+// -------------------- FieldJsonUploader --------------------
+function FieldJsonUploader({
+  initialParsed,
+  onParsed,
 }: {
-  onUploaded?: (previewUrl: string | null) => void;
+  initialParsed?: any | null;
+  onParsed: (parsed: any | null) => void;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [jsonPreview, setJsonPreview] = useState<any | null>(
+    initialParsed ?? null,
+  );
+
+  useEffect(() => {
+    setJsonPreview(initialParsed ?? null);
+  }, [initialParsed]);
 
   const handleFile = async (file?: File) => {
     if (!file) {
@@ -142,77 +153,75 @@ function FieldUploaderInline({
     }
     try {
       const text = await file.text();
-      let simulated: string | null = null;
-      try {
-        const parsed = JSON.parse(text);
-        if (parsed.preview) simulated = parsed.preview;
-      } catch {
-        // not json or no preview
-      }
-      if (!simulated) {
-        const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='240'><rect width='100%' height='100%' fill='#f3f4f6'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#9ca3af' font-size='16'>Field preview</text></svg>`;
-        simulated = `data:image/svg+xml;base64,${btoa(svg)}`;
-      }
-      // small delay to simulate processing
-      await new Promise((r) => setTimeout(r, 300));
-      setPreview(simulated);
-      onUploaded?.(simulated);
-    } catch {
-      alert('Не удалось загрузить файл поля');
-      onUploaded?.(null);
+      const parsed = JSON.parse(text);
+      setJsonPreview(parsed);
+      onParsed(parsed);
+    } catch (e) {
+      console.error('parse json error', e);
+      setJsonPreview(null);
+      onParsed(null);
+      alert('Не удалось распарсить JSON. Убедитесь, что файл валидный JSON.');
     }
   };
 
   return (
-    <div className="rounded-xl border border-gray-100 p-3 bg-white/90">
+    <div className="rounded-2xl border border-gray-100 p-3 bg-white shadow-sm">
       <input
         ref={fileRef}
         type="file"
-        accept=".json,image/*"
+        accept=".json,application/json"
         className="hidden"
         onChange={(e) => e.target.files && handleFile(e.target.files[0])}
       />
-      {!preview ? (
+      {!jsonPreview ? (
         <div className="flex flex-col gap-2">
           <button
             onClick={() => fileRef.current?.click()}
-            className="py-2 rounded-lg bg-emerald-500 text-white"
+            className="py-2 rounded-lg bg-emerald-600 text-white font-medium shadow"
           >
-            Загрузить файл/предпросмотр поля
+            Загрузить JSON поля
           </button>
           <div className="text-sm text-gray-500">
-            Можно загрузить JSON или картинку поля.
+            Требуемые поля:{' '}
+            <span className="font-mono text-xs">coords_polygon</span>,{' '}
+            <span className="font-mono text-xs">coords_index</span>,{' '}
+            <span className="font-mono text-xs">bands_index</span>.
           </div>
         </div>
       ) : (
         <div>
-          <div className="mb-2 text-sm text-gray-600">Превью поля</div>
-          <div className="w-full h-40 rounded-md overflow-hidden mb-2">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={preview}
-              alt="preview"
-              className="w-full h-full object-cover"
-            />
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium text-gray-700">
+              JSON загружен
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="text-xs text-emerald-600 hover:underline"
+              >
+                Заменить
+              </button>
+              <button
+                onClick={() => {
+                  setJsonPreview(null);
+                  onParsed(null);
+                }}
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                Удалить
+              </button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                setPreview(null);
-                onUploaded?.(null);
-              }}
-              className="px-3 py-1 rounded-lg border"
-            >
-              Убрать
-            </button>
-          </div>
+          <pre className="max-h-44 overflow-auto text-xs bg-gray-50 p-2 rounded-md border border-gray-100">
+            {JSON.stringify(jsonPreview, null, 2)}
+          </pre>
         </div>
       )}
     </div>
   );
 }
 
-// -------------------- Основной компонент --------------------
+// -------------------- Main component --------------------
 export default function OperatorOrders() {
   const { userInfo } = useGlobalContext() as any;
   const API_BASE = 'https://droneagro.duckdns.org';
@@ -232,58 +241,143 @@ export default function OperatorOrders() {
     return fetch(url, { ...options, headers: merged });
   };
 
-  const [orders, setOrders] = useState<Order[]>([
-    {
-      id: 101,
-      date: '2025-10-20',
-      fieldName: 'Поле №3 (Южное)',
-      coords: [
-        [55.751244, 37.618423],
-        [55.751244, 37.628423],
-        [55.741244, 37.628423],
-      ],
-      wavelengthsPresent: true,
-      assignedOperatorId: 1,
-      status: 'assigned',
-      preview: { fieldPhoto: null },
-    },
-    {
-      id: 102,
-      date: '2025-10-22',
-      fieldName: 'Поле №5 (Запад)',
-      coords: [
-        [55.752, 37.6],
-        [55.752, 37.61],
-      ],
-      wavelengthsPresent: false,
-      assignedOperatorId: 1,
-      status: 'assigned',
-      preview: { fieldPhoto: null },
-    },
-  ]);
-
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<
     'all' | 'assigned' | 'data' | 'ready' | 'inwork'
   >('all');
   const [query, setQuery] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  // operator state
-  const [selectedIndex, setSelectedIndex] = useState<string>('');
+  // operator UI state
+  const [activeTab, setActiveTab] = useState<'data' | 'result'>('data');
+  const [selectedIndex, setSelectedIndex] = useState<string>('NDVI');
   const [selectedDrone, setSelectedDrone] = useState<string>('');
+  const [metersPerPixel, setMetersPerPixel] = useState<string>('1.0');
+  const [nSegments, setNSegments] = useState<string>('2');
+  const [widthA, setWidthA] = useState<string>('5');
+  const [widthB, setWidthB] = useState<string>('5');
+
   const [calcInProgress, setCalcInProgress] = useState(false);
   const [calcProgress, setCalcProgress] = useState(0);
-  const [segmenting, setSegmenting] = useState(false);
-  const [mergeInputA, setMergeInputA] = useState('');
-  const [mergeInputB, setMergeInputB] = useState('');
-  const [routesPlanned, setRoutesPlanned] = useState(false);
 
-  const indexOptions = ['RGB Field', 'NDVI Masked', 'Split RGB', 'Split NDVI'];
+  const [modalImage, setModalImage] = useState<string | null>(null);
+
+  const indexOptions = [
+    'NDVI',
+    'RGB Field',
+    'NDVI Masked',
+    'Split RGB',
+    'Split NDVI',
+  ];
   const [availableDrones] = useState([
     'DJI Agras T50',
     'JOYANCE JT30L-606',
     'Topxgun FP600',
   ]);
+
+  // load orders (same as before)
+  const loadOrders = async () => {
+    setLoading(true);
+    try {
+      const res = await authFetch(`${API_BASE}/api/orders?page=1&limit=200`);
+      if (!res.ok) {
+        setOrders([]);
+        setLoading(false);
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      const arr = Array.isArray(data.orders) ? data.orders : [];
+      const local: Order[] = arr.map((o: any) => {
+        const id = Number(o.orderId ?? o.id ?? 0);
+        const rawDate = o.dataStart ?? o.dataEnd ?? o.createdAt;
+        const dateIso = rawDate
+          ? new Date(rawDate).toISOString().slice(0, 10)
+          : new Date().toISOString().slice(0, 10);
+        return {
+          id,
+          date: dateIso,
+          fieldName: `ID:${id}`,
+          coords: Array.isArray(o.coords) ? o.coords : undefined,
+          wavelengthsPresent: Boolean(o.materialsProvided),
+          assignedOperatorId: o.contractorId ?? null,
+          status: ((): Order['status'] => {
+            const low = String(o.status ?? '').toLowerCase();
+            if (/complete|done/.test(low)) return 'completed';
+            if (/in[_\s]?progress|progress/.test(low)) return 'in_progress';
+            if (/data_collection/.test(low)) return 'data_collection';
+            if (/ready_for_calc/.test(low)) return 'ready_for_calc';
+            if (/assigned/.test(low)) return 'assigned';
+            return 'new';
+          })(),
+          preview: { fieldPhoto: null },
+          metadata: { raw: o },
+        } as Order;
+      });
+      setOrders(local);
+
+      // enrich with field info as before
+      await Promise.all(
+        local.map(async (order) => {
+          try {
+            const rFields = await authFetch(
+              `${API_BASE}/api/orders/${order.id}/fields`,
+            );
+            if (!rFields.ok) return;
+            const dFields = await rFields.json().catch(() => ({}));
+            const fieldIds: number[] = Array.isArray(dFields.fieldIds)
+              ? dFields.fieldIds
+                  .map((n: any) => Number(n))
+                  .filter(Number.isFinite)
+              : [];
+            if (!fieldIds.length) return;
+            const fid = fieldIds[0];
+            const rField = await authFetch(`${API_BASE}/api/fields/${fid}`);
+            if (!rField.ok) return;
+            const df = await rField.json().catch(() => ({}));
+            const cadastral = df.cadastralNumber ?? df.name ?? `Поле #${fid}`;
+            let mapFile: string | null = null;
+            if (df.mapFile && typeof df.mapFile === 'string') {
+              const txt: string = df.mapFile;
+              mapFile = txt.startsWith('data:')
+                ? txt
+                : `data:image/png;base64,${txt}`;
+            }
+            setOrders((prev) =>
+              prev.map((p) =>
+                p.id === order.id
+                  ? {
+                      ...p,
+                      fieldName: cadastral,
+                      preview: {
+                        ...(p.preview ?? {}),
+                        fieldPhoto: mapFile ?? p.preview?.fieldPhoto ?? null,
+                      },
+                      metadata: {
+                        ...(p.metadata ?? {}),
+                        fieldId: fid,
+                        fieldRaw: df,
+                      },
+                    }
+                  : p,
+              ),
+            );
+          } catch (e) {
+            /* ignore per-order errors */
+          }
+        }),
+      );
+    } catch (e) {
+      console.error(e);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOrders();
+  }, []);
 
   const filtered = useMemo(() => {
     return orders.filter((o) => {
@@ -292,7 +386,7 @@ export default function OperatorOrders() {
       if (filter === 'ready' && o.status !== 'ready_for_calc') return false;
       if (
         filter === 'inwork' &&
-        ['calculating', 'segmented', 'routes_planned'].indexOf(o.status) === -1
+        !['calculating', 'segmented', 'routes_planned'].includes(o.status)
       )
         return false;
       if (
@@ -304,231 +398,189 @@ export default function OperatorOrders() {
     });
   }, [orders, filter, query]);
 
-  // --- actions (simulated) ---
-  const startDataCollection = async (o: Order) => {
-    updateOrderStatus(o.id, 'data_collection');
-    alert(`Для заявки #${o.id} установлен статус "Сбор данных".`);
-    setTimeout(
-      () => {
-        updateOrder((prev) =>
-          prev.map((p) =>
-            p.id === o.id
-              ? {
-                  ...p,
-                  wavelengthsPresent: true,
-                  preview: {
-                    ...p.preview,
-                    fieldPhoto: p.preview?.fieldPhoto ?? null,
-                  },
-                }
-              : p,
-          ),
-        );
-        updateOrderStatus(o.id, 'ready_for_calc');
-        alert(`Заявка #${o.id} готова для расчёта`);
-      },
-      1500 + Math.random() * 2000,
-    );
-  };
-
-  const setReadyForCalc = (o: Order) => {
-    if (o.wavelengthsPresent) {
-      updateOrderStatus(o.id, 'ready_for_calc');
-      alert(`Заявка #${o.id} переведена в "Готов для расчёта"`);
-    } else {
-      const ok = confirm('Данных по длинам волн нет. Начать сбор данных?');
-      if (ok) startDataCollection(o);
-    }
-  };
-
-  const calculateIndex = async (o: Order) => {
-    if (!selectedIndex) {
-      alert('Выберите индекс.');
-      return;
-    }
-    if (!selectedDrone) {
-      alert('Выберите модель дрона.');
-      return;
-    }
-    setCalcInProgress(true);
-    setCalcProgress(0);
-    updateOrderStatus(o.id, 'calculating');
-    for (let i = 1; i <= 8; i++) {
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((r) => setTimeout(r, 200 + Math.random() * 200));
-      setCalcProgress(Math.round((i / 8) * 100));
-    }
-    const svgIndex = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='360'><rect width='100%' height='100%' fill='#fff'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#10b981' font-size='20'>${selectedIndex} — ${selectedDrone} (order ${o.id})</text></svg>`;
-    const indexData = `data:image/svg+xml;base64,${btoa(svgIndex)}`;
-    updateOrder((prev) =>
-      prev.map((p) =>
-        p.id === o.id
-          ? { ...p, preview: { ...p.preview, indexPhoto: indexData } }
-          : p,
-      ),
-    );
-    setCalcInProgress(false);
-    setCalcProgress(0);
-    alert('Расчёт индекса завершён — превью доступно.');
-    updateOrderStatus(o.id, 'segmented');
-  };
-
-  const segmentField = async (o: Order) => {
-    setSegmenting(true);
-    await new Promise((r) => setTimeout(r, 700 + Math.random() * 700));
-    const seg1Svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='240'><rect width='100%' height='100%' fill='#fff7ed'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#f97316' font-size='16'>Segments preview A (order ${o.id})</text></svg>`;
-    const seg2Svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='240'><rect width='100%' height='100%' fill='#eef2ff'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#6366f1' font-size='16'>Segments preview B (order ${o.id})</text></svg>`;
-    const s1 = `data:image/svg+xml;base64,${btoa(seg1Svg)}`;
-    const s2 = `data:image/svg+xml;base64,${btoa(seg2Svg)}`;
-    const segments = [
-      { id: `S-${o.id}-1`, preview: s1 },
-      { id: `S-${o.id}-2`, preview: s2 },
-    ];
-    updateOrder((prev) =>
-      prev.map((p) =>
-        p.id === o.id
-          ? {
-              ...p,
-              preview: { ...p.preview, segments },
-              stats: { ...(p.stats ?? {}), segmentsCount: segments.length },
-            }
-          : p,
-      ),
-    );
-    setSegmenting(false);
-    alert('Поле разобито на участки.');
-    updateOrderStatus(o.id, 'segmented');
-  };
-
-  const mergeSegments = async (o: Order, a: string, b: string) => {
-    if (!o.preview?.segments) {
-      alert('Нет сегментов.');
-      return;
-    }
-    if (!a || !b) {
-      alert('Введите два ID.');
-      return;
-    }
-    const segIds = o.preview.segments.map((s) => s.id);
-    if (!segIds.includes(a) || !segIds.includes(b)) {
-      alert('Участки не найдены.');
-      return;
-    }
-    if (a === b) {
-      alert('Нельзя объединить один и тот же участок.');
-      return;
-    }
-    if (Math.random() < 0.1) {
-      alert('Геометрия конфликтует.');
-      return;
-    }
-    const newId = `S-${o.id}-M-${Date.now() % 10000}`;
-    const mergedSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='240'><rect width='100%' height='100%' fill='#ecfccb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#65a30d' font-size='16'>Merged ${a}+${b}</text></svg>`;
-    const mergedPreview = `data:image/svg+xml;base64,${btoa(mergedSvg)}`;
-    updateOrder((prev) =>
-      prev.map((p) =>
-        p.id === o.id
-          ? {
-              ...p,
-              preview: {
-                ...p.preview!,
-                segments: [
-                  ...p.preview!.segments.filter(
-                    (s) => s.id !== a && s.id !== b,
-                  ),
-                  { id: newId, preview: mergedPreview },
-                ],
-              },
-            }
-          : p,
-      ),
-    );
-    alert(`Участки ${a} и ${b} объединены в ${newId}`);
-  };
-
-  const planRoutes = async (o: Order) => {
-    const segCount = o.preview?.segments?.length ?? 0;
-    if (segCount === 0) {
-      alert('Нет участков для маршрутов.');
-      return;
-    }
-    updateOrderStatus(o.id, 'routes_planned');
-    await new Promise((r) => setTimeout(r, 600 + Math.random() * 800));
-    const totalTime = Math.round(segCount * (15 + Math.random() * 20));
-    const routesSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='360'><rect width='100%' height='100%' fill='#f0fdf4'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' fill='#059669' font-size='20'>Routes planned (${segCount} segments) • ${totalTime} min</text></svg>`;
-    const previewRoutes = `data:image/svg+xml;base64,${btoa(routesSvg)}`;
-    updateOrder((prev) =>
-      prev.map((p) =>
-        p.id === o.id
-          ? {
-              ...p,
-              preview: { ...p.preview, routesPreview: previewRoutes },
-              stats: {
-                ...(p.stats ?? {}),
-                totalFlightTimeMin: totalTime,
-                routesCount: segCount,
-              },
-            }
-          : p,
-      ),
-    );
-    setRoutesPlanned(true);
-    alert('Маршруты проложены.');
-  };
-
-  const completeOrder = async (o: Order) => {
-    updateOrderStatus(o.id, 'completed');
-    alert(`Заявка #${o.id} помечена как выполненная.`);
-  };
-
-  const downloadReport = (o: Order) => {
-    const report = {
-      orderId: o.id,
-      field: o.fieldName,
-      date: o.date,
-      status: o.status,
-      stats: o.stats ?? {},
-      segments: o.preview?.segments?.map((s) => ({ id: s.id })) ?? [],
+  // ESC modal handler & click on backdrop closes modal
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setModalImage(null);
     };
-    const blob = new Blob([JSON.stringify(report, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `report_order_${o.id}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    alert('Отчёт сгенерирован (json).');
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const runSparseAnalytics = async (order: Order) => {
+    const uploaded = order.metadata?.uploadedJson ?? null;
+    if (!uploaded) {
+      alert(
+        'Сначала загрузите JSON с полями coords_polygon, coords_index, bands_index.',
+      );
+      return;
+    }
+    const coords_polygon =
+      uploaded.coords_polygon ??
+      uploaded.coordsPolygon ??
+      uploaded.polygon ??
+      null;
+    const coords_index = uploaded.coords_index ?? uploaded.coordsIndex ?? null;
+    const bands_index =
+      uploaded.bands_index ?? uploaded.bandsIndex ?? uploaded.bands ?? null;
+    if (!coords_polygon || !coords_index || !bands_index) {
+      alert(
+        'В загруженном JSON не найдены все требуемые поля: coords_polygon, coords_index, bands_index.',
+      );
+      return;
+    }
+
+    const payload: any = {
+      coords_polygon,
+      coords_index,
+      bands_index,
+      index_name: selectedIndex || 'NDVI',
+      meters_per_pixel: Number(metersPerPixel),
+      n_segments: Number(nSegments),
+      width_a: Number(widthA),
+      width_b: Number(widthB),
+    };
+
+    if (
+      !Number.isFinite(payload.meters_per_pixel) ||
+      payload.meters_per_pixel <= 0
+    ) {
+      alert('meters_per_pixel должен быть положительным числом');
+      return;
+    }
+    if (!Number.isFinite(payload.n_segments) || payload.n_segments <= 0) {
+      alert('n_segments должен быть положительным числом');
+      return;
+    }
+    if (!Number.isFinite(payload.width_a) || payload.width_a <= 0) {
+      alert('width_a должен быть положительным числом');
+      return;
+    }
+    if (!Number.isFinite(payload.width_b) || payload.width_b <= 0) {
+      alert('width_b должен быть положительным числом');
+      return;
+    }
+
+    try {
+      setCalcInProgress(true);
+      setCalcProgress(10);
+
+      const res = await authFetch(`${API_BASE}/api/analytics/sparse`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+      setCalcProgress(50);
+      const text = await res.text().catch(() => '');
+      if (!res.ok) {
+        console.error('analytics/sparse failed', res.status, text);
+        alert('Ошибка при отправке запроса аналитики: ' + (res.status ?? ''));
+        setCalcInProgress(false);
+        setCalcProgress(0);
+        return;
+      }
+      let parsed: any = {};
+      try {
+        parsed = JSON.parse(text || '{}');
+      } catch {
+        parsed = { rawText: text };
+      }
+
+      const keys = [
+        'rgb_field_image',
+        'ndvi_masked_image',
+        'clusters_image',
+        'split_rgb_image',
+        'split_ndvi_image',
+        'composite_image',
+      ];
+      const images: Record<string, string | null> = {};
+      keys.forEach((k) => {
+        const v = parsed[k] ?? parsed[k.replace(/_image$/, '_img')] ?? null;
+        if (!v) {
+          images[k] = null;
+          return;
+        }
+        if (typeof v === 'string')
+          images[k] = v.startsWith('data:') ? v : `data:image/png;base64,${v}`;
+        else images[k] = null;
+      });
+
+      setOrders((prev) =>
+        prev.map((p) =>
+          p.id === order.id
+            ? {
+                ...p,
+                metadata: {
+                  ...(p.metadata ?? {}),
+                  analyticsResponse: parsed,
+                  analyticsImages: images,
+                },
+              }
+            : p,
+        ),
+      );
+      setSelectedOrder((so) =>
+        so && so.id === order.id
+          ? {
+              ...so,
+              metadata: {
+                ...(so.metadata ?? {}),
+                analyticsResponse: parsed,
+                analyticsImages: images,
+              },
+            }
+          : so,
+      );
+
+      setActiveTab('result');
+      setCalcProgress(100);
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка при вызове аналитики.');
+    } finally {
+      setTimeout(() => {
+        setCalcInProgress(false);
+        setCalcProgress(0);
+      }, 300);
+    }
   };
 
-  const updateOrderStatus = (id: number, status: OrderStatus) =>
-    setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
-  const updateOrder = (updater: (prev: Order[]) => Order[]) =>
-    setOrders((prev) => updater(prev));
+  const handleParsedJsonForOrder = (orderId: number, parsed: any | null) => {
+    setOrders((prev) =>
+      prev.map((p) =>
+        p.id === orderId
+          ? { ...p, metadata: { ...(p.metadata ?? {}), uploadedJson: parsed } }
+          : p,
+      ),
+    );
+    if (selectedOrder && selectedOrder.id === orderId)
+      setSelectedOrder((so) =>
+        so
+          ? {
+              ...so,
+              metadata: { ...(so.metadata ?? {}), uploadedJson: parsed },
+            }
+          : so,
+      );
+  };
 
-  // Open detail in the same view
   const openDetail = (o: Order) => {
     setSelectedOrder(o);
-    setSelectedIndex('');
+    setActiveTab('data');
+    setSelectedIndex('NDVI');
     setSelectedDrone('');
     setCalcInProgress(false);
     setCalcProgress(0);
-    setSegmenting(false);
-    setMergeInputA('');
-    setMergeInputB('');
-    setRoutesPlanned(false);
-    // scroll into view (optional)
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Back to list
   const goBack = () => {
     setSelectedOrder(null);
-    // clear operator selections
-    setSelectedIndex('');
-    setSelectedDrone('');
+    setActiveTab('data');
+    setSelectedIndex('NDVI');
   };
+
+  const canRun = Boolean(selectedOrder?.metadata?.uploadedJson);
 
   return (
     <div className="space-y-6">
@@ -550,7 +602,7 @@ export default function OperatorOrders() {
             </span>
           </div>
           <button
-            onClick={() => setOrders((s) => [...s])}
+            onClick={() => loadOrders()}
             className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2"
             title="Обновить"
           >
@@ -559,7 +611,6 @@ export default function OperatorOrders() {
         </div>
       </div>
 
-      {/* Top controls */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div className="flex items-center gap-3">
           <div className="w-full max-w-md relative">
@@ -573,7 +624,6 @@ export default function OperatorOrders() {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-
           <div className="flex items-center gap-2">
             <button
               onClick={() => setFilter('all')}
@@ -603,7 +653,6 @@ export default function OperatorOrders() {
         </div>
       </div>
 
-      {/* If no order selected — show the list; otherwise show operator panel (in-page) */}
       {!selectedOrder ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -612,9 +661,13 @@ export default function OperatorOrders() {
               Кликните по заявке, чтобы открыть инструменты оператора
             </div>
           </div>
-
           <div className="divide-y divide-gray-100">
-            {filtered.length === 0 && (
+            {loading && (
+              <div className="p-6 text-sm text-gray-500">
+                Загрузка заявок...
+              </div>
+            )}
+            {!loading && filtered.length === 0 && (
               <div className="p-6 text-sm text-gray-500">
                 Нет заявок, подходящих под фильтр.
               </div>
@@ -633,39 +686,20 @@ export default function OperatorOrders() {
                     <span className="font-medium">{o.status}</span>
                   </div>
                 </div>
-
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => openDetail(o)}
-                    title="Открыть"
                     className="px-3 py-2 rounded-md bg-white border border-gray-100 hover:shadow-sm"
                   >
                     <Eye size={16} />
                   </button>
-                  {o.status === 'assigned' && !o.wavelengthsPresent && (
-                    <button
-                      onClick={() => startDataCollection(o)}
-                      className="px-3 py-2 rounded-md bg-amber-50 border border-amber-100 text-amber-700"
-                    >
-                      Запустить сбор данных
-                    </button>
-                  )}
-                  {o.status === 'assigned' && o.wavelengthsPresent && (
-                    <button
-                      onClick={() => setReadyForCalc(o)}
-                      className="px-3 py-2 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-700"
-                    >
-                      Готов к расчёту
-                    </button>
-                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
       ) : (
-        // Operator panel (in-page)
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
+        <div className="relative bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <div>
               <div className="text-sm text-gray-500">
@@ -674,297 +708,291 @@ export default function OperatorOrders() {
               <div className="text-lg font-semibold mt-1">
                 Инструменты оператора
               </div>
-              <div className="mt-1 text-xs text-gray-500">
-                Статус:{' '}
-                <span className="font-medium">{selectedOrder.status}</span>
-              </div>
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={goBack}
-                className="px-3 py-2 rounded-lg bg-white border border-gray-200"
-              >
-                ← Назад
-              </button>
-              <button
                 onClick={() => setSelectedOrder(null)}
                 className="px-3 py-2 rounded-lg bg-white border border-gray-200"
-                title="Закрыть"
               >
                 <X size={16} />
               </button>
             </div>
           </div>
 
-          <div className="p-6 grid md:grid-cols-3 gap-6">
-            {/* Column 1 */}
-            <div className="md:col-span-1 space-y-4">
-              <div className="rounded-2xl p-4 bg-white/90 border border-gray-100">
-                <div className="text-sm text-gray-600 mb-2">
-                  Фото поля / Preview
-                </div>
-                <div className="w-full h-44 rounded-md overflow-hidden mb-3 bg-gray-100 flex items-center justify-center">
-                  {selectedOrder.preview?.fieldPhoto ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={selectedOrder.preview.fieldPhoto}
-                      className="w-full h-full object-cover"
-                      alt="field"
+          {/* Tabs */}
+          <div className="p-4 border-b border-gray-100 flex items-center gap-4">
+            <button
+              onClick={() => setActiveTab('data')}
+              className={`px-4 py-2 rounded-t-lg relative ${activeTab === 'data' ? 'text-emerald-700' : 'text-gray-600'}`}
+            >
+              <div className="font-medium">Заполнение данных</div>
+              {activeTab === 'data' && (
+                <div className="absolute left-0 right-0 -bottom-2 h-1 bg-emerald-400 rounded-t-lg shadow-[0_6px_18px_rgba(16,185,129,0.16)]"></div>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('result')}
+              className={`px-4 py-2 rounded-t-lg relative ${activeTab === 'result' ? 'text-emerald-700' : 'text-gray-600'}`}
+            >
+              <div className="font-medium">Итог</div>
+              {activeTab === 'result' && (
+                <div className="absolute left-0 right-0 -bottom-2 h-1 bg-emerald-400 rounded-t-lg shadow-[0_6px_18px_rgba(16,185,129,0.16)]"></div>
+              )}
+            </button>
+          </div>
+
+          {/* Tab content */}
+          <div className="p-6">
+            {activeTab === 'data' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 space-y-4">
+                  <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
+                    <div className="text-lg font-semibold mb-2">Фото поля</div>
+                    <div className="w-full h-44 rounded-md overflow-hidden mb-3 bg-gray-100 flex items-center justify-center">
+                      {selectedOrder.preview?.fieldPhoto ? (
+                        <img
+                          src={selectedOrder.preview.fieldPhoto}
+                          alt="field"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400 text-sm">
+                          Фото поля отсутствует
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      Поле:{' '}
+                      <span className="font-medium">
+                        {selectedOrder.fieldName}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
+                    <div className="text-lg font-semibold mb-2">Дрон</div>
+                    <ModernSelect
+                      label="Выбор дрона"
+                      options={availableDrones}
+                      value={selectedDrone}
+                      onChange={(v) => setSelectedDrone(v)}
                     />
-                  ) : (
-                    <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400 text-sm">
-                      Заглушка: фото поля отсутствует
-                    </div>
-                  )}
-                </div>
-
-                {/* <FieldUploaderInline
-                  onUploaded={(preview) => {
-                    updateOrder((prev) =>
-                      prev.map((p) =>
-                        p.id === selectedOrder.id
-                          ? {
-                              ...p,
-                              preview: { ...p.preview, fieldPhoto: preview },
-                            }
-                          : p,
-                      ),
-                    );
-                    updateOrder((prev) =>
-                      prev.map((p) =>
-                        p.id === selectedOrder.id
-                          ? { ...p, wavelengthsPresent: true }
-                          : p,
-                      ),
-                    );
-                  }}
-                /> */}
-              </div>
-
-              <div className="rounded-2xl p-4 bg-white/90 border border-gray-100">
-                <div className="text-sm text-gray-600 mb-2">
-                  Выберите индекс
-                </div>
-                <ModernSelect
-                  options={indexOptions}
-                  value={
-                    selectedIndex ||
-                    (selectedOrder.wavelengthsPresent ? indexOptions[0] : '')
-                  }
-                  onChange={(v) => setSelectedIndex(v)}
-                />
-                <div className="mt-3 text-xs text-gray-500">
-                  Индексы: RGB Field, NDVI Masked, Split RGB, Split NDVI.
-                </div>
-              </div>
-
-              <div className="rounded-2xl p-4 bg-white/90 border border-gray-100">
-                <div className="text-sm text-gray-600 mb-2">Выбор дрона</div>
-                <ModernSelect
-                  options={availableDrones}
-                  value={selectedDrone}
-                  onChange={(v) => setSelectedDrone(v)}
-                />
-                <div className="mt-3 text-xs text-gray-500">
-                  Моковый список дронов для симуляции.
-                </div>
-              </div>
-            </div>
-
-            {/* Column 2 */}
-            <div className="md:col-span-1 space-y-4">
-              <div className="rounded-2xl p-4 bg-white/90 border border-gray-100">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm text-gray-600">Расчёт индекса</div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Выберите индекс и дрон → нажмите "Вычислить".
+                    <div className="text-xs text-gray-500 mt-2">
+                      Выбор используется для дальнейшей интеграции.
                     </div>
                   </div>
-                  <div className="text-sm text-gray-700 font-medium">
-                    {selectedOrder.status}
-                  </div>
                 </div>
 
-                <div className="mt-4 flex items-center gap-2">
-                  <button
-                    onClick={() => calculateIndex(selectedOrder)}
-                    className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl flex items-center gap-2"
-                    disabled={calcInProgress}
-                  >
-                    <Zap size={16} />{' '}
-                    {calcInProgress
-                      ? `Вычисление ${calcProgress}%`
-                      : 'Вычислить'}
-                  </button>
-
-                  <button
-                    onClick={() => segmentField(selectedOrder)}
-                    className="px-3 py-2 bg-white border border-gray-100 rounded-lg"
-                    disabled={segmenting}
-                  >
-                    Разбить поле на участки
-                  </button>
-
-                  <button
-                    onClick={() => setReadyForCalc(selectedOrder)}
-                    className="px-3 py-2 bg-white border border-gray-100 rounded-lg"
-                  >
-                    Пометить: готов для расчёта
-                  </button>
-                </div>
-
-                {calcInProgress && (
-                  <div className="mt-3">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        style={{ width: `${calcProgress}%` }}
-                        className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"
-                      />
+                <div className="lg:col-span-2 space-y-4">
+                  <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
+                    <div className="text-lg font-semibold mb-2">
+                      Параметры аналитики
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Прогресс вычисления: {calcProgress}%
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">
+                          Индекс (index_name)
+                        </label>
+                        <ModernSelect
+                          options={indexOptions}
+                          value={selectedIndex}
+                          onChange={(v) => setSelectedIndex(v)}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">
+                          meters_per_pixel
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={metersPerPixel}
+                          onChange={(e) => setMetersPerPixel(e.target.value)}
+                          className="w-full px-4 py-2 rounded-lg border border-gray-200 shadow-sm focus:ring-2 focus:ring-emerald-200 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-xs text-gray-600 mb-1 block">
+                          n_segments
+                        </label>
+                        <input
+                          type="number"
+                          value={nSegments}
+                          onChange={(e) => setNSegments(e.target.value)}
+                          className="w-full px-4 py-2 rounded-lg border border-gray-200 shadow-sm focus:ring-2 focus:ring-emerald-200 outline-none"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-gray-600 mb-1 block">
+                            width_a
+                          </label>
+                          <input
+                            type="number"
+                            value={widthA}
+                            onChange={(e) => setWidthA(e.target.value)}
+                            className="w-full px-4 py-2 rounded-lg border border-gray-200 shadow-sm focus:ring-2 focus:ring-emerald-200 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-600 mb-1 block">
+                            width_b
+                          </label>
+                          <input
+                            type="number"
+                            value={widthB}
+                            onChange={(e) => setWidthB(e.target.value)}
+                            className="w-full px-4 py-2 rounded-lg border border-gray-200 shadow-sm focus:ring-2 focus:ring-emerald-200 outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          setMetersPerPixel('1.0');
+                          setNSegments('2');
+                          setWidthA('5');
+                          setWidthB('5');
+                          setSelectedIndex('NDVI');
+                        }}
+                        className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-700"
+                      >
+                        Reset
+                      </button>
                     </div>
                   </div>
-                )}
 
-                {selectedOrder.preview?.indexPhoto && (
-                  <div className="mt-4">
-                    <div className="text-xs text-gray-500 mb-2">
-                      Изображение индекса
+                  <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
+                    <div className="text-sm text-gray-600 mb-2">
+                      Загрузить JSON поля
                     </div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={selectedOrder.preview.indexPhoto}
-                      alt="index"
-                      className="w-full h-36 object-cover rounded-md border"
+                    <FieldJsonUploader
+                      initialParsed={
+                        selectedOrder.metadata?.uploadedJson ?? null
+                      }
+                      onParsed={(parsed) =>
+                        handleParsedJsonForOrder(selectedOrder.id, parsed)
+                      }
                     />
                   </div>
-                )}
+                </div>
               </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
+                  <div className="text-lg font-semibold mb-2">Итог</div>
+                  <div className="text-sm text-gray-600 mb-4">
+                    {selectedOrder.metadata?.analyticsResponse
+                      ? 'Ниже — изображения, полученные от аналитики.'
+                      : 'Выполните аналитику в разделе "Заполнение данных" чтобы увидеть результаты.'}
+                  </div>
 
-              <div className="rounded-2xl p-4 bg-white/90 border border-gray-100">
-                <div className="text-sm text-gray-600 mb-2">Участки</div>
-                {selectedOrder.preview?.segments?.length ? (
-                  <>
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      {selectedOrder.preview.segments.map((s) => (
-                        <div
-                          key={s.id}
-                          className="p-2 border rounded-lg text-xs"
-                        >
-                          <div className="font-medium">{s.id}</div>
-                          <div className="mt-2 h-20 overflow-hidden rounded-md bg-gray-50 flex items-center justify-center">
-                            {s.preview ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {[
+                      { key: 'rgb_field_image', label: 'RGB Field' },
+                      { key: 'ndvi_masked_image', label: 'NDVI Masked' },
+                      { key: 'clusters_image', label: 'Clusters' },
+                      { key: 'split_rgb_image', label: 'Split RGB' },
+                      { key: 'split_ndvi_image', label: 'Split NDVI' },
+                      { key: 'composite_image', label: 'Composite' },
+                    ].map((item) => {
+                      const img =
+                        selectedOrder.metadata?.analyticsImages?.[item.key] ??
+                        null;
+                      return (
+                        <div key={item.key} className="flex flex-col">
+                          <div className="text-sm font-medium text-gray-700 mb-2">
+                            {item.label}
+                          </div>
+                          <div className="w-full h-48 bg-gray-50 rounded-lg border overflow-hidden flex items-center justify-center">
+                            {img ? (
                               <img
-                                src={s.preview}
-                                alt={s.id}
-                                className="w-full h-full object-cover"
+                                src={img}
+                                alt={item.label}
+                                className="w-full h-full object-contain cursor-pointer"
+                                onClick={() => setModalImage(img)}
                               />
                             ) : (
                               <div className="text-xs text-gray-400">
-                                Нет превью
+                                Нет изображения
                               </div>
                             )}
                           </div>
                         </div>
-                      ))}
-                    </div>
-
-                    <div className="flex gap-2 items-center">
-                      <input
-                        className="px-3 py-2 rounded-lg border w-32"
-                        placeholder="ID A"
-                        value={mergeInputA}
-                        onChange={(e) => setMergeInputA(e.target.value)}
-                      />
-                      <input
-                        className="px-3 py-2 rounded-lg border w-32"
-                        placeholder="ID B"
-                        value={mergeInputB}
-                        onChange={(e) => setMergeInputB(e.target.value)}
-                      />
-                      <button
-                        onClick={() =>
-                          mergeSegments(selectedOrder, mergeInputA, mergeInputB)
-                        }
-                        className="px-3 py-2 bg-white border rounded-lg"
-                      >
-                        Объединить
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-xs text-gray-500">
-                    Сегменты не сгенерированы
+                      );
+                    })}
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Column 3 */}
-            <div className="md:col-span-1 space-y-4">
-              <div className="rounded-2xl p-4 bg-white/90 border border-gray-100">
-                <div className="text-sm text-gray-600 mb-2">
-                  Прокладка маршрутов
-                </div>
-                <div className="text-xs text-gray-500 mb-3">
-                  После разбиения — проложите маршруты и сохраните отчёт.
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => planRoutes(selectedOrder)}
-                    className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-lg"
-                  >
-                    Проложить маршруты
-                  </button>
                 </div>
 
-                {selectedOrder.preview?.routesPreview && (
-                  <div className="mt-4">
-                    <div className="text-xs text-gray-500 mb-2">
-                      Превью маршрутов
-                    </div>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={selectedOrder.preview.routesPreview}
-                      alt="routes"
-                      className="w-full h-40 object-cover rounded-md border"
-                    />
-                    <div className="mt-2 text-xs text-gray-500">
-                      Оценочное время полёта:{' '}
-                      {selectedOrder.stats?.totalFlightTimeMin ?? '—'} мин
-                    </div>
+                <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
+                  <div className="text-sm text-gray-600 mb-2">
+                    Ответ сервера (raw)
                   </div>
-                )}
-              </div>
-
-              <div className="rounded-2xl p-4 bg-white/90 border border-gray-100">
-                <div className="text-sm text-gray-600 mb-2">
-                  Завершение заявки
-                </div>
-                <div className="text-xs text-gray-500 mb-3">
-                  Поставьте статус "Выполнен", когда всё готово.
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => completeOrder(selectedOrder)}
-                    className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl"
-                  >
-                    Отметить как выполнено
-                  </button>
+                  <pre className="max-h-64 overflow-auto text-xs bg-gray-50 p-2 rounded-md">
+                    {JSON.stringify(
+                      selectedOrder.metadata?.analyticsResponse ?? 'Нет данных',
+                      null,
+                      2,
+                    )}
+                  </pre>
                 </div>
               </div>
-            </div>
+            )}
           </div>
 
+          {/* Bottom-right Run Analytics button (replaces old "Назад" position) */}
           <div className="p-4 border-t border-gray-100 flex items-center justify-end gap-2">
             <button
-              onClick={goBack}
-              className="px-4 py-2 bg-white border rounded-lg"
+              onClick={() => selectedOrder && runSparseAnalytics(selectedOrder)}
+              disabled={!canRun || calcInProgress}
+              className={`px-5 py-2 rounded-lg font-medium transition ${
+                canRun && !calcInProgress
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow'
+                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+              }`}
+              title={
+                canRun
+                  ? 'Запустить аналитику'
+                  : 'Загрузите JSON, чтобы включить'
+              }
             >
-              ← Назад
+              {calcInProgress ? `Running ${calcProgress}%` : 'Run Analytics'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen image modal */}
+      {modalImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(e) => {
+            // close when clicking backdrop (but not when clicking the image itself)
+            if (e.target === e.currentTarget) setModalImage(null);
+          }}
+        >
+          <div className="relative w-full max-w-[calc(100vw-64px)] max-h-[calc(100vh-64px)]">
+            <button
+              onClick={() => setModalImage(null)}
+              className="absolute right-2 top-2 z-50 bg-white/90 rounded-full p-2 shadow"
+            >
+              <X size={18} />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={modalImage}
+              alt="preview full"
+              className="w-full h-full object-contain rounded-md"
+              style={{
+                maxHeight: 'calc(100vh - 96px)',
+                maxWidth: 'calc(100vw - 96px)',
+              }}
+            />
           </div>
         </div>
       )}
