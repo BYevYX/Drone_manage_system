@@ -73,7 +73,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
       photo_url: '/header/drones/drone_1.png',
     },
     {
-      id: 2,
+      id: 8,
       name: 'DJI Agras T50 ',
       manufacturer: 'DJI Agras',
       description:
@@ -91,9 +91,8 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     {
       id: 4,
       manufacturer: 'Topxgun',
-      name: 'Topxgun FP600',
-      description:
-        'Беспилотник Topxgun FP600 сельскохозяйственный дрон,модель: 3WWDZ-50B',
+      name: 'ARGI',
+      description: 'Беспилотник ARGI сельскохозяйственный дрон',
       photo_url: '/header/drones/drone_5.jpg',
     },
   ]);
@@ -202,7 +201,6 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (e) {
       // ignore localStorage read errors
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
