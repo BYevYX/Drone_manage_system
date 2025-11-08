@@ -137,8 +137,8 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
 
         {/* Main Info Card */}
         <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
-          <div className="flex items-start justify-between mb-6">
-            <div>
+          <div className="flex items-start justify-between mb-6 gap-8">
+            <div className="flex-1">
               <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
                 ID: {drone.droneId}
               </div>
@@ -163,6 +163,27 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
                 </div>
               </div>
             </div>
+            {drone.imageKey && (
+              <div className="w-48 h-48 rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0 shadow-lg">
+                <img
+                  src={`${API_BASE}/v1/files/${drone.imageKey}`}
+                  alt={drone.droneName}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    target.parentElement!.innerHTML = `
+                      <div class="w-full h-full flex items-center justify-center text-gray-400">
+                        <div class="text-center">
+                          <div class="text-2xl mb-2">📷</div>
+                          <div class="text-sm">Изображение недоступно</div>
+                        </div>
+                      </div>
+                    `;
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Quick Stats Grid */}
@@ -282,8 +303,9 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
             Сельскохозяйственный агродрон {drone.droneName} — это современное
             мультироторное устройство, которое совмещает в себе высокие
             технологии и многофункциональность с простотой управления. Дрон
-            оснащен системой распыления с ёмкостью {drone.spraying?.capacity ?? 'N/A'} л и
-            системой разбрасывания с ёмкостью {drone.spreading?.capacity ?? 'N/A'} кг.
+            оснащен системой распыления с ёмкостью{' '}
+            {drone.spraying?.capacity ?? 'N/A'} л и системой разбрасывания с
+            ёмкостью {drone.spreading?.capacity ?? 'N/A'} кг.
             <br />
             <br />
             Максимальное время полёта составляет {drone.flightTime} минут, а

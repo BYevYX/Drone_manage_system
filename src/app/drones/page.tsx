@@ -338,21 +338,34 @@ export default function DronesPage() {
                           transformStyle: "preserve-3d",
                         }}
                       >
-                        <div>
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="text-xs text-gray-400">
-                                ID #{id}
-                              </div>
-                              <h3 className="text-lg font-nekstmedium text-gray-900 mt-1">
-                                {d.droneName}
-                              </h3>
-                              <div className="text-sm text-gray-600 mt-2 line-clamp-2">
-                                Вес: {d.weight}кг {' | '} Грузоподъёмность:{' '}
-                                {d.liftCapacity}кг
-                              </div>
-                            </div>
-                          </div>
+                       <div>
+                         <div className="flex items-start justify-between gap-4">
+                           <div className="flex-1">
+                             <div className="text-xs text-gray-400">
+                               ID #{id}
+                             </div>
+                             <h3 className="text-lg font-nekstmedium text-gray-900 mt-1">
+                               {d.droneName}
+                             </h3>
+                             <div className="text-sm text-gray-600 mt-2 line-clamp-2">
+                               Вес: {d.weight}кг {' | '} Грузоподъёмность:{' '}
+                               {d.liftCapacity}кг
+                             </div>
+                           </div>
+                           {d.imageKey && (
+                             <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                               <img
+                                 src={`${API_BASE}/v1/files/${d.imageKey}`}
+                                 alt={d.droneName}
+                                 className="w-full h-full object-cover"
+                                 onError={(e) => {
+                                   const target = e.target as HTMLImageElement;
+                                   target.style.display = 'none';
+                                 }}
+                               />
+                             </div>
+                           )}
+                         </div>
 
                           <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-gray-600">
                             <div className="bg-indigo-50/60 p-3 rounded-lg border border-indigo-100">
