@@ -87,6 +87,14 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
     );
   }
 
+  // Функция для форматирования габаритов
+  const formatDimensions = (width: number, height: number, length?: number) => {
+    const w = width || width === 0 ? width : '—';
+    const h = height || height === 0 ? height : '—';
+    const l = length || length === 0 ? length : '—';
+    return `${w} x ${h} x ${l}`;
+  };
+
   const characteristics = [
     ['ID дрона', drone.droneId],
     ['Название', drone.droneName],
@@ -94,20 +102,19 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
     ['Время зарядки', `${drone.batteryChargeTime} ч`],
     ['Вес дрона', `${drone.weight} кг`],
     ['Грузоподъёмность', `${drone.liftCapacity} кг`],
-    ['Ширина дрона', `${drone.width} м`],
-    ['Высота дрона', `${drone.height} м`],
+    ['Габариты (Ш x В x Д)', formatDimensions(drone.width, drone.height)],
     ['Максимальная скорость полёта', `${drone.maxFlightSpeed} м/с`],
     ['Рабочая скорость', `${drone.maxWorkingSpeed} м/с`],
     ['Максимальная скорость ветра', `${drone.maxWindSpeed} м/с`],
     ['Рабочая температура', `${drone.operatingTemperature}°C`],
     ['Максимальная высота полёта', `${drone.maxFlightHeight} м`],
-    ['Скорость вращения', `${drone.rotationSpeed} об/мин`],
+    ['Скорость разворота на 180 градусов', `${drone.rotationSpeed} об/мин`],
   ];
 
   const sprayingCharacteristics = drone.spraying
     ? [
         ['Расход', `${drone.spraying.flowRate} л/мин`],
-        ['Ёмкость', `${drone.spraying.capacity} л`],
+        ['Ёмкость', `${drone.spraying.capacity} кг`],
         ['Ширина распыления', `${drone.spraying.width} м`],
       ]
     : [['Статус', 'Система распыления не настроена']];
@@ -166,7 +173,7 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
             {drone.imageKey && (
               <div className="w-48 h-48 rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0 shadow-lg">
                 <img
-                  src={`${API_BASE}/v1/files/${drone.imageKey}`}
+                  src={drone.imageKey}
                   alt={drone.droneName}
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -198,7 +205,7 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
               <div className="text-2xl font-bold text-green-700">
                 {drone.spraying?.capacity ?? 'N/A'}
               </div>
-              <div className="text-sm text-green-600">Ёмкость распыл. (л)</div>
+              <div className="text-sm text-green-600">Ёмкость распыл. (кг)</div>
             </div>
             <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl">
               <div className="text-2xl font-bold text-purple-700">
@@ -304,7 +311,7 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
             мультироторное устройство, которое совмещает в себе высокие
             технологии и многофункциональность с простотой управления. Дрон
             оснащен системой распыления с ёмкостью{' '}
-            {drone.spraying?.capacity ?? 'N/A'} л и системой разбрасывания с
+            {drone.spraying?.capacity ?? 'N/A'} кг и системой разбрасывания с
             ёмкостью {drone.spreading?.capacity ?? 'N/A'} кг.
             <br />
             <br />

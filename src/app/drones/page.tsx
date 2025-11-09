@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Edit,
+  Camera,
 } from 'lucide-react';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
@@ -325,47 +326,47 @@ export default function DronesPage() {
                           scale: 1.02,
                           rotateY: 2,
                           rotateX: 1,
-                          boxShadow: "0 20px 60px rgba(40,60,100,0.15)",
-                          borderColor: "rgba(99, 102, 241, 0.2)",
+                          boxShadow: '0 20px 60px rgba(40,60,100,0.15)',
+                          borderColor: 'rgba(99, 102, 241, 0.2)',
                         }}
                         transition={{
-                          type: "spring",
+                          type: 'spring',
                           stiffness: 300,
                           damping: 20,
-                          duration: 0.3
+                          duration: 0.3,
                         }}
                         style={{
-                          transformStyle: "preserve-3d",
+                          transformStyle: 'preserve-3d',
                         }}
                       >
-                       <div>
-                         <div className="flex items-start justify-between gap-4">
-                           <div className="flex-1">
-                             <div className="text-xs text-gray-400">
-                               ID #{id}
-                             </div>
-                             <h3 className="text-lg font-nekstmedium text-gray-900 mt-1">
-                               {d.droneName}
-                             </h3>
-                             <div className="text-sm text-gray-600 mt-2 line-clamp-2">
-                               Вес: {d.weight}кг {' | '} Грузоподъёмность:{' '}
-                               {d.liftCapacity}кг
-                             </div>
-                           </div>
-                           {d.imageKey && (
-                             <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
-                               <img
-                                 src={`${API_BASE}/v1/files/${d.imageKey}`}
-                                 alt={d.droneName}
-                                 className="w-full h-full object-cover"
-                                 onError={(e) => {
-                                   const target = e.target as HTMLImageElement;
-                                   target.style.display = 'none';
-                                 }}
-                               />
-                             </div>
-                           )}
-                         </div>
+                        <div>
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1">
+                              <div className="text-xs text-gray-400">
+                                ID #{id}
+                              </div>
+                              <h3 className="text-lg font-nekstmedium text-gray-900 mt-1">
+                                {d.droneName}
+                              </h3>
+                              <div className="text-sm text-gray-600 mt-2 line-clamp-2">
+                                Вес: {d.weight}кг {' | '} Грузоподъёмность:{' '}
+                                {d.liftCapacity}кг
+                              </div>
+                            </div>
+                            {d.imageKey && (
+                              <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                                <img
+                                  src={d.imageKey}
+                                  alt={d.droneName}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
 
                           <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-gray-600">
                             <div className="bg-indigo-50/60 p-3 rounded-lg border border-indigo-100">
@@ -424,7 +425,7 @@ export default function DronesPage() {
                                 Ёмкость распыл.
                               </div>
                               <div className="font-semibold text-gray-800 mt-1">
-                                {d.spraying?.capacity ?? '—'} л
+                                {d.spraying?.capacity ?? '—'} кг
                               </div>
                             </div>
                             <div className="bg-emerald-50/60 p-3 rounded-lg border border-emerald-100">
@@ -432,7 +433,7 @@ export default function DronesPage() {
                                 Ёмкость разбрас.
                               </div>
                               <div className="font-semibold text-gray-800 mt-1">
-                                {d.spreading?.capacity ?? '—'} л
+                                {d.spreading?.capacity ?? '—'} кг
                               </div>
                             </div>
                           </div>
@@ -617,7 +618,10 @@ function AddDroneModal({
             </div>
           </div>
           <div>
-            <button onClick={onClose} className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+            >
               <X size={16} className="text-gray-600" />
             </button>
           </div>
@@ -821,7 +825,7 @@ function AddDroneModal({
               </div>
               <div>
                 <label className="text-sm text-gray-600 block mb-1">
-                  Ёмкость (л) *
+                  Ёмкость (кг) *
                 </label>
                 <input
                   type="number"
@@ -947,7 +951,7 @@ function AddDroneModal({
               </div>
               <div>
                 <label className="text-sm text-gray-600 block mb-1">
-                  Скорость вращения (об/мин)
+                  Скорость разворота на 180 градусов (об/мин)
                 </label>
                 <input
                   type="number"
@@ -1036,7 +1040,6 @@ interface EditDroneModalProps {
 }
 
 function EditDroneModal({
-  open,
   drone,
   onClose,
   onSubmit,
@@ -1094,7 +1097,315 @@ function EditDroneModal({
     drone.spreading?.width ?? '',
   );
 
+  // Image upload state
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    drone.imageKey,
+  );
+
   const canSend = droneName.trim() && flightTime !== '';
+
+  // Image upload functions
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type === 'image/jpeg') {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      alert('Пожалуйста, выберите файл в формате JPG');
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setImagePreview(drone.imageKey);
+  };
+
+  const uploadImageAfterSave = async (droneId: number) => {
+    if (!selectedFile) return;
+
+    try {
+      const token =
+        typeof window !== 'undefined'
+          ? localStorage.getItem('accessToken')
+          : null;
+
+      // Step 1: Get upload URL using the correct endpoint
+      console.log('Starting image upload for drone:', droneId);
+      console.log('API_BASE:', API_BASE);
+      console.log('Token available:', !!token);
+      console.log(
+        'Request URL:',
+        `${API_BASE}/v1/drones-upload?droneId=${droneId}`,
+      );
+
+      let uploadUrlRes;
+      try {
+        uploadUrlRes = await fetch(
+          `${API_BASE}/v1/drones-upload?droneId=${droneId}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          },
+        );
+      } catch (fetchError) {
+        console.error('Detailed fetch error:', {
+          error: fetchError,
+          message: fetchError instanceof Error ? fetchError.message : 'Unknown',
+          name: fetchError instanceof Error ? fetchError.name : 'Unknown',
+          stack: fetchError instanceof Error ? fetchError.stack : 'No stack',
+        });
+
+        // Более детальная диагностика
+        if (fetchError instanceof TypeError) {
+          if (fetchError.message.includes('Failed to fetch')) {
+            throw new Error(
+              'Ошибка "Failed to fetch" - возможные причины:\n' +
+                '• CORS блокировка (проверьте настройки сервера)\n' +
+                '• HTTPS/HTTP конфликт (смешанный контент)\n' +
+                '• Блокировка браузером (проверьте консоль браузера)\n' +
+                '• Неверный домен или порт в API_BASE\n' +
+                '• Сервер не отвечает на запросы\n' +
+                `• Текущий API_BASE: ${API_BASE}`,
+            );
+          }
+          if (fetchError.message.includes('NetworkError')) {
+            throw new Error('Сетевая ошибка: проверьте доступность сервера');
+          }
+        }
+
+        throw new Error(
+          `Неизвестная ошибка при запросе: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`,
+        );
+      }
+
+      if (!uploadUrlRes.ok) {
+        const errorText = await uploadUrlRes
+          .text()
+          .catch(() => 'Unknown error');
+        console.error(
+          'Upload URL request failed:',
+          uploadUrlRes.status,
+          errorText,
+        );
+        throw new Error(
+          `Ошибка получения URL для загрузки (${uploadUrlRes.status}): ${errorText}`,
+        );
+      }
+
+      const uploadUrlData = await uploadUrlRes.json();
+      const uploadUrl = uploadUrlData.url;
+      console.log('Got upload URL:', uploadUrl ? 'URL received' : 'No URL');
+
+      if (!uploadUrl) {
+        throw new Error('URL для загрузки не найден в ответе сервера');
+      }
+
+      // Step 2: Convert file to ArrayBuffer and upload
+      console.log('Converting file to ArrayBuffer, size:', selectedFile.size);
+      const fileBuffer = await selectedFile.arrayBuffer();
+      console.log('File converted, buffer size:', fileBuffer.byteLength);
+
+      let uploadRes;
+      try {
+        console.log('Uploading to URL:', uploadUrl);
+        console.log('File buffer size:', fileBuffer.byteLength);
+        console.log('File type:', selectedFile.type);
+        console.log('File name:', selectedFile.name);
+
+        // Попробуем разные методы загрузки для решения CORS проблем
+        console.log('Method 1: File object with no-cors mode');
+        uploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          mode: 'no-cors',
+          body: selectedFile,
+        });
+
+        // no-cors всегда возвращает opaque response, поэтому проверяем по-другому
+        if (uploadRes.type === 'opaque') {
+          console.log('Upload completed with no-cors mode (opaque response)');
+        } else if (!uploadRes.ok) {
+          console.log(
+            'Method 1 failed, trying method 2: ArrayBuffer with no-cors',
+          );
+          uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            mode: 'no-cors',
+            body: fileBuffer,
+          });
+        }
+
+        if (uploadRes.type !== 'opaque' && !uploadRes.ok) {
+          console.log(
+            'Method 2 failed, trying method 3: File with CORS headers',
+          );
+          uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': selectedFile.type || 'image/jpeg',
+            },
+            body: selectedFile,
+          });
+        }
+
+        if (uploadRes.type !== 'opaque' && !uploadRes.ok) {
+          console.log(
+            'Method 3 failed, trying method 4: ArrayBuffer with CORS headers',
+          );
+          uploadRes = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'image/jpeg',
+            },
+            body: fileBuffer,
+          });
+        }
+      } catch (fetchError) {
+        console.error('Detailed upload error:', {
+          error: fetchError,
+          message: fetchError instanceof Error ? fetchError.message : 'Unknown',
+          uploadUrl: uploadUrl,
+          fileSize: fileBuffer.byteLength,
+          fileName: selectedFile.name,
+          fileType: selectedFile.type,
+        });
+
+        // Попробуем XMLHttpRequest как альтернативу fetch
+        console.log('Fetch failed, trying XMLHttpRequest as fallback');
+
+        try {
+          uploadRes = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+
+            xhr.open('PUT', uploadUrl, true);
+            xhr.setRequestHeader('Content-Type', 'image/jpeg');
+
+            xhr.onload = () => {
+              resolve({
+                ok: xhr.status >= 200 && xhr.status < 300,
+                status: xhr.status,
+                statusText: xhr.statusText,
+                text: () => Promise.resolve(xhr.responseText),
+              });
+            };
+
+            xhr.onerror = () => {
+              reject(
+                new Error(
+                  `XMLHttpRequest failed: ${xhr.status} ${xhr.statusText}`,
+                ),
+              );
+            };
+
+            xhr.send(fileBuffer);
+          });
+
+          console.log('XMLHttpRequest succeeded where fetch failed!');
+        } catch (xhrError) {
+          console.error('XMLHttpRequest also failed:', xhrError);
+
+          if (
+            fetchError instanceof TypeError &&
+            fetchError.message.includes('Failed to fetch')
+          ) {
+            throw new Error(
+              'Ошибка загрузки в объектное хранилище (все методы не сработали):\n' +
+                '• URL объектного хранилища недоступен\n' +
+                '• CORS блокировка для внешнего домена\n' +
+                '• Файл слишком большой для загрузки\n' +
+                '• Истек срок действия подписанного URL\n' +
+                '• Различия в обработке заголовков между curl и браузером\n' +
+                `• URL: ${uploadUrl}\n` +
+                `• Размер файла: ${fileBuffer.byteLength} байт\n` +
+                `• Тип файла: ${selectedFile.type}\n` +
+                `• Имя файла: ${selectedFile.name}`,
+            );
+          }
+
+          throw new Error(
+            `Все методы загрузки не сработали. Fetch: ${fetchError instanceof Error ? fetchError.message : 'Unknown'}. XHR: ${xhrError instanceof Error ? xhrError.message : 'Unknown'}`,
+          );
+        }
+      }
+
+      // Проверяем успешность загрузки с учетом no-cors режима
+      if (uploadRes.type === 'opaque') {
+        console.log('File uploaded successfully (no-cors opaque response)');
+      } else if (!uploadRes.ok) {
+        const errorText = await uploadRes.text().catch(() => 'Unknown error');
+        console.error('File upload failed:', uploadRes.status, errorText);
+        throw new Error(
+          `Ошибка загрузки файла в объектное хранилище (${uploadRes.status}): ${errorText}`,
+        );
+      } else {
+        console.log('File uploaded successfully');
+      }
+
+      // Step 3: Confirm upload
+      let confirmRes;
+      try {
+        confirmRes = await fetch(
+          `${API_BASE}/v1/drones-confirm-upload?droneId=${droneId}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          },
+        );
+      } catch (fetchError) {
+        console.error('Network error confirming upload:', fetchError);
+        throw new Error(
+          'Сетевая ошибка при подтверждении загрузки. Проверьте подключение к интернету.',
+        );
+      }
+
+      if (!confirmRes.ok) {
+        const errorText = await confirmRes.text().catch(() => 'Unknown error');
+        console.error(
+          'Upload confirmation failed:',
+          confirmRes.status,
+          errorText,
+        );
+        throw new Error(
+          `Ошибка подтверждения загрузки (${confirmRes.status}): ${errorText}`,
+        );
+      }
+
+      console.log('Upload confirmed successfully');
+
+      setSelectedFile(null);
+    } catch (error) {
+      console.error('Upload error details:', error);
+
+      // Provide more specific error messages for common network issues
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error(
+          'Ошибка сети: не удается подключиться к серверу. Проверьте подключение к интернету и попробуйте снова.',
+        );
+      }
+
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        throw new Error(
+          'Ошибка сети: не удается подключиться к серверу. Возможные причины:\n' +
+            '• Отсутствует подключение к интернету\n' +
+            '• Сервер временно недоступен\n' +
+            '• Блокировка CORS или файрволом\n' +
+            '• Неверный URL сервера',
+        );
+      }
+
+      throw error; // Re-throw to handle in the calling function
+    }
+  };
 
   return (
     <motion.div
@@ -1117,7 +1428,10 @@ function EditDroneModal({
             </div>
           </div>
           <div>
-            <button onClick={onClose} className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors">
+            <button
+              onClick={onClose}
+              className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+            >
               <X size={16} className="text-gray-600" />
             </button>
           </div>
@@ -1321,7 +1635,7 @@ function EditDroneModal({
               </div>
               <div>
                 <label className="text-sm text-gray-600 block mb-1">
-                  Ёмкость (л) *
+                  Ёмкость (кг) *
                 </label>
                 <input
                   type="number"
@@ -1447,7 +1761,7 @@ function EditDroneModal({
               </div>
               <div>
                 <label className="text-sm text-gray-600 block mb-1">
-                  Скорость вращения (об/мин)
+                  Скорость разворота на 180 градусов (об/мин)
                 </label>
                 <input
                   type="number"
@@ -1466,6 +1780,59 @@ function EditDroneModal({
           <div className="text-sm text-gray-500 mt-4">
             * - обязательные поля
           </div>
+
+          {/* Image Upload Section */}
+          <div className="mt-6 border-t pt-6">
+            <h4 className="font-medium text-black mb-3">Изображение дрона</h4>
+            <div className="flex items-start gap-4">
+              {imagePreview && (
+                <div className="w-24 h-24 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 shadow-md">
+                  <img
+                    src={imagePreview}
+                    alt="Предварительный просмотр"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer inline-flex items-center gap-2 px-5 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg">
+                    <Camera size={16} />
+                    <span className="text-sm font-medium">
+                      Выбрать изображение
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+                  </label>
+                  {selectedFile && (
+                    <button
+                      onClick={handleRemoveFile}
+                      className="inline-flex items-center gap-2 px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-md hover:shadow-lg"
+                    >
+                      <X size={16} />
+                      <span className="text-sm font-medium">Убрать файл</span>
+                    </button>
+                  )}
+                </div>
+                <div className="text-xs text-black mt-2">
+                  Поддерживается только формат JPG. Максимальный размер файла:
+                  5MB
+                  {selectedFile && (
+                    <div className="mt-1 font-medium">
+                      Выбран файл: {selectedFile.name}
+                      <div className="text-green-600">
+                        Изображение будет загружено при сохранении дрона
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
@@ -1477,7 +1844,7 @@ function EditDroneModal({
           </button>
           <button
             disabled={!canSend || sending}
-            onClick={() => {
+            onClick={async () => {
               const body: CreateDroneRequest = {
                 droneName: droneName.trim(),
                 batteryChargeTime:
@@ -1520,7 +1887,24 @@ function EditDroneModal({
                       }
                     : null,
               };
+
+              // First save the drone data
               onSubmit(body);
+
+              // Then upload image if selected
+              if (selectedFile) {
+                try {
+                  await uploadImageAfterSave(drone.droneId);
+                } catch (error) {
+                  console.error('Image upload failed:', error);
+                  alert(
+                    'Дрон сохранён, но изображение не удалось загрузить: ' +
+                      (error instanceof Error
+                        ? error.message
+                        : 'Неизвестная ошибка'),
+                  );
+                }
+              }
             }}
             className={`px-4 py-2 rounded-full text-white ${!canSend || sending ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 to-emerald-500'}`}
           >
