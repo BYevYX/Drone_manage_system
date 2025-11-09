@@ -382,7 +382,7 @@ export default function DronesPage() {
                                 Время зарядки
                               </div>
                               <div className="font-semibold text-gray-800 mt-1">
-                                {d.batteryChargeTime ?? '—'} ч
+                                {d.batteryChargeTime ?? '—'} мин
                               </div>
                             </div>
 
@@ -664,11 +664,10 @@ function AddDroneModal({
 
               <div>
                 <label className="text-sm text-gray-600 block mb-1">
-                  Время зарядки (ч)
+                  Время зарядки (мин)
                 </label>
                 <input
                   type="number"
-                  step="0.1"
                   value={batteryChargeTime}
                   onChange={(e) =>
                     setBatteryChargeTime(
@@ -1474,11 +1473,10 @@ function EditDroneModal({
 
               <div>
                 <label className="text-sm text-gray-600 block mb-1">
-                  Время зарядки (ч)
+                  Время зарядки (мин)
                 </label>
                 <input
                   type="number"
-                  step="0.1"
                   value={batteryChargeTime}
                   onChange={(e) =>
                     setBatteryChargeTime(

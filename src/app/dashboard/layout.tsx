@@ -303,6 +303,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   // backward-compat: старые значения ролей могут быть 'customer' или 'supplier' и т.д.
   const roleMap: Record<string, keyof typeof RoleConfig> = {
+    CUSTOMER: 'contractor',
+    CONTRACTOR: 'contractor',
+    MANAGER: 'manager',
+    SUPPLIER: 'material_supplier',
+    DRONE_SUPPLIER: 'drone_supplier',
+    MATERIAL_SUPPLIER: 'material_supplier',
+    // Поддержка старых значений в нижнем регистре
     customer: 'contractor',
     contractor: 'contractor',
     manager: 'manager',
@@ -421,10 +428,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   onChange={handleRoleChange}
                   className="w-full p-2 rounded-lg border border-gray-200 bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
                 >
-                  <option value="contractor">Клиент (contractor)</option>
-                  <option value="manager">Менеджер</option>
-                  <option value="drone_supplier">Поставщик дронов</option>
-                  <option value="material_supplier">
+                  <option value="CONTRACTOR">Клиент (contractor)</option>
+                  <option value="MANAGER">Менеджер</option>
+                  <option value="DRONE_SUPPLIER">Поставщик дронов</option>
+                  <option value="MATERIAL_SUPPLIER">
                     Поставщик материалов
                   </option>
                 </select>

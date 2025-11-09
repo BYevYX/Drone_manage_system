@@ -23,6 +23,7 @@ import Header from '../shared/ui/Header';
 import { useInView } from 'react-intersection-observer';
 import Link from 'next/link';
 import Footer from '../shared/ui/Footer';
+import { ReviewsSection } from './reviews/components/ReviewsSection';
 
 const benefits = [
   {
@@ -469,6 +470,9 @@ export default function page() {
             </div>
           </div>
         </section>
+
+        {/* Reviews Section */}
+        <ReviewsSection />
 
         <Footer />
       </>

@@ -9,12 +9,12 @@ type DroneType = {
   manufacturer: string;
 };
 type UserRole =
-  | 'guest'
-  | 'manager'
-  | 'contractor'
-  | 'drone_supplier'
-  | 'operator'
-  | 'material_supplier';
+  | 'GUEST'
+  | 'MANAGER'
+  | 'CONTRACTOR'
+  | 'DRONE_SUPPLIER'
+  | 'OPERATOR'
+  | 'MATERIAL_SUPPLIER';
 
 interface Request {
   id: number;
@@ -32,32 +32,49 @@ interface Request {
   };
 }
 
+interface UserInfo {
+  email: string;
+  phone: string;
+  firstName: string;
+  lastName: string;
+  surname: string;
+  userRole: string;
+  userId?: number;
+}
+
 interface GlobalContextType {
   dronesList: DroneType[];
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
   requests: Request[];
+  userInfo: UserInfo;
+  setUserInfo: (userInfo: UserInfo) => void;
 }
 
 const GlobalContext = createContext<GlobalContextType | undefined>(undefined);
 
 const VALID_ROLES: UserRole[] = [
-  'guest',
-  'contractor',
-  'manager',
-  'operator',
-  'drone_supplier',
-  'material_supplier',
+  'GUEST',
+  'CONTRACTOR',
+  'MANAGER',
+  'OPERATOR',
+  'DRONE_SUPPLIER',
+  'MATERIAL_SUPPLIER',
 ];
 
-const isValidRole = (v: string | null): v is UserRole => {
-  return typeof v === 'string' && VALID_ROLES.includes(v as UserRole);
+// Функция для нормализации роли
+const normalizeRole = (role: string | null): UserRole => {
+  if (!role) return 'GUEST';
+  const upperRole = role.toUpperCase();
+  return VALID_ROLES.includes(upperRole as UserRole)
+    ? (upperRole as UserRole)
+    : 'GUEST';
 };
 
 export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
-  const [dronesList, setDronesList] = useState<DroneType[]>([
+  const [dronesList] = useState<DroneType[]>([
     {
-      id: 0,
+      id: 18,
       manufacturer: 'ADGY',
       name: 'AGDY 40',
       description:
@@ -65,7 +82,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
       photo_url: '/header/drones/drone_2.png',
     },
     {
-      id: 1,
+      id: 17,
       name: 'AgDy',
       manufacturer: 'ADGY',
       description:
@@ -73,7 +90,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
       photo_url: '/header/drones/drone_1.png',
     },
     {
-      id: 8,
+      id: 15,
       name: 'DJI Agras T50 ',
       manufacturer: 'DJI Agras',
       description:
@@ -81,66 +98,96 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
       photo_url: '/header/drones/drone_3.png',
     },
     {
-      id: 3,
+      id: 19,
       manufacturer: 'JOYANCE',
       name: 'JOYANCE JT30L-606',
       description:
         'Агродрон JOYANCE JT30L-606 – уникальное высокотехнологичное устройство, с помощью которого можно производить опрыскивание культур, внесение средств защиты растений и удобрений, а также посевы',
       photo_url: '/header/drones/drone_4.png',
     },
-    {
-      id: 4,
-      manufacturer: 'Topxgun',
-      name: 'ARGI',
-      description: 'Беспилотник ARGI сельскохозяйственный дрон',
-      photo_url: '/header/drones/drone_5.jpg',
-    },
   ]);
 
-  // по умолчанию 'guest' — затем подхватим из localStorage при монтировании
-  const [userRole, setUserRoleState] = useState<UserRole | null>(null);
-  const [userInfo, setUserInfo] = useState({
+  // по умолчанию 'GUEST' — затем подхватим из localStorage при монтировании
+  const [userRole, setUserRoleState] = useState<UserRole>('GUEST');
+  const [userInfo, setUserInfo] = useState<UserInfo>({
     email: '',
     phone: '',
     firstName: '',
     lastName: '',
     surname: '',
-    userRole: '',
+    userRole: 'GUEST',
+    userId: undefined,
   });
 
-  useEffect(() => {
+  // Функция для безопасного чтения localStorage
+  const getFromLocalStorage = (
+    key: string,
+    defaultValue: string = '',
+  ): string => {
+    if (typeof window === 'undefined') return defaultValue;
     try {
-      const storedUser = {
-        email: localStorage.getItem('email') || '',
-        phone: localStorage.getItem('phone') || '',
-        firstName: localStorage.getItem('firstName') || '',
-        lastName: localStorage.getItem('lastName') || '',
-        surname: localStorage.getItem('surname') || '',
-        userRole: (localStorage.getItem('userRole') || 'guest').toLowerCase(),
+      return localStorage.getItem(key) || defaultValue;
+    } catch (error) {
+      console.warn(`Ошибка чтения ${key} из localStorage:`, error);
+      return defaultValue;
+    }
+  };
+
+  // Функция для безопасной записи в localStorage
+  const setToLocalStorage = (key: string, value: string): void => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(key, value);
+    } catch (error) {
+      console.warn(`Ошибка записи ${key} в localStorage:`, error);
+    }
+  };
+
+  // Инициализация данных пользователя из localStorage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const storedUserId = getFromLocalStorage('userId');
+      const storedRole = getFromLocalStorage('userRole', 'GUEST');
+
+      const storedUser: UserInfo = {
+        email: getFromLocalStorage('email'),
+        phone: getFromLocalStorage('phone'),
+        firstName: getFromLocalStorage('firstName'),
+        lastName: getFromLocalStorage('lastName'),
+        surname: getFromLocalStorage('surname'),
+        userRole: normalizeRole(storedRole),
+        userId: storedUserId ? parseInt(storedUserId, 10) : undefined,
       };
 
-      // простая валидация роли
-      const validRoles = [
-        'manager',
-        'contractor',
-        'operator',
-        'drone_supplier',
-        'material_supplier',
-        'guest',
-      ];
-
-      if (!validRoles.includes(storedUser.userRole)) {
-        storedUser.userRole = 'guest';
-      }
-
       setUserInfo(storedUser);
-    } catch (e) {
-      console.warn('Ошибка при чтении localStorage:', e);
-      setUserInfo((prev) => ({ ...prev, userRole: 'guest' }));
+      setUserRoleState(normalizeRole(storedRole));
+
+      // Логирование для отладки
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          'Загружены данные пользователя из localStorage:',
+          storedUser,
+        );
+      }
+    } catch (error) {
+      console.warn('Ошибка при инициализации данных пользователя:', error);
+      const defaultUser: UserInfo = {
+        email: '',
+        phone: '',
+        firstName: '',
+        lastName: '',
+        surname: '',
+        userRole: 'GUEST',
+        userId: undefined,
+      };
+      setUserInfo(defaultUser);
+      setUserRoleState('GUEST');
     }
   }, []);
 
-  const [requests, setRequests] = useState<Request[]>([
+  const [requests] = useState<Request[]>([
     {
       id: 1,
       date: '2025-02-15',
@@ -180,28 +227,49 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     },
   ]);
 
-  // обёртка для установки роли — сохраняет в state и localStorage
+  // Обновленная функция для установки роли пользователя
   const setUserRole = (role: UserRole) => {
-    setUserRoleState(role);
-    try {
-      localStorage.setItem('userRole', role);
-    } catch (e) {
-      // localStorage может быть недоступен — молча игнорируем
-      // при необходимости можно логировать
+    const normalizedRole = normalizeRole(role);
+    setUserRoleState(normalizedRole);
+    setToLocalStorage('userRole', normalizedRole);
+    
+    // Обновляем userInfo тоже
+    setUserInfo((prev) => ({
+      ...prev,
+      userRole: normalizedRole,
+    }));
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Роль пользователя изменена на:', normalizedRole);
     }
   };
 
-  // при монтировании читаем роль из localStorage (если есть и валидна)
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('userRole');
-      if (isValidRole(stored)) {
-        setUserRoleState(stored);
-      }
-    } catch (e) {
-      // ignore localStorage read errors
+  // Обновленная функция для установки информации о пользователе
+  const setUserInfoUpdated = (newUserInfo: UserInfo) => {
+    const normalizedUserInfo = {
+      ...newUserInfo,
+      userRole: normalizeRole(newUserInfo.userRole),
+    };
+
+    setUserInfo(normalizedUserInfo);
+    setUserRoleState(normalizedUserInfo.userRole as UserRole);
+
+    // Сохраняем все данные в localStorage
+    setToLocalStorage('email', normalizedUserInfo.email);
+    setToLocalStorage('phone', normalizedUserInfo.phone);
+    setToLocalStorage('firstName', normalizedUserInfo.firstName);
+    setToLocalStorage('lastName', normalizedUserInfo.lastName);
+    setToLocalStorage('surname', normalizedUserInfo.surname);
+    setToLocalStorage('userRole', normalizedUserInfo.userRole);
+    
+    if (normalizedUserInfo.userId) {
+      setToLocalStorage('userId', normalizedUserInfo.userId.toString());
     }
-  }, []);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Информация о пользователе обновлена:', normalizedUserInfo);
+    }
+  };
 
   return (
     <GlobalContext.Provider
@@ -211,7 +279,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
         setUserRole,
         requests,
         userInfo,
-        setUserInfo,
+        setUserInfo: setUserInfoUpdated,
       }}
     >
       {children}

@@ -2,7 +2,12 @@
  * HTTP клиент для взаимодействия с API
  */
 
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, {
+  type AxiosInstance,
+  type AxiosRequestConfig,
+  type AxiosResponse,
+  type CancelTokenSource,
+} from 'axios';
 
 export interface ApiResponse<T = unknown> {
   data: T;
@@ -21,8 +26,9 @@ class ApiClient {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://51.250.43.77:8080';
-    
+    this.baseURL =
+      process.env.NEXT_PUBLIC_API_URL || 'http://51.250.43.77:8080';
+
     this.client = axios.create({
       baseURL: this.baseURL,
       timeout: 10000,
@@ -48,10 +54,13 @@ class ApiClient {
 
         // Логирование запросов в development режиме
         if (process.env.NODE_ENV === 'development') {
-          console.log(`🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`, {
-            data: config.data,
-            params: config.params,
-          });
+          console.log(
+            `🚀 API Request: ${config.method?.toUpperCase()} ${config.url}`,
+            {
+              data: config.data,
+              params: config.params,
+            },
+          );
         }
 
         return config;
@@ -67,10 +76,13 @@ class ApiClient {
       (response: AxiosResponse) => {
         // Логирование успешных ответов
         if (process.env.NODE_ENV === 'development') {
-          console.log(`✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`, {
-            status: response.status,
-            data: response.data,
-          });
+          console.log(
+            `✅ API Response: ${response.config.method?.toUpperCase()} ${response.config.url}`,
+            {
+              status: response.status,
+              data: response.data,
+            },
+          );
         }
 
         return response;
@@ -87,10 +99,10 @@ class ApiClient {
             if (refreshToken) {
               const response = await this.refreshAccessToken(refreshToken);
               const newAccessToken = response.data.accessToken;
-              
+
               localStorage.setItem('accessToken', newAccessToken);
               originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-              
+
               return this.client(originalRequest);
             }
           } catch (refreshError) {
@@ -112,7 +124,9 @@ class ApiClient {
     );
   }
 
-  private async refreshAccessToken(refreshToken: string): Promise<AxiosResponse> {
+  private async refreshAccessToken(
+    refreshToken: string,
+  ): Promise<AxiosResponse> {
     return axios.post(`${this.baseURL}/v1/auth/refresh`, {
       refreshToken,
     });
@@ -123,25 +137,45 @@ class ApiClient {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('userRole');
-    
+
     // Перенаправляем на страницу входа
     if (typeof window !== 'undefined') {
       window.location.href = '/login';
     }
   }
 
-  private formatError(error: any): ApiError {
+  private formatError(error: unknown): ApiError {
+    // Проверяем, является ли error объектом с нужными свойствами
+    if (error && typeof error === 'object') {
+      const axiosError = error as {
+        response?: {
+          data?: { message?: string; code?: string };
+          status?: number;
+        };
+        message?: string;
+      };
+
+      return {
+        message:
+          axiosError.response?.data?.message ||
+          axiosError.message ||
+          'Произошла ошибка',
+        code: axiosError.response?.data?.code,
+        status: axiosError.response?.status,
+      };
+    }
+
     return {
-      message: error.response?.data?.message || error.message || 'Произошла ошибка',
-      code: error.response?.data?.code,
-      status: error.response?.status,
+      message: 'Произошла неизвестная ошибка',
+      code: undefined,
+      status: undefined,
     };
   }
 
   // Методы HTTP запросов
   async get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.client.get<ApiResponse<T>>(url, config);
-    return response.data.data;
+    const response = await this.client.get(url, config);
+    return this.extractData<T>(response);
   }
 
   async post<T = unknown>(
@@ -149,8 +183,8 @@ class ApiClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
-    const response = await this.client.post<ApiResponse<T>>(url, data, config);
-    return response.data.data;
+    const response = await this.client.post(url, data, config);
+    return this.extractData<T>(response);
   }
 
   async put<T = unknown>(
@@ -158,8 +192,8 @@ class ApiClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
-    const response = await this.client.put<ApiResponse<T>>(url, data, config);
-    return response.data.data;
+    const response = await this.client.put(url, data, config);
+    return this.extractData<T>(response);
   }
 
   async patch<T = unknown>(
@@ -167,13 +201,33 @@ class ApiClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
-    const response = await this.client.patch<ApiResponse<T>>(url, data, config);
-    return response.data.data;
+    const response = await this.client.patch(url, data, config);
+    return this.extractData<T>(response);
   }
 
-  async delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.client.delete<ApiResponse<T>>(url, config);
-    return response.data.data;
+  async delete<T = unknown>(
+    url: string,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
+    const response = await this.client.delete(url, config);
+    return this.extractData<T>(response);
+  }
+
+  // Универсальный метод для извлечения данных из ответа
+  private extractData<T>(response: AxiosResponse): T {
+    const responseData = response.data;
+
+    // Если ответ имеет структуру ApiResponse с полем data
+    if (
+      responseData &&
+      typeof responseData === 'object' &&
+      'data' in responseData
+    ) {
+      return responseData.data as T;
+    }
+
+    // Если ответ содержит данные напрямую
+    return responseData as T;
   }
 
   // Методы для работы с файлами
@@ -191,14 +245,16 @@ class ApiClient {
       },
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
-          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          const progress = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total,
+          );
           onProgress(progress);
         }
       },
     };
 
-    const response = await this.client.post<ApiResponse<T>>(url, formData, config);
-    return response.data.data;
+    const response = await this.client.post(url, formData, config);
+    return this.extractData<T>(response);
   }
 
   async downloadFile(url: string, filename?: string): Promise<void> {
@@ -209,13 +265,13 @@ class ApiClient {
     const blob = new Blob([response.data]);
     const downloadUrl = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
-    
+
     link.href = downloadUrl;
     link.download = filename || 'download';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     window.URL.revokeObjectURL(downloadUrl);
   }
 
@@ -233,7 +289,10 @@ class ApiClient {
   }
 
   // Метод для отмены запросов
-  createCancelToken(): { token: any; cancel: (message?: string) => void } {
+  createCancelToken(): {
+    token: CancelTokenSource['token'];
+    cancel: (message?: string) => void;
+  } {
     const source = axios.CancelToken.source();
     return {
       token: source.token,
