@@ -316,7 +316,7 @@ export default function Header() {
             </nav>
 
             {/* Profile avatar popover (for logged-in roles) */}
-            {role === 'guest' ? (
+            {role === 'GUEST' ? (
               <div className="flex items-center gap-3 ml-[15px]">
                 <Link
                   href="/login"

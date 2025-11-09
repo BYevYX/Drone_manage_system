@@ -99,7 +99,7 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
     ['ID дрона', drone.droneId],
     ['Название', drone.droneName],
     ['Время полёта', `${drone.flightTime} мин`],
-    ['Время зарядки', `${drone.batteryChargeTime} ч`],
+    ['Время зарядки', `${drone.batteryChargeTime} мин`],
     ['Вес дрона', `${drone.weight} кг`],
     ['Грузоподъёмность', `${drone.liftCapacity} кг`],
     ['Габариты (Ш x В x Д)', formatDimensions(drone.width, drone.height)],
@@ -316,7 +316,7 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
             <br />
             <br />
             Максимальное время полёта составляет {drone.flightTime} минут, а
-            время зарядки — {drone.batteryChargeTime} часа. Дрон способен
+            время зарядки — {drone.batteryChargeTime} минут. Дрон способен
             работать при скорости ветра до {drone.maxWindSpeed} м/с и
             температуре до {drone.operatingTemperature}°C.
             <br />

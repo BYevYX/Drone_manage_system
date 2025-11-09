@@ -67,7 +67,6 @@ export default function LoginPage() {
         // const test = res.data['accessToken'];
         const userRole = res.data['userRole'];
         const userId = res.data['id'];
-        console.log(res.data);
         // Успешно — делаем что-то (например, сохраняем токен/делаем редирект)
         // alert(test);
 
@@ -81,7 +80,6 @@ export default function LoginPage() {
             headers: { Authorization: `Bearer ${res.data.accessToken}` },
           },
         );
-        console.log(data['email']);
         localStorage.setItem('email', data['email']);
         localStorage.setItem('phone', data['phone']);
         localStorage.setItem('firstName', data['firstName']);
