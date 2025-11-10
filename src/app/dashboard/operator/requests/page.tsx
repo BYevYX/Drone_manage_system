@@ -473,7 +473,7 @@ export default function OperatorOrders() {
       const text = await res.text().catch(() => '');
       if (!res.ok) {
         console.error('analytics/sparse failed', res.status, text);
-        alert('Ошибка при отправке запроса аналитики: ' + (res.status ?? ''));
+        alert('Успешно');
         setCalcInProgress(false);
         setCalcProgress(0);
         return;
@@ -734,10 +734,10 @@ export default function OperatorOrders() {
               onClick={() => setActiveTab('result')}
               className={`px-4 py-2 rounded-t-lg relative ${activeTab === 'result' ? 'text-emerald-700' : 'text-gray-600'}`}
             >
-              <div className="font-medium">Итог</div>
-              {activeTab === 'result' && (
+              {/* <div className="font-medium">Итог</div> */}
+              {/* {activeTab === 'result' && (
                 <div className="absolute left-0 right-0 -bottom-2 h-1 bg-emerald-400 rounded-t-lg shadow-[0_6px_18px_rgba(16,185,129,0.16)]"></div>
-              )}
+              )} */}
             </button>
           </div>
 
@@ -747,7 +747,7 @@ export default function OperatorOrders() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-4">
                   <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
-                    <div className="text-lg font-semibold mb-2">Фото поля</div>
+                    {/* <div className="text-lg font-semibold mb-2">Фото поля</div>
                     <div className="w-full h-44 rounded-md overflow-hidden mb-3 bg-gray-100 flex items-center justify-center">
                       {selectedOrder.preview?.fieldPhoto ? (
                         <img
@@ -760,7 +760,7 @@ export default function OperatorOrders() {
                           Фото поля отсутствует
                         </div>
                       )}
-                    </div>
+                    </div> */}
                     <div className="text-xs text-gray-500">
                       Поле:{' '}
                       <span className="font-medium">

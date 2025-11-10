@@ -1406,9 +1406,7 @@ export default function RequestsWithEditor({
                             }}
                             className="form-radio h-4 w-4"
                           />
-                          <span className="text-sm">
-                            У меня нет длины материалов
-                          </span>
+                          <span className="text-sm">У меня нет материалов</span>
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input
