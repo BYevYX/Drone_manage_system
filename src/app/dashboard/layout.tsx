@@ -15,6 +15,7 @@ import {
   LogOut,
   CheckCircle2,
   User,
+  UtilityPole,
   Settings,
   Package,
   Bell,
@@ -77,16 +78,20 @@ const RoleConfig = {
 
   manager: {
     menu: [
-      { id: 'overview', icon: <Home size={20} />, label: 'Обзор' },
-      { id: 'team', icon: <Users size={20} />, label: 'Команда' },
-      { id: 'finance', icon: <ChartBar size={20} />, label: 'Финансы' },
-      { id: 'settings', icon: <Settings size={20} />, label: 'Настройки' },
-      { id: 'cadastre', icon: <MapPin size={20} />, label: 'Кадастр' },
       {
-        id: 'integrations',
-        icon: <RefreshCw size={20} />,
-        label: 'Интеграции',
+        id: 'manager/requests',
+        icon: <ClipboardList size={20} />,
+        label: 'Заявки',
       },
+      { id: 'manager/fields', icon: <UtilityPole size={20} />, label: 'Поля' },
+      // { id: 'finance', icon: <ChartBar size={20} />, label: 'Финансы' },
+      // { id: 'settings', icon: <Settings size={20} />, label: 'Настройки' },
+      // { id: 'manager/team', icon: <Users size={20} />, label: 'Персонал' },
+      // {
+      //   id: 'integrations',
+      //   icon: <RefreshCw size={20} />,
+      //   label: 'Интеграции',
+      // },
     ],
     stats: [
       {

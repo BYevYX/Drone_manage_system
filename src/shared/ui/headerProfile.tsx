@@ -1,3 +1,4 @@
+'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useGlobalContext } from '@/src/app/GlobalContext';
@@ -48,9 +49,18 @@ export default function HeaderProfile({
 
   // role — "рабочая" роль (используется в UI)
   const [role, setRole] = useState(userInfo.userRole);
-  useEffect(() => setRole(userInfo.userRole), [userInfo.userRole]);
+  useEffect(
+    () => setRole(userInfo.userRole?.toLowerCase()),
+    [userInfo.userRole],
+  );
 
   const onSignOut = () => {
+    localStorage.setItem('userRole', 'guest');
+    localStorage.removeItem('firstName');
+    localStorage.removeItem('lastName');
+    localStorage.removeItem('surname');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('email');
     localStorage.setItem('userRole', 'guest');
     window.location.href = '/';
   };
@@ -62,8 +72,8 @@ export default function HeaderProfile({
   const [language, setLanguage] = useState('ru');
 
   const containerRef = useRef(null);
-  const openTimer = useRef(null);
-  const closeTimer = useRef(null);
+  const openTimer = useRef<any>(null);
+  const closeTimer = useRef<any>(null);
 
   const initials = user?.name
     ? user.name
@@ -74,22 +84,35 @@ export default function HeaderProfile({
         .toUpperCase()
     : 'U';
 
-  // Hover open/close (keeps hover behaviour but also allows click)
+  // detect mobile viewport to change menu behaviour
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false,
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Hover open/close (keeps hover behaviour on desktop but not on mobile)
   const handleMouseEnter = () => {
+    if (isMobile) return;
     clearTimeout(closeTimer.current);
     openTimer.current = setTimeout(() => setIsOpen(true), 100);
   };
   const handleMouseLeave = () => {
+    if (isMobile) return;
     clearTimeout(openTimer.current);
     closeTimer.current = setTimeout(() => setIsOpen(false), 200);
   };
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
+    const handleClickOutside = (e: any) => {
       if (containerRef.current && !containerRef.current.contains(e.target))
         setIsOpen(false);
     };
-    const handleKey = (e) => {
+    const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsOpen(false);
     };
 
@@ -101,22 +124,32 @@ export default function HeaderProfile({
     };
   }, []);
 
+  // disable body scroll when mobile menu is open
+  useEffect(() => {
+    if (isMobile) {
+      document.body.style.overflow = isOpen ? 'hidden' : '';
+    }
+    return () => {
+      if (isMobile) document.body.style.overflow = '';
+    };
+  }, [isOpen, isMobile]);
+
   const copyEmail = async () => {
     try {
-      await navigator.clipboard.writeText(user.email);
+      await navigator.clipboard.writeText(userInfo.email || user.email);
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
     } catch {}
   };
 
-  const fmt = (n) =>
+  const fmt = (n: number) =>
     new Intl.NumberFormat('ru-RU', {
       style: 'currency',
       currency: 'RUB',
       maximumFractionDigits: 0,
     }).format(n);
 
-  const demoCounts = {
+  const demoCounts: any = {
     manager: { pendingApprovals: 3, activeMissions: 7 },
     contractor: { activeOrders: 1, unreadReports: 0 },
     drone_supplier: { availableDrones: 8, assignedToOrders: 2 },
@@ -124,77 +157,30 @@ export default function HeaderProfile({
     guest: {},
   };
 
-  const roleQuickActionsMap = {
+  const roleQuickActionsMap: any = {
     manager: [
       {
-        label: 'Панель управления',
-        href: '/dashboard/manager/main',
+        label: 'Заявки',
+        href: '/dashboard/manager/requests',
         icon: <Server size={16} />,
       },
+
       {
-        label: 'Управление пользователями',
-        href: '/dashboard/manager/main',
-        icon: <User size={16} />,
-      },
-      {
-        label: 'Заявки на утверждение',
-        href: '/dashboard/manager/main',
-        icon: <List size={16} />,
-        badge: demoCounts.manager.pendingApprovals,
-      },
-      {
-        label: 'Управление парком',
-        href: '/manager/fleet',
-        icon: <Truck size={16} />,
-        badge: demoCounts.manager.activeMissions,
-      },
-      {
-        label: 'Интеграции',
-        href: '/manager/integrations',
-        icon: <Settings size={16} />,
-      },
-      {
-        label: 'Отчёты',
-        href: '/manager/reports',
+        label: 'Поля',
+        href: '/dashboard/manager/fields',
         icon: <CreditCard size={16} />,
       },
     ],
 
     operator: [
-      // {
-      //   label: 'Создать заказ',
-      //   href: '/dashboard/contractor/requests',
-      //   icon: <Plus size={16} />,
-      // },
       {
         label: 'Заказы',
         href: '/dashboard/operator/requests',
         icon: <Package size={16} />,
         badge: demoCounts.contractor.activeOrders,
       },
-      {
-        label: 'Загрузить карту поля',
-        href: '/dashboard/contractor/requests',
-        icon: <Map size={16} />,
-      },
-      {
-        label: 'Отслеживание заказа',
-        href: '/dashboard/contractor/requests',
-        icon: <List size={16} />,
-      },
-      {
-        label: 'Получить отчёт',
-        href: '/dashboard/contractor/requests',
-        icon: <Package size={16} />,
-        badge: demoCounts.contractor.unreadReports,
-      },
     ],
     contractor: [
-      {
-        label: 'Создать заказ',
-        href: '/dashboard/contractor/requests',
-        icon: <Plus size={16} />,
-      },
       {
         label: 'Мои заказы',
         href: '/dashboard/contractor/requests',
@@ -202,20 +188,9 @@ export default function HeaderProfile({
         badge: demoCounts.contractor.activeOrders,
       },
       {
-        label: 'Загрузить карту поля',
-        href: '/dashboard/contractor/requests',
+        label: 'Мои поля',
+        href: '/dashboard/contractor/fields',
         icon: <Map size={16} />,
-      },
-      {
-        label: 'Отслеживание заказа',
-        href: '/dashboard/contractor/requests',
-        icon: <List size={16} />,
-      },
-      {
-        label: 'Получить отчёт',
-        href: '/dashboard/contractor/requests',
-        icon: <Package size={16} />,
-        badge: demoCounts.contractor.unreadReports,
       },
     ],
 
@@ -226,22 +201,22 @@ export default function HeaderProfile({
         icon: <Truck size={16} />,
         badge: demoCounts.drone_supplier.availableDrones,
       },
-      {
-        label: 'Добавить дрон',
-        href: '/drones',
-        icon: <Plus size={16} />,
-      },
-      {
-        label: 'Доступность',
-        href: '/drones',
-        icon: <List size={16} />,
-      },
-      {
-        label: 'Назначения',
-        href: '/supplier/assignments',
-        icon: <Package size={16} />,
-        badge: demoCounts.drone_supplier.assignedToOrders,
-      },
+      // {
+      //   label: 'Добавить дрон',
+      //   href: '/drones',
+      //   icon: <Plus size={16} />,
+      // },
+      // {
+      //   label: 'Доступность',
+      //   href: '/drones',
+      //   icon: <List size={16} />,
+      // },
+      // {
+      //   label: 'Назначения',
+      //   href: '/supplier/assignments',
+      //   icon: <Package size={16} />,
+      //   badge: demoCounts.drone_supplier.assignedToOrders,
+      // },
     ],
 
     material_supplier: [
@@ -249,23 +224,6 @@ export default function HeaderProfile({
         label: 'Каталог материалов',
         href: '/materials',
         icon: <List size={16} />,
-      },
-      {
-        label: 'Склад',
-        href: '/materials',
-        icon: <Server size={16} />,
-        badge: demoCounts.material_supplier.lowStockAlerts,
-      },
-      {
-        label: 'Заявки на поставку',
-        href: '/materials',
-        icon: <Package size={16} />,
-        badge: demoCounts.material_supplier.supplyRequests,
-      },
-      {
-        label: 'Подтвердить поставку',
-        href: '/materials',
-        icon: <Check size={16} />,
       },
     ],
 
@@ -276,25 +234,13 @@ export default function HeaderProfile({
     ],
   };
 
-  function FileIcon(props) {
-    return <Package {...props} />;
-  }
-
-  const profileMenu = [
-    { href: '/profile', label: 'Профиль', icon: <User size={16} /> },
-    { href: '/orders', label: 'Мои заказы', icon: <Package size={16} /> },
-    { href: '/notifications', label: 'Уведомления', icon: <Bell size={16} /> },
-  ];
-
   const normalizedRole = (role || '').toLowerCase();
   const quickActions =
     roleQuickActionsMap[normalizedRole] || roleQuickActionsMap.guest;
 
-  // Language switcher (stub): updates local state and notifies parent via callback.
-  const changeLanguage = (lang) => {
+  const changeLanguage = (lang: string) => {
     setLanguage(lang);
     if (typeof onLanguageChange === 'function') onLanguageChange(lang);
-    // Note: we intentionally do NOT change the UI language here — parent/app will implement.
   };
 
   return (
@@ -347,50 +293,170 @@ export default function HeaderProfile({
         />
       </button>
 
-      <div
-        role="menu"
-        className={`absolute right-0 top-[115%] w-[420px] max-w-[96vw] rounded-2xl border border-gray-200 bg-white  shadow-2xl transition-all duration-200 ease-out origin-top-right ${
-          isOpen
-            ? 'opacity-100 scale-100 translate-y-0'
-            : 'opacity-0 scale-95 -translate-y-3 pointer-events-none'
-        }`}
-      >
-        <div className="p-4">
-          <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100">
-            <div
-              className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold"
-              style={{
-                background: 'linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)',
-              }}
-            >
-              {initials}
+      {/* Desktop / popup menu */}
+      {!isMobile && (
+        <div
+          role="menu"
+          className={`absolute right-0 top-[115%] w-[420px] max-w-[96vw] rounded-2xl border border-gray-200 bg-white  shadow-2xl transition-all duration-200 ease-out origin-top-right ${
+            isOpen
+              ? 'opacity-100 scale-100 translate-y-0'
+              : 'opacity-0 scale-95 -translate-y-3 pointer-events-none'
+          }`}
+        >
+          <div className="p-4">
+            <div className="flex items-center gap-3 pb-3 mb-3 border-b border-gray-100">
+              <div
+                className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold"
+                style={{
+                  background: 'linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)',
+                }}
+              >
+                {initials}
+              </div>
+
+              <div className="flex-1">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-sm font-semibold text-gray-900">
+                      {userInfo.firstName} {userInfo.lastName}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {userInfo.email}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-50 text-[11px] text-gray-600">
+                    <Shield size={12} /> {roleLabels[role] ?? role}
+                  </span>
+
+                  <button
+                    onClick={copyEmail}
+                    className="ml-auto hidden items-center gap-1 px-2 py-1 text-xs bg-gray-50 hover:bg-gray-100 rounded-md transition"
+                  >
+                    {copied ? (
+                      <Check size={14} className="text-emerald-500" />
+                    ) : (
+                      <Copy size={14} />
+                    )}
+                    {copied ? 'Скопировано' : 'Копировать'}
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="flex-1">
-              <div className="flex justify-between items-start">
+            <div className="mb-3">
+              <div className="text-xs text-gray-500 mb-2">Быстрые действия</div>
+              <div className="grid grid-cols-2 gap-2 auto-rows-auto">
+                {quickActions.map((a: any, idx: number) => (
+                  <Link
+                    key={a.href}
+                    href={a.href}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-100 hover:shadow-sm transition text-sm text-gray-800
+        ${quickActions.length % 2 !== 0 && idx === quickActions.length - 1 ? 'col-span-2' : ''}
+      `}
+                  >
+                    <div className="p-2 bg-gray-50 rounded-md text-gray-600">
+                      {a.icon}
+                    </div>
+                    <div className="flex-1 text-left">{a.label}</div>
+                    {a.badge ? (
+                      <div className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500 text-white">
+                        {a.badge}
+                      </div>
+                    ) : null}
+                  </Link>
+                ))}
+              </div>
+              <div className="mb-3 mt-[10px] ">
+                <div className="text-xs text-gray-500 mb-2">Аккаунт</div>
+                <div className="space-y-1">
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition text-sm text-gray-800"
+                  >
+                    <div className="p-2 bg-gray-50 rounded-md text-gray-600">
+                      <User size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <div>Профиль</div>
+                    </div>
+                  </Link>
+                  <Link
+                    href="/settings"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition text-sm text-gray-800"
+                  >
+                    <div className="p-2 bg-gray-50 rounded-md text-gray-600">
+                      <Settings size={16} />
+                    </div>
+                    <div className="flex-1">
+                      <div>Настройки</div>
+                    </div>
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 pt-3 border-t border-gray-100 flex items-end justify-end">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={onSignOut}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-white hover:bg-gray-50 transition text-sm"
+                >
+                  <LogOut size={16} /> Выйти
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile bottom sheet */}
+      {isMobile && (
+        <>
+          {/* backdrop */}
+          <div
+            className={`fixed inset-0  bg-black/35 z-40 transition-opacity ${
+              isOpen
+                ? 'opacity-100 pointer-events-auto'
+                : 'opacity-0 pointer-events-none'
+            }`}
+            onClick={() => setIsOpen(false)}
+          />
+
+          <div
+            className={`fixed left-0  right-0 bottom-0 z-50  h-[70vh] bg-white rounded-t-2xl shadow-2xl transform transition-transform duration-300 ${
+              isOpen ? 'translate-y-0' : 'translate-y-[110%]'
+            }`}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="p-4 border-b flex items-center  justify-between">
+              <div className="flex items-center gap-3 ">
+                <div
+                  className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold"
+                  style={{
+                    background:
+                      'linear-gradient(135deg,#6366F1 0%,#06B6D4 100%)',
+                  }}
+                >
+                  {initials}
+                </div>
                 <div>
                   <div className="text-sm font-semibold text-gray-900">
                     {userInfo.firstName} {userInfo.lastName}
                   </div>
                   <div className="text-xs text-gray-500">{userInfo.email}</div>
                 </div>
-
-                {/* <div className="text-right">
-                  <div className="text-xs text-gray-400">Баланс</div>
-                  <div className="text-sm font-semibold text-gray-900">
-                    {fmt(user.balance)}
-                  </div>
-                </div> */}
               </div>
 
-              <div className="mt-2 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-50 text-[11px] text-gray-600">
-                  <Shield size={12} /> {roleLabels[role] ?? role}
-                </span>
-
+              <div className="flex items-center gap-2">
                 <button
                   onClick={copyEmail}
-                  className="ml-auto hidden items-center gap-1 px-2 py-1 text-xs bg-gray-50 hover:bg-gray-100 rounded-md transition"
+                  className="inline-flex items-center gap-2 px-3 py-1 text-xs bg-gray-50 rounded-md"
                 >
                   {copied ? (
                     <Check size={14} className="text-emerald-500" />
@@ -399,72 +465,90 @@ export default function HeaderProfile({
                   )}
                   {copied ? 'Скопировано' : 'Копировать'}
                 </button>
+
+                <button
+                  onClick={() => setIsOpen(false)}
+                  aria-label="Закрыть"
+                  className="p-2 rounded-md text-gray-600"
+                >
+                  ✕
+                </button>
               </div>
             </div>
-          </div>
 
-          <div className="mb-3">
-            <div className="text-xs text-gray-500 mb-2">Быстрые действия</div>
-            <div className="grid grid-cols-2 gap-2">
-              {quickActions.map((a) => (
-                <Link
-                  key={a.href}
-                  href={a.href}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-100 hover:shadow-sm transition text-sm text-gray-800"
-                >
-                  <div className="p-2 bg-gray-50 rounded-md text-gray-600">
-                    {a.icon}
-                  </div>
-                  <div className="flex-1 text-left">{a.label}</div>
-                  {a.badge ? (
-                    <div className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500 text-white">
-                      {a.badge}
-                    </div>
-                  ) : null}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            {profileMenu.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-50 transition text-sm text-gray-800"
-              >
-                <div className="p-2 bg-gray-100 rounded-md text-gray-600">
-                  {item.icon}
+            <div className="p-4 overflow-auto h-[calc(70vh-128px)]">
+              <div className="mb-4">
+                <div className="text-xs text-gray-500 mb-2">
+                  Быстрые действия
                 </div>
-                <span className="flex-1">{item.label}</span>
-                {item.href === '/notifications' && notifications > 0 && (
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500 text-white">
-                    {notifications}
-                  </span>
-                )}
-              </Link>
-            ))}
-          </div>
+                <div className="space-y-2">
+                  {quickActions.map((a: any) => (
+                    <Link
+                      key={a.href}
+                      href={a.href}
+                      onClick={() => setIsOpen(false)}
+                      className="flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition text-sm text-gray-800"
+                    >
+                      <div className="p-2 bg-gray-50 rounded-md text-gray-600">
+                        {a.icon}
+                      </div>
+                      <div className="flex-1 text-left">{a.label}</div>
+                      {a.badge ? (
+                        <div className="text-[11px] px-2 py-0.5 rounded-full bg-rose-500 text-white">
+                          {a.badge}
+                        </div>
+                      ) : null}
+                    </Link>
+                  ))}
+                </div>
+              </div>
 
-          <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onSignOut}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-white hover:bg-gray-50 transition text-sm"
-              >
-                <LogOut size={16} /> Выйти
-              </button>
+              <div className="mb-4">
+                <div className="text-xs text-gray-500 mb-2">Аккаунт</div>
+                <div className="space-y-2">
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition text-sm text-gray-800"
+                  >
+                    <div className="p-2 bg-gray-50 rounded-md text-gray-600">
+                      <User size={16} />
+                    </div>
+                    Профиль
+                  </Link>
+
+                  <Link
+                    href="/notifications"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition text-sm text-gray-800"
+                  >
+                    <div className="p-2 bg-gray-50 rounded-md text-gray-600">
+                      <Bell size={16} />
+                    </div>
+                    Уведомления
+                    {notifications > 0 && (
+                      <div className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-rose-500 text-white">
+                        {notifications}
+                      </div>
+                    )}
+                  </Link>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {/* Language selector (stub) */}
+            <div className="p-4 border-t flex items-center justify-between">
+              <div>
+                <button
+                  onClick={onSignOut}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-white hover:bg-gray-50 transition text-sm"
+                >
+                  <LogOut size={16} /> Выйти
+                </button>
+              </div>
+
               <div className="flex items-center gap-2">
                 <Globe size={14} />
-                <label htmlFor="header-lang" className="sr-only">
-                  Язык
-                </label>
                 <select
-                  id="header-lang"
                   value={language}
                   onChange={(e) => changeLanguage(e.target.value)}
                   className="bg-white border border-gray-200 px-2 py-1 rounded-md text-xs text-gray-700"
@@ -475,8 +559,8 @@ export default function HeaderProfile({
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   );
 }

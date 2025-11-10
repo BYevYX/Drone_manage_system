@@ -1,5 +1,4 @@
 'use client';
-
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -14,11 +13,11 @@ import {
 
 /**
  * FieldsManager
- * - GET /api/fields-by-user?userId=
+ * - GET /api/fields?page=&limit=
  * - POST /api/fields  { cadastralNumber, mapFile }
  * - DELETE /api/fields/{fieldId}
  *
- * Uses access token from localStorage key 'accessToken' (adjust if your app uses another key)
+ * Uses access token from localStorage key 'access'
  */
 
 const API_BASE = 'https://droneagro.duckdns.org';
@@ -31,8 +30,7 @@ type FieldItem = {
 };
 
 export default function FieldsManager() {
-  const [allFields, setAllFields] = useState<FieldItem[]>([]); // full list fetched from /api/fields-by-user
-  const [fields, setFields] = useState<FieldItem[]>([]); // paged list shown in UI
+  const [fields, setFields] = useState<FieldItem[]>([]);
   const [page, setPage] = useState<number>(1);
   const [limit, setLimit] = useState<number>(12);
   const [totalPages, setTotalPages] = useState<number>(1);
@@ -56,7 +54,7 @@ export default function FieldsManager() {
     text: string;
   } | null>(null);
 
-  // get token from localStorage 'accessToken'
+  // get token from localStorage 'access'
   const getAuthHeader = () => {
     if (typeof window === 'undefined') return {};
     const token = localStorage.getItem('accessToken');
@@ -65,102 +63,72 @@ export default function FieldsManager() {
   };
 
   useEffect(() => {
-    fetchList();
+    fetchList(page, limit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    // whenever allFields, page or limit changes, recompute visible page
-    const start = (page - 1) * limit;
-    const pageItems = allFields.slice(start, start + limit);
-    setFields(pageItems);
-    setTotalPages(Math.max(1, Math.ceil(allFields.length / limit)));
-  }, [allFields, page, limit]);
+  }, [page, limit]);
 
   const showNotice = (type: 'ok' | 'err', text: string) => {
     setNotice({ type, text });
     setTimeout(() => setNotice(null), 4200);
   };
 
-  /**
-   * Fetch fields for the current user using the /api/fields-by-user?userId= endpoint.
-   * The userId is read from localStorage key 'userId' (change if your app uses other key).
-   * The response is expected to be { fields: [ ... ] }.
-   * We keep client-side pagination: fetch all user's fields once and page locally.
-   */
-  async function fetchList() {
+  async function fetchList(p = 1, lim = 12) {
     setIsLoading(true);
     setFetchError(null);
-
     try {
-      if (typeof window === 'undefined') {
-        setAllFields([]);
-        setIsLoading(false);
-        return;
-      }
-
-      const rawUserId = localStorage.getItem('userId');
-      if (!rawUserId) {
-        setAllFields([]);
-        setFetchError('userId отсутствует в localStorage');
-        setIsLoading(false);
-        return;
-      }
-
-      const userId = Number(rawUserId);
-      if (!Number.isFinite(userId)) {
-        setAllFields([]);
-        setFetchError('Некорректный userId в localStorage');
-        setIsLoading(false);
-        return;
-      }
-
       const qs = new URLSearchParams();
-      qs.set('userId', String(userId));
-
-      const res = await fetch(
-        `${API_BASE}/api/fields-by-user?${qs.toString()}`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            ...getAuthHeader(),
-          },
-          method: 'GET',
+      qs.set('page', String(p));
+      qs.set('limit', String(lim));
+      const res = await fetch(`${API_BASE}/api/fields?${qs.toString()}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeader(),
         },
-      );
+        method: 'GET',
+      });
 
-      if (!res.ok) {
-        if (res.status === 403)
-          throw new Error('403 Forbidden — проверьте токен / права доступа.');
-        if (res.status === 404)
-          throw new Error('404 Not Found — проверьте URL API.');
-        const txt = await res.text().catch(() => null);
-        throw new Error(`Ошибка: ${res.status} ${txt ?? ''}`);
-      }
+      //   if (!res.ok) {
+      //     if (res.status === 403)
+      //       throw new Error('403 Forbidden — проверьте токен / права доступа.');
+      //     if (res.status === 404)
+      //       throw new Error('404 Not Found — проверьте URL API.');
+      //     const txt = await res.text();
+      //     throw new Error(`Ошибка: ${res.status} ${txt}`);
+      //   }
 
       const json = await res.json();
 
+      // API example: { fields: [ ... ] }
       let list: FieldItem[] = Array.isArray(json.fields) ? json.fields : [];
 
-      // Normalize mapFile for display (same logic as before)
+      // Normalize mapFile for display:
+      // - if server returns data URL (startsWith 'data:'), keep it
+      // - if server returns base64 only (no 'data:'), assume image/png and prefix
       list = list.map((f) => {
-        const mf = (f as any).mapFile;
+        const mf = f.mapFile;
         if (!mf) return { ...f, mapFile: null };
         if (typeof mf !== 'string') return { ...f, mapFile: null };
         const trimmed = mf.trim();
         if (trimmed.startsWith('data:')) {
           return { ...f, mapFile: trimmed };
         }
+        // looks like raw base64 — add data URL prefix for preview
         return { ...f, mapFile: `data:image/png;base64,${trimmed}` };
       });
 
-      // store full list and let pagination effect slice it
-      setAllFields(list);
-      setPage(1);
+      setFields(list);
+
+      // paging hints
+      if (json.totalPages) {
+        setTotalPages(json.totalPages);
+      } else if (json.total) {
+        setTotalPages(Math.max(1, Math.ceil(json.total / lim)));
+      } else {
+        setTotalPages(list.length < lim ? p : Math.max(1, p + 1));
+      }
     } catch (e: any) {
       console.error('fetchList error', e);
       setFetchError(e.message || 'Неизвестная ошибка при получении полей');
-      setAllFields([]);
     } finally {
       setIsLoading(false);
     }
@@ -194,7 +162,7 @@ export default function FieldsManager() {
     }
   };
 
-  const handleAdd = async () => {
+  async function handleAdd() {
     if (!cadastral.trim()) {
       showNotice('err', 'Укажите кадастровый номер');
       return;
@@ -233,8 +201,9 @@ export default function FieldsManager() {
       }
 
       const created = await res.json();
+      // server may return created.mapFile as base64 or data URL
       if (created && typeof created.fieldId !== 'undefined') {
-        const mf = (created as any).mapFile;
+        const mf = created.mapFile;
         let displayMap: string | null = null;
         if (mf && typeof mf === 'string') {
           displayMap = mf.startsWith('data:')
@@ -248,15 +217,14 @@ export default function FieldsManager() {
           mapFile: displayMap,
         };
 
-        // Prepend to both allFields and visible page
-        setAllFields((s) => [newItem, ...s]);
+        setFields((s) => [newItem, ...s]);
         showNotice('ok', 'Поле добавлено');
         setAddOpen(false);
         setCadastral('');
         setMapFileDataUrl(null);
         setMapFileBase64(null);
       } else {
-        await fetchList();
+        await fetchList(page, limit);
         setAddOpen(false);
         showNotice(
           'ok',
@@ -269,9 +237,9 @@ export default function FieldsManager() {
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }
 
-  const handleDeleteConfirm = async (id: number) => {
+  async function handleDeleteConfirm(id: number) {
     setIsDeleting(true);
     try {
       const res = await fetch(`${API_BASE}/api/fields/${id}`, {
@@ -293,7 +261,7 @@ export default function FieldsManager() {
         throw new Error(body?.message || `Ошибка удаления: ${res.status}`);
       }
 
-      setAllFields((prev) => prev.filter((f) => f.fieldId !== id));
+      setFields((prev) => prev.filter((f) => f.fieldId !== id));
       setDeletingId(null);
       showNotice('ok', 'Поле удалено');
     } catch (e: any) {
@@ -302,7 +270,7 @@ export default function FieldsManager() {
     } finally {
       setIsDeleting(false);
     }
-  };
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-6">
@@ -316,7 +284,7 @@ export default function FieldsManager() {
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => fetchList()}
+            onClick={() => fetchList(page, limit)}
             className="px-3 py-2 rounded-xl bg-white border shadow-sm hover:bg-gray-50 flex items-center gap-2"
             title="Обновить"
           >
@@ -339,7 +307,11 @@ export default function FieldsManager() {
             initial={{ y: -8, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: -8, opacity: 0 }}
-            className={`mb-4 inline-block px-4 py-2 rounded-lg text-sm ${notice.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}
+            className={`mb-4 inline-block px-4 py-2 rounded-lg text-sm ${
+              notice.type === 'ok'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-100'
+                : 'bg-red-50 text-red-700 border border-red-100'
+            }`}
           >
             {notice.text}
           </motion.div>
@@ -347,11 +319,11 @@ export default function FieldsManager() {
       </AnimatePresence>
 
       {/* errors / loading */}
-      {/* {fetchError && (
+      {fetchError && (
         <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-lg">
           {fetchError}
         </div>
-      )} */}
+      )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading
@@ -440,7 +412,7 @@ export default function FieldsManager() {
             </button>
             <div className="px-3 text-sm font-medium">Стр. {page}</div>
             <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={() => setPage((p) => p + 1)}
               className="p-2 rounded-md hover:bg-gray-50"
               title="Вперед"
             >
@@ -519,7 +491,7 @@ export default function FieldsManager() {
                       ) : (
                         <div className="relative">
                           <img
-                            src={mapFileDataUrl!}
+                            src={mapFileDataUrl}
                             alt="preview"
                             className="w-full h-44 object-cover rounded-md border"
                           />

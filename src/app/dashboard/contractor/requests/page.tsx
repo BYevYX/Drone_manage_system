@@ -397,7 +397,8 @@ export default function RequestsWithEditor({
   // API helpers
   const fetchFields = async () => {
     try {
-      const res = await authFetch(`${API_BASE}/api/fields?page=1&limit=100`);
+      const userId = localStorage.getItem('userId');
+      const res = await authFetch(`${API_BASE}/api/fields`);
       if (!res.ok) throw new Error(`Ошибка получения полей (${res.status})`);
       const data = await res.json();
       setFieldsList(Array.isArray(data.fields) ? data.fields : []);
@@ -418,6 +419,7 @@ export default function RequestsWithEditor({
 
   const fetchOrderFields = async (orderId: number): Promise<number[]> => {
     try {
+      const userId = localStorage.getItem('userId');
       const res = await authFetch(`${API_BASE}/api/orders/${orderId}/fields`);
       if (!res.ok) return [];
       const d = await res.json();
@@ -436,9 +438,8 @@ export default function RequestsWithEditor({
 
   const fetchOrders = async (page = 1, limit = 100) => {
     try {
-      const res = await authFetch(
-        `${API_BASE}/api/orders?page=${page}&limit=${limit}`,
-      );
+      const userId = localStorage.getItem('userId');
+      const res = await authFetch(`${API_BASE}/api/orders/${userId}`);
       if (!res.ok) {
         console.warn(`Ошибка получения заявок (${res.status})`);
         setRequests([]);

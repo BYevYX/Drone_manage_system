@@ -103,7 +103,8 @@ export function Step1({
           type="tel"
           icon={<Phone size={20} />}
           value={phone}
-          onChange={(e) => setPhone(e.target.value)}
+          onChange={(e: any) => setPhone(e.target.value)}
+          error={Boolean(phoneError)}
         />
         {phoneError && (
           <p className="text-red-600 text-sm mt-1">{phoneError}</p>
@@ -120,7 +121,8 @@ export function Step1({
           type="email"
           icon={<Mail size={20} />}
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e: any) => setEmail(e.target.value)}
+          error={Boolean(emailError)}
         />
         {emailError && (
           <p className="text-red-600 text-sm mt-1">{emailError}</p>
@@ -132,7 +134,8 @@ export function Step1({
   );
 }
 
-/* ================= ManagerForm (тот же что CustomerForm) ================= */
+/* ================= ManagerForm (переиспользует CustomerForm) ================= */
+/* Теперь ManagerForm рисует те же поля, что и CustomerForm — одно место для верности */
 export function ManagerForm({
   data,
   setData,
@@ -142,197 +145,11 @@ export function ManagerForm({
   setData: React.Dispatch<React.SetStateAction<Step2Data>>;
   errors?: Record<string, string>;
 }) {
-  // Контент тот же, что и CustomerForm — оставил дублирование для явной экспортной точки
-  return (
-    <>
-      <div className="flex gap-2 mb-6 justify-center">
-        {[
-          { label: 'Компания', value: 'COMPANY' },
-          { label: 'ИП', value: 'INDIVIDUAL' },
-          { label: 'Физ лицо', value: 'PERSON' },
-        ].map(({ label, value }) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() =>
-              setData((prev) => ({ ...prev, type: value as Step2Data['type'] }))
-            }
-            className={`px-4 py-2 rounded-full font-nekstmedium ${
-              data.type === value
-                ? 'bg-gradient-to-r from-green-500 to-green-700 text-white'
-                : 'bg-transparent border text-gray-600 border-gray-600 '
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label={
-            <>
-              Название компании <span className="text-red-500">*</span>
-            </>
-          }
-          value={data.nameCompany}
-          onChange={(e) =>
-            setData((prev) => ({ ...prev, nameCompany: e.target.value }))
-          }
-          id="name_company"
-          icon={<Building size={20} />}
-        />
-        {errors.nameCompany && (
-          <p className="text-red-600 text-sm mt-1">{errors.nameCompany}</p>
-        )}
-
-        <Input
-          label={
-            <>
-              ИНН{' '}
-              {data.type === 'COMPANY' && (
-                <span className="text-red-500">*</span>
-              )}
-            </>
-          }
-          value={data.inn}
-          onChange={(e) =>
-            setData((prev) => ({ ...prev, inn: e.target.value }))
-          }
-          id="inn"
-        />
-        {errors.inn && (
-          <p className="text-red-600 text-sm mt-1">{errors.inn}</p>
-        )}
-
-        <Input
-          label="КПП"
-          value={data.kpp}
-          onChange={(e) =>
-            setData((prev) => ({ ...prev, kpp: e.target.value }))
-          }
-          id="kpp"
-        />
-        <Input
-          label="Код по ОКПО"
-          value={data.okpo}
-          onChange={(e) =>
-            setData((prev) => ({ ...prev, okpo: e.target.value }))
-          }
-          id="okpo"
-        />
-        <Input
-          label="Юридический адрес"
-          value={data.urAddres}
-          onChange={(e) =>
-            setData((prev) => ({ ...prev, urAddres: e.target.value }))
-          }
-          id="ur_addres"
-        />
-        <Input
-          label="Фактический адрес"
-          value={data.factAddres}
-          onChange={(e) =>
-            setData((prev) => ({ ...prev, factAddres: e.target.value }))
-          }
-          id="fact_addres"
-        />
-      </div>
-
-      <div className="mt-6 border border-gray-700 rounded-lg p-4">
-        <label className="flex items-center gap-2 font-nekstmedium text-sm mb-4">
-          <input
-            type="checkbox"
-            checked={data.contactPerson}
-            onChange={(e) =>
-              setData((prev) => ({ ...prev, contactPerson: e.target.checked }))
-            }
-            className="accent-purple-600 hover:cursor-pointer"
-          />
-          Указать данные контактного лица (будет создано контактное лицо
-          контрагента)
-        </label>
-
-        <AnimatePresence>
-          {data.contactPerson && (
-            <motion.div
-              key="contact-person"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-hidden"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Фамилия"
-                  value={data.contact.lastName}
-                  onChange={(e) =>
-                    setData((prev) => ({
-                      ...prev,
-                      contact: { ...prev.contact, lastName: e.target.value },
-                    }))
-                  }
-                  id="surname_agent"
-                  icon={<User size={18} />}
-                />
-                <Input
-                  label="Телефон"
-                  value={data.contact.phone}
-                  onChange={(e) =>
-                    setData((prev) => ({
-                      ...prev,
-                      contact: { ...prev.contact, phone: e.target.value },
-                    }))
-                  }
-                  id="telephone_agent"
-                  icon={<Phone size={18} />}
-                />
-                <Input
-                  label="Имя"
-                  value={data.contact.firstName}
-                  onChange={(e) =>
-                    setData((prev) => ({
-                      ...prev,
-                      contact: { ...prev.contact, firstName: e.target.value },
-                    }))
-                  }
-                  id="name_agent"
-                  icon={<User size={18} />}
-                />
-                <Input
-                  label="E-mail"
-                  value={data.contact.email}
-                  onChange={(e) =>
-                    setData((prev) => ({
-                      ...prev,
-                      contact: { ...prev.contact, email: e.target.value },
-                    }))
-                  }
-                  id="email_agent"
-                  icon={<Mail size={18} />}
-                />
-                <Input
-                  label="Отчество"
-                  value={data.contact.middleName}
-                  onChange={(e) =>
-                    setData((prev) => ({
-                      ...prev,
-                      contact: { ...prev.contact, middleName: e.target.value },
-                    }))
-                  }
-                  id="patronumic_agent"
-                  icon={<User size={18} />}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </>
-  );
+  // просто переиспользуем CustomerForm JSX
+  return <CustomerForm data={data} setData={setData} errors={errors} />;
 }
 
+/* ================= CustomerForm ================= */
 export function CustomerForm({
   data,
   setData,
@@ -376,11 +193,12 @@ export function CustomerForm({
             </>
           }
           value={data.nameCompany}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, nameCompany: e.target.value }))
           }
           id="name_company"
           icon={<Building size={20} />}
+          error={Boolean(errors.nameCompany)}
         />
         {errors.nameCompany && (
           <p className="text-red-600 text-sm mt-1">{errors.nameCompany}</p>
@@ -396,10 +214,11 @@ export function CustomerForm({
             </>
           }
           value={data.inn}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, inn: e.target.value }))
           }
           id="inn"
+          error={Boolean(errors.inn)}
         />
         {errors.inn && (
           <p className="text-red-600 text-sm mt-1">{errors.inn}</p>
@@ -408,34 +227,38 @@ export function CustomerForm({
         <Input
           label="КПП"
           value={data.kpp}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, kpp: e.target.value }))
           }
           id="kpp"
+          error={Boolean(errors.kpp)}
         />
         <Input
           label="Код по ОКПО"
           value={data.okpo}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, okpo: e.target.value }))
           }
           id="okpo"
+          error={Boolean(errors.okpo)}
         />
         <Input
           label="Юридический адрес"
           value={data.urAddres}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, urAddres: e.target.value }))
           }
           id="ur_addres"
+          error={Boolean(errors.urAddres)}
         />
         <Input
           label="Фактический адрес"
           value={data.factAddres}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, factAddres: e.target.value }))
           }
           id="fact_addres"
+          error={Boolean(errors.factAddres)}
         />
       </div>
 
@@ -467,7 +290,7 @@ export function CustomerForm({
                 <Input
                   label="Фамилия"
                   value={data.contact.lastName}
-                  onChange={(e) =>
+                  onChange={(e: any) =>
                     setData((prev) => ({
                       ...prev,
                       contact: { ...prev.contact, lastName: e.target.value },
@@ -475,11 +298,12 @@ export function CustomerForm({
                   }
                   id="surname_agent"
                   icon={<User size={18} />}
+                  error={Boolean(errors['contact.lastName'])}
                 />
                 <Input
                   label="Телефон"
                   value={data.contact.phone}
-                  onChange={(e) =>
+                  onChange={(e: any) =>
                     setData((prev) => ({
                       ...prev,
                       contact: { ...prev.contact, phone: e.target.value },
@@ -487,11 +311,12 @@ export function CustomerForm({
                   }
                   id="telephone_agent"
                   icon={<Phone size={18} />}
+                  error={Boolean(errors['contact.phone'])}
                 />
                 <Input
                   label="Имя"
                   value={data.contact.firstName}
-                  onChange={(e) =>
+                  onChange={(e: any) =>
                     setData((prev) => ({
                       ...prev,
                       contact: { ...prev.contact, firstName: e.target.value },
@@ -499,11 +324,12 @@ export function CustomerForm({
                   }
                   id="name_agent"
                   icon={<User size={18} />}
+                  error={Boolean(errors['contact.firstName'])}
                 />
                 <Input
                   label="E-mail"
                   value={data.contact.email}
-                  onChange={(e) =>
+                  onChange={(e: any) =>
                     setData((prev) => ({
                       ...prev,
                       contact: { ...prev.contact, email: e.target.value },
@@ -511,11 +337,12 @@ export function CustomerForm({
                   }
                   id="email_agent"
                   icon={<Mail size={18} />}
+                  error={Boolean(errors['contact.email'])}
                 />
                 <Input
                   label="Отчество"
                   value={data.contact.middleName}
-                  onChange={(e) =>
+                  onChange={(e: any) =>
                     setData((prev) => ({
                       ...prev,
                       contact: { ...prev.contact, middleName: e.target.value },
@@ -523,6 +350,7 @@ export function CustomerForm({
                   }
                   id="patronumic_agent"
                   icon={<User size={18} />}
+                  error={Boolean(errors['contact.middleName'])}
                 />
               </div>
             </motion.div>
@@ -552,11 +380,12 @@ export function DroneSupplierPart1({
           </>
         }
         value={data.company}
-        onChange={(e) =>
+        onChange={(e: any) =>
           setData((prev) => ({ ...prev, company: e.target.value }))
         }
         id="company_drone_supplier"
         icon={<Building size={20} />}
+        error={Boolean(errors.company)}
       />
       {errors.company && (
         <p className="text-red-600 text-sm mt-1">{errors.company}</p>
@@ -569,11 +398,12 @@ export function DroneSupplierPart1({
           </>
         }
         value={data.supplyType}
-        onChange={(e) =>
+        onChange={(e: any) =>
           setData((prev) => ({ ...prev, supplyType: e.target.value }))
         }
         id="supply_type_drone_supplier"
         icon={<Package size={20} />}
+        error={Boolean(errors.supplyType)}
       />
       {errors.supplyType && (
         <p className="text-red-600 text-sm mt-1">{errors.supplyType}</p>
@@ -586,12 +416,13 @@ export function DroneSupplierPart1({
           </>
         }
         value={data.phone}
-        onChange={(e) =>
+        onChange={(e: any) =>
           setData((prev) => ({ ...prev, phone: e.target.value }))
         }
         id="phone_drone_supplier"
         icon={<Phone size={20} />}
         placeholder="+7 (___) ___-__-__"
+        error={Boolean(errors.phone)}
       />
       {errors.phone && (
         <p className="text-red-600 text-sm mt-1">{errors.phone}</p>
@@ -601,20 +432,22 @@ export function DroneSupplierPart1({
         <Input
           label="Регион"
           value={data.region}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, region: e.target.value }))
           }
           id="region_drone_supplier"
           icon={<MapPin size={18} />}
+          error={Boolean(errors.region)}
         />
         <Input
           label="Размер парка (необязательно)"
           value={data.fleetSize}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, fleetSize: e.target.value }))
           }
           id="fleet_size_drone_supplier"
           icon={<Info size={18} />}
+          error={Boolean(errors.fleetSize)}
         />
       </div>
     </>
@@ -640,11 +473,12 @@ export function DroneSupplierPart2({
           </>
         }
         value={data.experience || ''}
-        onChange={(e) =>
+        onChange={(e: any) =>
           setData((prev) => ({ ...prev, experience: e.target.value }))
         }
         id="experience_drone_supplier"
         icon={<Info size={20} />}
+        error={Boolean(errors.experience)}
       />
       {errors.experience && (
         <p className="text-red-600 text-sm mt-1">{errors.experience}</p>
@@ -653,21 +487,23 @@ export function DroneSupplierPart2({
       <Input
         label="Оборудование (необязательно)"
         value={data.equipment || ''}
-        onChange={(e) =>
+        onChange={(e: any) =>
           setData((prev) => ({ ...prev, equipment: e.target.value }))
         }
         id="equipment_drone_supplier"
         icon={<Info size={20} />}
+        error={Boolean(errors.equipment)}
       />
 
       <Input
         label="Комментарий (необязательно)"
         value={data.notes || ''}
-        onChange={(e) =>
+        onChange={(e: any) =>
           setData((prev) => ({ ...prev, notes: e.target.value }))
         }
         id="notes_drone_supplier"
         icon={<Info size={20} />}
+        error={Boolean(errors.notes)}
       />
     </>
   );
@@ -683,79 +519,179 @@ export function MaterialSupplierForm({
   setData: React.Dispatch<React.SetStateAction<MaterialSupplierData>>;
   errors?: Record<string, string>;
 }) {
+  const required = (v?: string) => (v ?? '').trim().length > 1;
+
   return (
     <>
-      <Input
-        label={
-          <>
-            Компания <span className="text-red-500">*</span>
-          </>
-        }
-        value={data.company}
-        onChange={(e) =>
-          setData((prev) => ({ ...prev, company: e.target.value }))
-        }
-        id="company_material_supplier"
-        icon={<Building size={20} />}
-      />
-      {errors.company && (
-        <p className="text-red-600 text-sm mt-1">{errors.company}</p>
-      )}
+      {/* Тип контрагента */}
+      <div className="flex gap-2 mb-6 justify-center">
+        {[
+          { label: 'Компания', value: 'COMPANY' },
+          { label: 'ИП', value: 'INDIVIDUAL' },
+          { label: 'Физ лицо', value: 'PERSON' },
+        ].map(({ label, value }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => setData((prev) => ({ ...prev, type: value as any }))}
+            className={`px-4 py-2 rounded-full font-nekstmedium ${
+              data.type === value
+                ? 'bg-gradient-to-r from-green-500 to-green-700 text-white'
+                : 'bg-transparent border text-gray-600 border-gray-600 '
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <Input
-        label={
-          <>
-            Тип материалов <span className="text-red-500">*</span>
-          </>
-        }
-        value={data.materialType}
-        onChange={(e) =>
-          setData((prev) => ({ ...prev, materialType: e.target.value }))
-        }
-        id="material_type_material_supplier"
-        icon={<Package size={20} />}
-      />
-      {errors.materialType && (
-        <p className="text-red-600 text-sm mt-1">{errors.materialType}</p>
-      )}
+      {/* Основные поля */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Input
+          label={
+            <>
+              Название компании <span className="text-red-500">*</span>
+            </>
+          }
+          value={data.nameCompany}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, nameCompany: e.target.value }))
+          }
+          id="ms_name_company"
+          icon={<Building size={20} />}
+          error={Boolean(errors.nameCompany)}
+        />
+        <Input
+          label={`ИНН ${data.type === 'COMPANY' ? '*' : ''}`}
+          value={data.inn}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, inn: e.target.value }))
+          }
+          id="ms_inn"
+          error={
+            data.type === 'COMPANY' && !required(data.inn)
+              ? true
+              : Boolean(errors.inn)
+          }
+        />
+        <Input
+          label="КПП"
+          value={data.kpp}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, kpp: e.target.value }))
+          }
+          id="ms_kpp"
+          error={Boolean(errors.kpp)}
+        />
+        <Input
+          label="Код по ОКПО"
+          value={data.okpo}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, okpo: e.target.value }))
+          }
+          id="ms_okpo"
+          error={Boolean(errors.okpo)}
+        />
+        <Input
+          label="Юридический адрес"
+          value={data.urAddres}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, urAddres: e.target.value }))
+          }
+          id="ms_uraddr"
+          error={Boolean(errors.urAddres)}
+        />
+        <Input
+          label="Фактический адрес"
+          value={data.factAddres}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, factAddres: e.target.value }))
+          }
+          id="ms_factaddr"
+          error={Boolean(errors.factAddres)}
+        />
+      </div>
 
-      <Input
-        label="Телефон"
-        value={data.phone}
-        onChange={(e) =>
-          setData((prev) => ({ ...prev, phone: e.target.value }))
-        }
-        id="phone_material_supplier"
-        icon={<Phone size={20} />}
-        placeholder="+7 (___) ___-__-__"
-      />
-      <Input
-        label="Регион"
-        value={data.region}
-        onChange={(e) =>
-          setData((prev) => ({ ...prev, region: e.target.value }))
-        }
-        id="region_material_supplier"
-        icon={<MapPin size={20} />}
-      />
-      <Input
-        label="Опыт работы (необязательно)"
-        value={data.experience || ''}
-        onChange={(e) =>
-          setData((prev) => ({ ...prev, experience: e.target.value }))
-        }
-        id="experience_material_supplier"
-        icon={<Info size={20} />}
-      />
-      <Input
-        label="Комментарий (необязательно)"
-        value={data.notes || ''}
-        onChange={(e) =>
-          setData((prev) => ({ ...prev, notes: e.target.value }))
-        }
-        id="notes_material_supplier"
-        icon={<Info size={20} />}
-      />
+      {/* Контактное лицо */}
+      <div className="mt-6 border border-gray-200 rounded-lg p-4">
+        <label className="flex items-center gap-2 font-nekstmedium text-sm mb-4">
+          <input
+            type="checkbox"
+            checked={data.contactPerson}
+            onChange={(e) =>
+              setData((prev) => ({
+                ...prev,
+                contactPerson: e.target.checked,
+              }))
+            }
+            className="accent-emerald-600 hover:cursor-pointer"
+          />
+          Указать данные контактного лица (будет создано контактное лицо
+          контрагента)
+        </label>
+
+        {data.contactPerson && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Фамилия"
+              value={data.contact.lastName}
+              onChange={(e: any) =>
+                setData((prev) => ({
+                  ...prev,
+                  contact: { ...prev.contact, lastName: e.target.value },
+                }))
+              }
+              id="ms_contact_lastname"
+            />
+            <Input
+              label="Имя"
+              value={data.contact.firstName}
+              onChange={(e: any) =>
+                setData((prev) => ({
+                  ...prev,
+                  contact: { ...prev.contact, firstName: e.target.value },
+                }))
+              }
+              id="ms_contact_firstname"
+            />
+            <Input
+              label="Отчество"
+              value={data.contact.middleName}
+              onChange={(e: any) =>
+                setData((prev) => ({
+                  ...prev,
+                  contact: { ...prev.contact, middleName: e.target.value },
+                }))
+              }
+              id="ms_contact_middlename"
+            />
+            <Input
+              label="Телефон"
+              value={data.contact.phone}
+              onChange={(e: any) =>
+                setData((prev) => ({
+                  ...prev,
+                  contact: { ...prev.contact, phone: e.target.value },
+                }))
+              }
+              id="ms_contact_phone"
+              icon={<Phone size={18} />}
+            />
+            <Input
+              label="E-mail"
+              value={data.contact.email}
+              onChange={(e: any) =>
+                setData((prev) => ({
+                  ...prev,
+                  contact: { ...prev.contact, email: e.target.value },
+                }))
+              }
+              id="ms_contact_email"
+              icon={<Info size={18} />}
+            />
+          </div>
+        )}
+      </div>
     </>
   );
 }
@@ -786,10 +722,11 @@ export function StepFio({
           }
           id="lastName"
           value={data.lastName || ''}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, lastName: e.target.value }))
           }
           icon={<User size={20} />}
+          error={Boolean(errors?.lastName)}
         />
 
         <Input
@@ -805,20 +742,22 @@ export function StepFio({
           }
           id="firstName"
           value={data.firstName || ''}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, firstName: e.target.value }))
           }
           icon={<User size={20} />}
+          error={Boolean(errors?.firstName)}
         />
 
         <Input
           label="Отчество"
           id="middleName"
           value={data.middleName || ''}
-          onChange={(e) =>
+          onChange={(e: any) =>
             setData((prev) => ({ ...prev, middleName: e.target.value }))
           }
           icon={<User size={20} />}
+          error={Boolean(false)}
         />
       </div>
     </div>
@@ -872,7 +811,7 @@ export function Step3({
         type={showPassword ? 'text' : 'password'}
         icon={<Lock size={20} />}
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={(e: any) => setPassword(e.target.value)}
         rightIcon={
           <button
             type="button"
@@ -884,6 +823,7 @@ export function Step3({
             {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         }
+        error={Boolean(passwordError)}
       />
 
       <Input
@@ -902,7 +842,7 @@ export function Step3({
         type={showConfirm ? 'text' : 'password'}
         icon={<Lock size={20} />}
         value={confirm}
-        onChange={(e) => setConfirm(e.target.value)}
+        onChange={(e: any) => setConfirm(e.target.value)}
         rightIcon={
           <button
             type="button"
@@ -914,6 +854,7 @@ export function Step3({
             {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
         }
+        error={Boolean(confirmError)}
       />
 
       <div className="flex items-center gap-2 text-sm text-gray-800 font-nekstregular mt-2">
@@ -981,8 +922,9 @@ export function EmailVerification({
           id="email_code"
           placeholder="Введите код из письма"
           value={code}
-          onChange={(e) => setCode(e.target.value)}
+          onChange={(e: any) => setCode(e.target.value)}
           icon={<Mail size={18} />}
+          error={Boolean(codeError)}
         />
       </div>
 

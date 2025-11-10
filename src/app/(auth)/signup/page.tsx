@@ -6,10 +6,6 @@ import axios from 'axios';
 import {
   Step1,
   CustomerForm,
-  managerForm,
-  DroneSupplierPart1,
-  DroneSupplierPart2,
-  MaterialSupplierForm,
   StepFio,
   Step3,
   EmailVerification,
@@ -25,8 +21,6 @@ export default function MultiStepSignup() {
   const [role, setRole] = useState<
     'customer' | 'drone_supplier' | 'material_supplier' | 'manager' | ''
   >('');
-  const [allOk, setAllOk] = useState(false);
-
   // Первый шаг: телефон и email
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -41,26 +35,9 @@ export default function MultiStepSignup() {
   });
   const [fioErrors, setFioErrors] = useState({ lastName: '', firstName: '' });
 
-  // Для заказчиков услуг
+  // Основные юридические данные (одни и те же для всех ролей)
   const [customerData, setCustomerData] = useState<Step2Data>({
-    type: 'COMPANY', // ENUM (COMPANY | INDIVIDUAL)
-    nameCompany: '',
-    inn: '',
-    kpp: '',
-    okpo: '',
-    urAddres: '',
-    factAddres: '',
-    contactPerson: false,
-    contact: {
-      lastName: '',
-      firstName: '',
-      middleName: '',
-      phone: '',
-      email: '',
-    },
-  });
-  const [managerData, setManagerData] = useState<Step2Data>({
-    type: 'COMPANY', // ENUM (COMPANY | INDIVIDUAL)
+    type: 'COMPANY',
     nameCompany: '',
     inn: '',
     kpp: '',
@@ -80,7 +57,8 @@ export default function MultiStepSignup() {
     {},
   );
 
-  // Для поставщиков дронов и оборудования (разделено на 2 шага)
+  // (оставим стейты поставщиков на случай, если UI использует их, но в логике
+  // отправки/валидации мы теперь используем customerData)
   const [droneSupplierData, setDroneSupplierData] = useState({
     company: '',
     supplyType: '',
@@ -93,7 +71,6 @@ export default function MultiStepSignup() {
   });
   const [droneErrors, setDroneErrors] = useState<Record<string, string>>({});
 
-  // Для поставщиков материалов
   const [materialSupplierData, setMaterialSupplierData] = useState({
     company: '',
     materialType: '',
@@ -119,6 +96,16 @@ export default function MultiStepSignup() {
   const [verificationError, setVerificationError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
+
+  // Helper: безопасный merge для setState (принимает Partial<T> или функцию)
+  const mergeState =
+    <T,>(setState: React.Dispatch<React.SetStateAction<T>>) =>
+    (cbOrObj: Partial<T> | ((prev: T) => T)) =>
+      setState((prev) =>
+        typeof cbOrObj === 'function'
+          ? (cbOrObj as (p: T) => T)(prev)
+          : ({ ...prev, ...(cbOrObj as Partial<T>) } as T),
+      );
 
   // --- Helpers for phone formatting ---
   const formatPhoneForDisplay = (raw: string) => {
@@ -166,111 +153,57 @@ export default function MultiStepSignup() {
       return ok;
     }
 
+    // Шаг 2: теперь одинаковая валидация для всех ролей (используем customerData)
     if (s === 2) {
-      if (role === 'customer') {
-        const errs: Record<string, string> = {};
-        let ok = true;
-        if (!customerData.nameCompany) {
-          errs.nameCompany = 'Обязательное поле';
-          ok = false;
-        }
-        if (customerData.type === 'COMPANY' && !customerData.inn) {
-          errs.inn = 'Укажите ИНН';
-          ok = false;
-        }
-        setCustomerErrors(errs);
-        return ok;
-      } else if (role === 'drone_supplier') {
-        const errs: Record<string, string> = {};
-        let ok = true;
-        if (!droneSupplierData.company) {
-          errs.company = 'Обязательное поле';
-          ok = false;
-        }
-        if (!droneSupplierData.supplyType) {
-          errs.supplyType = 'Обязательное поле';
-          ok = false;
-        }
-        if (
-          !droneSupplierData.phone ||
-          normalizePhoneForSend(droneSupplierData.phone).length !== 11
-        ) {
-          errs.phone = 'Укажите корректный телефон';
-          ok = false;
-        }
-        setDroneErrors(errs);
-        return ok;
-      } else if (role === 'material_supplier') {
-        const errs: Record<string, string> = {};
-        let ok = true;
-        if (!materialSupplierData.company) {
-          errs.company = 'Обязательное поле';
-          ok = false;
-        }
-        if (!materialSupplierData.materialType) {
-          errs.materialType = 'Обязательное поле';
-          ok = false;
-        }
-        setMaterialErrors(errs);
-        return ok;
+      const errs: Record<string, string> = {};
+      let ok = true;
+      if (!customerData.nameCompany) {
+        errs.nameCompany = 'Обязательное поле';
+        ok = false;
       }
+      if (customerData.type === 'COMPANY' && !customerData.inn) {
+        errs.inn = 'Укажите ИНН';
+        ok = false;
+      }
+      // опционально проверим телефон в contact (если указан)
+      if (
+        customerData.contact?.phone &&
+        normalizePhoneForSend(customerData.contact.phone).length !== 11
+      ) {
+        errs['contact.phone'] = 'Укажите корректный телефон';
+        ok = false;
+      }
+      setCustomerErrors(errs);
+      return ok;
     }
 
+    // шаг 3: ФИО (одинаково для всех ролей)
     if (s === 3) {
-      if (role === 'drone_supplier') {
-        const errs: Record<string, string> = {};
-        let ok = true;
-        if (!droneSupplierData.experience) {
-          errs.experience = 'Укажите опыт';
-          ok = false;
-        }
-        setDroneErrors((prev) => ({ ...prev, ...errs }));
-        return ok;
+      const errs = { lastName: '', firstName: '' };
+      let ok = true;
+      if (!fioData.lastName) {
+        errs.lastName = 'Обязательное поле';
+        ok = false;
       }
-
-      if (role === 'customer' || role === 'material_supplier') {
-        const errs = { lastName: '', firstName: '' };
-        let ok = true;
-        if (!fioData.lastName) {
-          errs.lastName = 'Обязательное поле';
-          ok = false;
-        }
-        if (!fioData.firstName) {
-          errs.firstName = 'Обязательное поле';
-          ok = false;
-        }
-        setFioErrors(errs);
-        return ok;
+      if (!fioData.firstName) {
+        errs.firstName = 'Обязательное поле';
+        ok = false;
       }
+      setFioErrors(errs);
+      return ok;
     }
 
+    // шаг 4: пароль (одинаково)
     if (s === 4) {
-      if (role === 'drone_supplier') {
-        const errs = { lastName: '', firstName: '' };
-        let ok = true;
-        if (!fioData.lastName) {
-          errs.lastName = 'Обязательное поле';
-          ok = false;
-        }
-        if (!fioData.firstName) {
-          errs.firstName = 'Обязательное поле';
-          ok = false;
-        }
-        setFioErrors(errs);
-        return ok;
-      }
-
-      if (role === 'customer' || role === 'material_supplier') {
-        if (!password || password.length < 6) {
-          setPasswordError('Пароль минимум 6 символов');
-          return false;
-        } else setPasswordError('');
-        if (password !== confirm) {
-          setConfirmError('Пароли не совпадают');
-          return false;
-        } else setConfirmError('');
-        return true;
-      }
+      if (!password || password.length < 6) {
+        setPasswordError('Пароль минимум 6 символов');
+        return false;
+      } else setPasswordError('');
+      if (password !== confirm) {
+        setConfirmError('Пароли не совпадают');
+        return false;
+      } else setConfirmError('');
+      return true;
     }
 
     // password step is second-to-last (we'll treat final step as verification)
@@ -289,14 +222,9 @@ export default function MultiStepSignup() {
     return true;
   };
 
+  // Теперь все роли — единый поток: 5 шагов (контакт -> роль-форма(юридич) -> ФИО -> пароль -> верификация)
   const getTotalSteps = () => {
-    // include verification step as last
     if (!role) return 1;
-    if (role === 'drone_supplier') {
-      // contact (1) + drone1 (2) + drone2 (3) + fio (4) + password (5) + verification (6)
-      return 6;
-    }
-    // customer/material: contact (1) + role form (2) + fio (3) + password (4) + verification (5)
     return 5;
   };
 
@@ -306,7 +234,7 @@ export default function MultiStepSignup() {
     if (step < total - 1) {
       setStep((p) => p + 1);
     } else if (step === total - 1) {
-      // if next is verification (last) we need to submit registration first
+      // если следующий — верификация, отправляем регистрацию
       handleSubmit();
     }
   };
@@ -315,7 +243,7 @@ export default function MultiStepSignup() {
     setStep((p) => (p > 1 ? p - 1 : p));
   };
 
-  // Собираем все данные
+  // Собираем все данные: теперь для ВСЕХ ролей (customer/manager/drone/material) отправляем payload как у заказчика
   const collectData = () => {
     const base = {
       email,
@@ -326,29 +254,10 @@ export default function MultiStepSignup() {
       surname: fioData.middleName,
     };
 
-    if (role === 'customer') {
+    if (role === 'customer' || role === 'manager') {
       return {
         ...base,
         userRole: 'CONTRACTOR',
-        contractor: {
-          organization: customerData.type,
-          organizationName: customerData.nameCompany,
-          organizationType:
-            customerData.type === 'COMPANY'
-              ? 'LEGAL_ENTITY'
-              : 'INDIVIDUAL_ENTITY',
-          inn: customerData.inn,
-          kpp: customerData.kpp,
-          okpoCode: customerData.okpo,
-          addressUr: customerData.urAddres,
-          addressFact: customerData.factAddres,
-        },
-      };
-    }
-    if (role === 'manager') {
-      return {
-        ...base,
-        userRole: 'MANAGER',
         contractor: {
           organization: customerData.type,
           organizationName: customerData.nameCompany,
@@ -399,7 +308,6 @@ export default function MultiStepSignup() {
   // регистрация -> после успеха переходим на шаг верификации
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    // validate password step (second-to-last)
     const total = getTotalSteps();
     if (!validateStep(step)) return;
 
@@ -407,13 +315,8 @@ export default function MultiStepSignup() {
 
     try {
       const dataToSend = collectData();
-      if (dataToSend.role === 'manager') {
-        dataToSend.role = 'manager'; // оставляем менеджера, не конвертим в contractor
-      }
 
-      // 🩹 КОСТЫЛЬ: если роль manager — отправляем на сервер как CONTRACTOR (как заказчик)
-      // это меняет только поле userRole в полезной нагрузке
-
+      // Отправляем на сервер
       const res = await axios.post(API_URL, dataToSend);
 
       // сохраняем сообщение/дату от бэка и переходим к верификации
@@ -425,7 +328,6 @@ export default function MultiStepSignup() {
       setStep(totalSteps);
     } catch (err: any) {
       if (err.response?.data?.message) {
-        // покажем сообщение сверху в Step3 (если мы ещё на step password)
         setServerMessage(err.response.data.message);
       } else {
         setServerMessage(
@@ -452,8 +354,6 @@ export default function MultiStepSignup() {
       const url = `https://droneagro.duckdns.org/v1/verification?code=${verificationCode}`;
       const res = await axios.get(url);
       alert(res.data?.message || 'Почта подтверждена!');
-      // можно: redirect to login
-      // router.push('/login');
       window.location.href = '/login';
     } catch (err: any) {
       if (err.response?.data?.message)
@@ -501,137 +401,41 @@ export default function MultiStepSignup() {
       );
     }
 
-    // drone supplier split
-    if (role === 'drone_supplier') {
-      if (step === 2) {
-        return (
-          <DroneSupplierPart1
-            data={droneSupplierData}
-            setData={(cbOrObj) =>
-              setDroneSupplierData((prev) =>
-                typeof cbOrObj === 'function'
-                  ? cbOrObj(prev)
-                  : { ...prev, ...cbOrObj },
-              )
-            }
-            errors={droneErrors}
-          />
-        );
-      }
-      if (step === 3) {
-        return (
-          <DroneSupplierPart2
-            data={droneSupplierData}
-            setData={(cbOrObj) =>
-              setDroneSupplierData((prev) =>
-                typeof cbOrObj === 'function'
-                  ? cbOrObj(prev)
-                  : { ...prev, ...cbOrObj },
-              )
-            }
-            errors={droneErrors}
-          />
-        );
-      }
-      if (step === 4) {
-        return (
-          <StepFio data={fioData} setData={setFioData} errors={fioErrors} />
-        );
-      }
-      if (step === 5) {
-        // password step (second to last)
-        return (
-          <Step3
-            password={password}
-            setPassword={setPassword}
-            confirm={confirm}
-            setConfirm={setConfirm}
-            passwordError={passwordError}
-            confirmError={confirmError}
-            serverMessage={serverMessage}
-          />
-        );
-      }
-      if (step === 6) {
-        // verification
-        return (
-          <EmailVerification
-            serverMessage={serverMessage}
-            serverData={serverData}
-            code={verificationCode}
-            setCode={setVerificationCode}
-            codeError={verificationError}
-            onVerify={handleVerify}
-            onResend={handleResend}
-            isVerifying={isVerifying}
-          />
-        );
-      }
-    }
-
-    // customer or material supplier
-    if (step === 2 && role === 'customer') {
-      return (
-        <CustomerForm
-          data={customerData}
-          setData={(cbOrObj) =>
-            setCustomerData((prev) =>
-              typeof cbOrObj === 'function'
-                ? cbOrObj(prev)
-                : { ...prev, ...cbOrObj },
-            )
-          }
-          errors={customerErrors}
-        />
-      );
-    }
-    if (step === 2 && role === 'manager') {
-      return (
-        <CustomerForm
-          data={customerData}
-          setData={(cbOrObj) =>
-            setCustomerData((prev) =>
-              typeof cbOrObj === 'function'
-                ? cbOrObj(prev)
-                : { ...prev, ...cbOrObj },
-            )
-          }
-          errors={customerErrors}
-        />
-      );
-    }
-    if (step === 2 && role === 'material_supplier') {
-      return (
-        <MaterialSupplierForm
-          data={materialSupplierData}
-          setData={(cbOrObj) =>
-            setMaterialSupplierData((prev) =>
-              typeof cbOrObj === 'function'
-                ? cbOrObj(prev)
-                : { ...prev, ...cbOrObj },
-            )
-          }
-          errors={materialErrors}
-        />
-      );
-    }
-
-    // fio for customer/material
+    // Step 2: теперь для всех ролей используем CustomerForm (одинаковые поля)
     if (
+      step === 2 &&
       (role === 'customer' ||
         role === 'manager' ||
-        role === 'material_supplier') &&
-      step === 3
+        role === 'drone_supplier' ||
+        role === 'material_supplier')
+    ) {
+      return (
+        <CustomerForm
+          data={customerData}
+          setData={mergeState(setCustomerData)}
+          errors={customerErrors}
+        />
+      );
+    }
+
+    // Step 3: ФИО
+    if (
+      step === 3 &&
+      (role === 'customer' ||
+        role === 'manager' ||
+        role === 'drone_supplier' ||
+        role === 'material_supplier')
     ) {
       return <StepFio data={fioData} setData={setFioData} errors={fioErrors} />;
     }
 
-    // password for customer/material (second to last)
+    // Step 4: пароль
     if (
+      step === 4 &&
       (role === 'customer' ||
         role === 'manager' ||
-        role === 'material_supplier') &&
-      step === 4
+        role === 'drone_supplier' ||
+        role === 'material_supplier')
     ) {
       return (
         <Step3
@@ -646,12 +450,13 @@ export default function MultiStepSignup() {
       );
     }
 
-    // verification for customer/material (last)
+    // Step 5: верификация
     if (
+      step === 5 &&
       (role === 'customer' ||
         role === 'manager' ||
-        role === 'material_supplier') &&
-      step === 5
+        role === 'drone_supplier' ||
+        role === 'material_supplier')
     ) {
       return (
         <EmailVerification
@@ -678,11 +483,9 @@ export default function MultiStepSignup() {
       ? 'Подтверждение почты'
       : step === totalSteps - 1
         ? 'Пароль и подтверждение'
-        : role === 'drone_supplier' && step >= 2 && step <= 3
-          ? 'Поставщик дронов — часть'
-          : step === 3
-            ? 'Личные данные'
-            : 'Основная информация';
+        : step === 3
+          ? 'Личные данные'
+          : 'Основная информация';
 
   return (
     <div className="w-full lg:w-1/2 rounded-2xl p-8">
@@ -715,15 +518,10 @@ export default function MultiStepSignup() {
               Назад
             </button>
           ) : (
-            // keep layout spacing aligned when no back button
             <div />
           )}
 
-          {/* Right-side controls:
-              - intermediate steps: "Далее"
-              - second-to-last (password): "Зарегистрироваться" (submits registration and moves to verification on success)
-              - last (verification): no right-side button (EmailVerification provides actions)
-          */}
+          {/* Right-side controls */}
           {step < totalSteps - 1 && (
             <button
               type="button"
@@ -744,11 +542,7 @@ export default function MultiStepSignup() {
             </button>
           )}
 
-          {
-            step === totalSteps && (
-              <div />
-            ) /* nothing on right — actions are inside verification step */
-          }
+          {step === totalSteps && <div />}
         </div>
       </form>
 

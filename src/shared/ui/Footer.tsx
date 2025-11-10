@@ -60,8 +60,8 @@ const Footer = () => {
             <ul className="space-y-3">
               <FooterLink href="/" text="Главная" />
               <FooterLink href="/services" text="Услуги" />
-              <FooterLink href="/technology" text="Технологии" />
-              <FooterLink href="/cases" text="Кейсы" />
+              <FooterLink href="/drones" text="Дроны" />
+              <FooterLink href="/materials" text="Материалы" />
             </ul>
           </div>
 

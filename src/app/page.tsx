@@ -463,9 +463,12 @@ export default function page() {
                   </button>
                 </Link>
 
-                <button className="px-8 py-3 font-nekstsemibold rounded-lg bg-white text-gray-900 hover:bg-gray-100 transition-all">
+                <Link
+                  href={'/contacts'}
+                  className="px-8 py-3 font-nekstsemibold rounded-lg bg-white text-gray-900 hover:bg-gray-100 transition-all"
+                >
                   ЗАКАЗАТЬ ЗВОНОК
-                </button>
+                </Link>
               </div>
             </div>
           </div>
