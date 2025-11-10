@@ -398,7 +398,9 @@ export default function RequestsWithEditor({
   const fetchFields = async () => {
     try {
       const userId = localStorage.getItem('userId');
-      const res = await authFetch(`${API_BASE}/api/fields`);
+      const res = await authFetch(
+        `${API_BASE}/api/fields-by-user?userId=${userId}`,
+      );
       if (!res.ok) throw new Error(`Ошибка получения полей (${res.status})`);
       const data = await res.json();
       setFieldsList(Array.isArray(data.fields) ? data.fields : []);
@@ -693,25 +695,12 @@ export default function RequestsWithEditor({
    */
   const sendPayload = async (payload: any, orderId?: number | null) => {
     try {
-      const bodyToSend: any = { payload };
-      // include order_id as second parameter (outside of payload)
-      bodyToSend.order_id = typeof orderId === 'number' ? orderId : null;
-      const res = await fetch(`${API_BASE}/api/field-analysis/inputs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyToSend),
-      });
-      const text = await res.text().catch(() => '');
-      if (!res.ok)
-        throw new Error(`Ошибка отправки аналитики: ${res.status} ${text}`);
-      let parsed: any = {};
-      try {
-        parsed = JSON.parse(text || '{}');
-      } catch {}
-      setMetadata((m) => ({ ...(m ?? {}), analyticsResponse: parsed }));
+      console.info('[sendPayload] disabled — payload not sent', { orderId });
+      // если хочешь — можно сохранить payload в metadata для отладки:
+      // setMetadata((m) => ({ ...(m ?? {}), analyticsResponse: { note: 'disabled' } }));
       return true;
     } catch (e) {
-      console.error('sendPayload error', e);
+      console.error('sendPayload noop error', e);
       return false;
     }
   };
@@ -1220,7 +1209,7 @@ export default function RequestsWithEditor({
                       </strong>
                       {viewRequest.wavelengths && (
                         <div className="mt-2 text-xs text-gray-500">
-                          Длины волн: {viewRequest.wavelengths}
+                          Материалы: {viewRequest.wavelengths}
                         </div>
                       )}
                     </div>
@@ -1400,7 +1389,7 @@ export default function RequestsWithEditor({
 
                       <div className="md:col-span-2 flex flex-col gap-2">
                         <div className="text-sm font-medium text-gray-700/90 mb-1.5">
-                          Длины волн
+                          Материалы
                         </div>
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input
@@ -1417,7 +1406,9 @@ export default function RequestsWithEditor({
                             }}
                             className="form-radio h-4 w-4"
                           />
-                          <span className="text-sm">У меня нет длины волн</span>
+                          <span className="text-sm">
+                            У меня нет длины материалов
+                          </span>
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input
@@ -1432,9 +1423,7 @@ export default function RequestsWithEditor({
                             }}
                             className="form-radio h-4 w-4"
                           />
-                          <span className="text-sm">
-                            У меня есть длины волн (загружу JSON)
-                          </span>
+                          <span className="text-sm">У меня есть материалы</span>
                         </label>
                       </div>
                     </div>
