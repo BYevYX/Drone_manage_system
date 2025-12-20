@@ -896,7 +896,9 @@ export function EmailVerification({
       {serverMessage && (
         <div className="flex items-center gap-2 p-4 rounded-lg bg-gradient-to-r from-blue-100 via-blue-50 to-blue-100 border border-blue-300 text-blue-900 text-sm shadow-sm animate-fade-in">
           <AlertCircle />
-          <span>Введите код, отправленный на почту</span>
+          <span className="font-nekstregular text-[16px]">
+            Введите код, отправленный на почту
+          </span>
         </div>
       )}
 
@@ -908,11 +910,12 @@ export function EmailVerification({
 
       <div>
         <label className="relative block font-medium mb-2">
-          <span>
-            Код подтверждения <span className="text-red-500">*</span>
+          <span className="font-nekstregular">
+            Код подтверждения{' '}
+            <span className="text-red-500 font-nekstregular">*</span>
           </span>
           {codeError && (
-            <span className="absolute right-0 top-0 text-red-600 text-sm">
+            <span className="absolute right-0 top-0 text-red-600 text-sm font-nekstregular">
               {codeError}
             </span>
           )}
@@ -940,14 +943,14 @@ export function EmailVerification({
             }
           }}
           disabled={isVerifying}
-          className={`px-4 py-2 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition-transform hover:scale-105 duration-300 shadow-lg ${
+          className={`px-4 py-2 justify-end w-full rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition-transform hover:scale-105 duration-300 shadow-lg ${
             isVerifying ? 'opacity-60 cursor-not-allowed' : ''
           }`}
         >
           {isVerifying ? 'Проверяю...' : 'Подтвердить'}
         </button>
 
-        {onResend && (
+        {/* {onResend && (
           <button
             type="button"
             onClick={onResend}
@@ -955,7 +958,7 @@ export function EmailVerification({
           >
             Отправить код заново
           </button>
-        )}
+        )} */}
       </div>
     </div>
   );

@@ -24,7 +24,7 @@ export default function DronePermissionsInfo() {
     return () => clearTimeout(timer);
   }, []);
   return (
-    <div className="wrapper">
+    <div className="wrapper font-nekstregular">
       <Header />
 
       <div className="relative pt-12 pb-20 px-4 sm:px-6 lg:px-8 bg-white bg-[url(/pages/main/drone_15.jpg)] bg-cover bg-center ">

@@ -15,17 +15,6 @@ import Footer from '@/src/shared/ui/Footer';
 
 const API_BASE = 'https://droneagro.duckdns.org';
 
-/**
- * MaterialsPage
- * - GET /v1/materials?page=&limit=
- * - POST /v1/materials
- * - DELETE /v1/materials/{materialId}
- * - Authorization: Bearer <accessToken> (localStorage['accessToken'])
- * - role from localStorage['userRole'] -> show add/delete only for MATERIAL_SUPPLIER
- *
- * Design matches the drones page: rounded cards, subtle gradients, modal for add.
- */
-
 export default function MaterialsPage() {
   const [materials, setMaterials] = useState<any[]>([]);
   const [page, setPage] = useState(1);
@@ -78,7 +67,7 @@ export default function MaterialsPage() {
           ? localStorage.getItem('accessToken')
           : null;
       const qs = new URLSearchParams({ page: String(p), limit: String(lim) });
-      const res = await fetch(`${API_BASE}/v1/materials?${qs.toString()}`, {
+      const res = await fetch(`${API_BASE}/api/materials?${qs.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -91,12 +80,18 @@ export default function MaterialsPage() {
             '403 Forbidden — проверьте токен (localStorage.accessToken)',
           );
         if (res.status === 404)
-          throw new Error('404 Not Found — проверьте URL /v1/materials');
+          throw new Error('404 Not Found — проверьте URL /api/materials');
         const body = await res.text();
         throw new Error(`Ошибка ${res.status}: ${body}`);
       }
       const json = await res.json();
-      setMaterials(Array.isArray(json.materials) ? json.materials : []);
+      setMaterials(
+        Array.isArray(json.materials)
+          ? json.materials
+          : Array.isArray(json)
+            ? json
+            : [],
+      );
     } catch (e: any) {
       console.error('fetchMaterials error', e);
       setError(e.message || 'Ошибка получения материалов');
@@ -112,7 +107,7 @@ export default function MaterialsPage() {
         typeof window !== 'undefined'
           ? localStorage.getItem('accessToken')
           : null;
-      const res = await fetch(`${API_BASE}/v1/materials`, {
+      const res = await fetch(`${API_BASE}/api/materials`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -125,7 +120,7 @@ export default function MaterialsPage() {
         if (res.status === 403)
           throw new Error('403 Forbidden — токен недействителен или нет прав.');
         if (res.status === 404)
-          throw new Error('404 Not Found — проверьте путь POST /v1/materials');
+          throw new Error('404 Not Found — проверьте путь POST /api/materials');
         throw new Error(body?.message || `Ошибка сервера: ${res.status}`);
       }
       const created = await res.json();
@@ -152,7 +147,7 @@ export default function MaterialsPage() {
         typeof window !== 'undefined'
           ? localStorage.getItem('accessToken')
           : null;
-      const res = await fetch(`${API_BASE}/v1/materials/${materialId}`, {
+      const res = await fetch(`${API_BASE}/api/materials/${materialId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -183,7 +178,9 @@ export default function MaterialsPage() {
     if (!query.trim()) return true;
     const q = query.toLowerCase();
     return (
-      String(m.materialId ?? m.id).includes(q) ||
+      String(m.materialId ?? m.id)
+        .toLowerCase()
+        .includes(q) ||
       (m.materialName || '').toLowerCase().includes(q) ||
       (m.materialType || '').toLowerCase().includes(q) ||
       (m.status || '').toLowerCase().includes(q)
@@ -196,53 +193,49 @@ export default function MaterialsPage() {
       <main className="max-w-7xl mx-auto p-6 w-full flex-1">
         <div className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-nekstmedium text-gray-900">
+            <h1 className="text-3xl md:text-4xl font-nekstmedium text-slate-900">
               Каталог материалов
             </h1>
+            <div className="mt-1 text-sm text-slate-500">
+              Управление материалами — добавление, удаление, поиск.
+            </div>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
-            {/* Поиск */}
             <div className="relative group">
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Поиск по названию, типу или ID..."
-                className="pl-4 pr-10 py-2 w-72 rounded-full border border-gray-200 bg-white shadow-sm
-                 focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400
-                 outline-none transition-all text-sm text-gray-700 placeholder:text-gray-400"
+                className="pl-4 pr-10 py-2 w-72 rounded-full bg-white shadow-sm
+                 outline-none transition-all text-sm text-slate-700 placeholder:text-slate-400
+                 focus:ring-2 focus:ring-emerald-100"
               />
-              <div
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 
-                 group-hover:text-gray-600 transition-colors"
-              >
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-slate-600 transition-colors">
                 <Search size={18} />
               </div>
             </div>
 
-            {/* Кнопка обновления */}
             <button
               onClick={() => fetchMaterials(page, limit)}
-              className="px-4 py-2 rounded-full bg-white border border-gray-200 shadow-sm
-               hover:bg-gray-50 text-gray-600 inline-flex items-center gap-2
-               transition-colors duration-200"
               title="Обновить список"
+              className="px-4 py-2 rounded-full bg-white shadow-sm text-slate-700 inline-flex items-center gap-2 transition-all hover:shadow-md"
             >
-              <RefreshCw size={18} className="text-gray-400" />
-              <span className="text-sm font-medium">Обновить</span>
+              <RefreshCw size={18} className="text-slate-500" />
+              <span className="text-sm font-nekstregular">Обновить</span>
             </button>
 
-            {/* Кнопка добавления */}
             {isSupplier && (
               <button
                 onClick={() => setAddOpen(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full
-                 bg-green-600 text-white 
-                 shadow-md hover:shadow-lg hover:scale-[1.02]
-                 transition-transform duration-200"
+                 bg-gradient-to-r from-emerald-500 to-green-600 text-white
+                 shadow-md hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
               >
                 <Plus size={16} />
-                <span className="text-sm font-medium">Добавить материал</span>
+                <span className="text-sm font-nekstmedium">
+                  Добавить материал
+                </span>
               </button>
             )}
           </div>
@@ -268,7 +261,7 @@ export default function MaterialsPage() {
               ? Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
-                    className="animate-pulse rounded-2xl bg-white/60 border p-6 h-40"
+                    className="animate-pulse rounded-2xl bg-white/60 p-6 h-40"
                   />
                 ))
               : filtered.map((m) => {
@@ -276,32 +269,34 @@ export default function MaterialsPage() {
                   return (
                     <article
                       key={id}
-                      className="rounded-2xl bg-white border border-indigo-50 shadow-[0_6px_28px_rgba(40,60,100,0.06)] p-6 flex flex-col justify-between hover:shadow-[0_10px_40px_rgba(40,60,100,0.10)] transition"
+                      className="rounded-2xl bg-white p-6 flex flex-col justify-between shadow-[0_6px_28px_rgba(30,60,40,0.06)]
+                        hover:shadow-[0_12px_50px_rgba(30,60,40,0.10)] transition"
                     >
                       <div>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-xs text-gray-400">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="text-xs text-slate-400">
                               ID #{id}
                             </div>
-                            <h3 className="text-lg font-nekstmedium text-gray-900 mt-1">
-                              {m.materialName}
+                            <h3 className="text-lg font-nekstmedium text-slate-900 mt-1 truncate">
+                              {m.materialName || '—'}
                             </h3>
-                            <div className="text-sm text-gray-500 mt-1">
+                            <div className="text-sm text-slate-500 mt-1 truncate">
                               {m.materialType || '—'}
                             </div>
                           </div>
-                          <div className="text-sm text-gray-700">
+
+                          <div className="text-sm text-slate-700">
                             {m.status || '—'}
                           </div>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-gray-600">
-                          <div className="bg-indigo-50/60 p-3 rounded-lg border border-indigo-100">
-                            <div className="text-[11px] text-gray-500">
+                        <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-600">
+                          <div className="bg-emerald-50/60 p-3 rounded-lg">
+                            <div className="text-[11px] text-slate-500">
                               Кол-во
                             </div>
-                            <div className="font-semibold text-gray-800 mt-1">
+                            <div className="font-semibold text-slate-800 mt-1">
                               {typeof m.amount !== 'undefined'
                                 ? String(m.amount)
                                 : '—'}
@@ -309,10 +304,10 @@ export default function MaterialsPage() {
                           </div>
 
                           <div className="bg-white p-3 rounded-lg border border-gray-100">
-                            <div className="text-[11px] text-gray-500">
+                            <div className="text-[11px] text-slate-500">
                               Добавлен
                             </div>
-                            <div className="font-semibold text-gray-800 mt-1">
+                            <div className="font-semibold text-slate-800 mt-1">
                               {m.createdAt
                                 ? new Date(m.createdAt).toLocaleString()
                                 : '—'}
@@ -326,14 +321,18 @@ export default function MaterialsPage() {
                           <button
                             onClick={() => deleteMaterial(id)}
                             disabled={deletingId === id}
-                            className="px-3 py-1 rounded-full bg-white border text-red-600 hover:bg-red-50 inline-flex items-center gap-2"
+                            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-red-600 shadow-sm
+                              bg-white hover:shadow-md transition-all ${deletingId === id ? 'opacity-60 cursor-not-allowed' : ''}
+                            `}
                           >
-                            <Trash2 size={14} />{' '}
-                            {deletingId === id ? 'Удаление...' : 'Удалить'}
+                            <Trash2 size={14} />
+                            <span className="text-sm font-nekstregular">
+                              {deletingId === id ? 'Удаление...' : 'Удалить'}
+                            </span>
                           </button>
                         ) : (
-                          <div className="text-xs text-gray-400 italic">
-                            Доступно только для просмотра
+                          <div className="text-xs text-slate-400 italic">
+                            Только просмотр
                           </div>
                         )}
                       </div>
@@ -344,21 +343,23 @@ export default function MaterialsPage() {
 
           {/* pagination */}
           <div className="mt-8 flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-slate-600">
               Показано <span className="font-medium">{filtered.length}</span> /{' '}
               <span className="font-medium">{materials.length}</span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1 rounded-lg border bg-white hover:bg-gray-50"
+                className="px-3 py-1 rounded-lg bg-white shadow-sm hover:shadow-md transition"
+                aria-label="Предыдущая"
               >
                 <ArrowLeft size={16} />
               </button>
-              <div className="px-3 text-sm">Стр. {page}</div>
+              <div className="px-3 text-sm font-nekstregular">Стр. {page}</div>
               <button
                 onClick={() => setPage((p) => p + 1)}
-                className="px-3 py-1 rounded-lg border bg-white hover:bg-gray-50"
+                className="px-3 py-1 rounded-lg bg-white shadow-sm hover:shadow-md transition"
+                aria-label="Следующая"
               >
                 <ArrowRight size={16} />
               </button>
@@ -399,30 +400,65 @@ function AddMaterialModal({ open, onClose, onSubmit, sending }: any) {
     }
   }, [open]);
 
+  // ESC + block body scroll when modal open
+  useEffect(() => {
+    if (!open) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    // lock scroll
+    const prevOverflow = document.body.style.overflow;
+    const prevPosition = document.body.style.position;
+    const prevTop = document.body.style.top;
+
+    const scrollY = window.scrollY || window.pageYOffset;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.overflow = 'hidden';
+
+    window.addEventListener('keydown', handleEsc);
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+      // restore
+      document.body.style.overflow = prevOverflow;
+      document.body.style.position = prevPosition;
+      document.body.style.top = prevTop;
+      window.scrollTo(0, scrollY);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   const canSend = materialName.trim() && materialType.trim();
+
+  if (!open) return null;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
     >
       <motion.div
-        initial={{ y: 12 }}
-        animate={{ y: 0 }}
-        exit={{ y: 12 }}
+        initial={{ y: 12, scale: 0.995 }}
+        animate={{ y: 0, scale: 1 }}
+        exit={{ y: 12, scale: 0.995 }}
         className="w-full max-w-lg bg-white rounded-3xl shadow-2xl p-6"
       >
         <div className="flex items-center justify-between mb-4">
           <div>
-            <div className="text-sm text-gray-500">Новый материал</div>
-            <div className="text-lg font-nekstmedium text-gray-900">
+            <div className="text-sm text-slate-500">Новый материал</div>
+            <div className="text-lg font-nekstmedium text-slate-900">
               Добавление материала
             </div>
           </div>
           <div>
-            <button onClick={onClose} className="p-2 rounded-full bg-gray-100">
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg bg-white/60 shadow-sm hover:shadow-md"
+            >
               <X size={16} />
             </button>
           </div>
@@ -430,30 +466,32 @@ function AddMaterialModal({ open, onClose, onSubmit, sending }: any) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="text-sm text-gray-600 block mb-1">
+            <label className="text-sm text-slate-600 block mb-1 font-nekstregular">
               Тип материала
             </label>
             <input
               value={materialType}
               onChange={(e) => setMaterialType(e.target.value)}
-              placeholder="Напр., удобрение / пестицид"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-100"
+              placeholder="Тип материала"
+              className="w-full px-4 py-3 rounded-xl font-nekstregular bg-white/90 text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-100"
             />
           </div>
 
           <div>
-            <label className="text-sm text-gray-600 block mb-1">Название</label>
+            <label className="text-sm text-slate-600 block mb-1 font-nekstregular">
+              Название
+            </label>
             <input
               value={materialName}
               onChange={(e) => setMaterialName(e.target.value)}
-              placeholder="Напр., Аммофос"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-100"
+              placeholder="Название материала"
+              className="w-full px-4 py-3 rounded-xl font-nekstregular bg-white/90 text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-100"
             />
           </div>
 
           <div>
-            <label className="text-sm text-gray-600 block mb-1">
-              Количество (amount)
+            <label className="text-sm text-slate-600 block mb-1 font-nekstregular">
+              Количество
             </label>
             <input
               type="number"
@@ -461,27 +499,33 @@ function AddMaterialModal({ open, onClose, onSubmit, sending }: any) {
               onChange={(e) =>
                 setAmount(e.target.value === '' ? '' : Number(e.target.value))
               }
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-100"
+              placeholder="Количество"
+              className="w-full px-4 py-3 rounded-xl font-nekstregular bg-white/90 text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-100"
             />
           </div>
 
           <div>
-            <label className="text-sm text-gray-600 block mb-1">Статус</label>
+            <label className="text-sm text-slate-600 block mb-1 font-nekstregular">
+              Статус
+            </label>
             <input
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              placeholder="Напр., available / pending"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-100"
+              placeholder="Статус (available / pending)"
+              className="w-full px-4 py-3 font-nekstregular rounded-xl bg-white/90 text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-emerald-100"
             />
           </div>
         </div>
 
-        <div className="mt-4 text-sm text-gray-500">
+        <div className="mt-4 text-sm text-slate-500 font-nekstregular">
           Заполните тип и название — остальное можно оставить по умолчанию.
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 rounded-full border">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-full bg-white text-slate-700 shadow-sm hover:shadow-md transition"
+          >
             Отмена
           </button>
           <button
@@ -495,7 +539,7 @@ function AddMaterialModal({ open, onClose, onSubmit, sending }: any) {
               };
               onSubmit(body);
             }}
-            className={`px-4 py-2 rounded-full text-white ${!canSend || sending ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-indigo-600 to-emerald-500'}`}
+            className={`px-4 py-2 rounded-full font-nekstregular text-white ${!canSend || sending ? 'bg-gray-300 cursor-not-allowed' : 'bg-gradient-to-r from-emerald-500 to-green-600 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all'} font-nekstmedium`}
           >
             {sending ? 'Отправка...' : 'Создать'}
           </button>

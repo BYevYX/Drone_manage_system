@@ -1,14 +1,15 @@
 'use client';
 
-import { ArrowLeft, Loader2 } from 'lucide-react';
-import Link from 'next/link';
 import React, { useEffect, useState, use } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, Loader2, Zap, Edit3, MoreVertical } from 'lucide-react';
 
-import { Drone } from '../types';
-import Footer from '@/src/shared/ui/Footer';
 import Header from '@/src/shared/ui/Header';
+import Footer from '@/src/shared/ui/Footer';
+import { Drone } from '../types';
 
-const API_BASE = 'https://droneagro.duckdns.org';
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE || 'https://droneagro.duckdns.org';
 
 const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
   const resolvedParams = use(params);
@@ -18,6 +19,7 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
 
   useEffect(() => {
     fetchDrone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedParams.id]);
 
   const fetchDrone = async () => {
@@ -28,23 +30,21 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
         typeof window !== 'undefined'
           ? localStorage.getItem('accessToken')
           : null;
-      const res = await fetch(`${API_BASE}/v1/drones/${resolvedParams.id}`, {
+      const res = await fetch(`${API_BASE}/api/drones/${resolvedParams.id}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
+
       if (!res.ok) {
-        if (res.status === 404) {
-          throw new Error('Дрон не найден');
-        }
-        if (res.status === 403) {
-          throw new Error('Нет доступа к данным дрона');
-        }
+        if (res.status === 404) throw new Error('Дрон не найден');
+        if (res.status === 403) throw new Error('Нет доступа к данным дрона');
         const body = await res.text();
         throw new Error(`Ошибка ${res.status}: ${body}`);
       }
+
       const droneData: Drone = await res.json();
       setDrone(droneData);
     } catch (e: unknown) {
@@ -59,12 +59,10 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 to-white font-nekstregular">
         <div className="flex items-center gap-3">
-          <Loader2 className="animate-spin" size={24} />
-          <span className="text-lg text-gray-600">
-            Загрузка данных дрона...
-          </span>
+          <Loader2 className="animate-spin text-slate-500" size={24} />
+          <span className="text-lg text-slate-600">Загрузка данных дрона…</span>
         </div>
       </div>
     );
@@ -72,297 +70,271 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
 
   if (error || !drone) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-slate-50 to-white p-6 font-nekstregular">
         <div className="text-xl text-red-600 mb-4">
           {error || 'Дрон не найден'}
         </div>
         <Link
           href="/drones"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition"
+          className="inline-flex items-center gap-2 px-5 py-3 bg-white/50 backdrop-blur-sm border border-slate-200 rounded-lg hover:shadow transition"
         >
-          <ArrowLeft size={20} />
-          Назад к списку дронов
+          <ArrowLeft size={18} /> Назад к списку дронов
         </Link>
       </div>
     );
   }
 
-  // Функция для форматирования габаритов
-  const formatDimensions = (width: number, height: number, length?: number) => {
-    const w = width || width === 0 ? width : '—';
-    const h = height || height === 0 ? height : '—';
-    const l = length || length === 0 ? length : '—';
-    return `${w} x ${h} x ${l}`;
+  const formatDimensions = (
+    width?: number | null,
+    height?: number | null,
+    length?: number | null,
+  ) => {
+    const w = width ?? '—';
+    const h = height ?? '—';
+    const l = length ?? '—';
+    return `${w} × ${h} × ${l}`;
   };
 
   const characteristics = [
-    ['ID дрона', drone.droneId],
-    ['Название', drone.droneName],
-    ['Время полёта', `${drone.flightTime} мин`],
-    ['Время зарядки', `${drone.batteryChargeTime} мин`],
-    ['Вес дрона', `${drone.weight} кг`],
-    ['Грузоподъёмность', `${drone.liftCapacity} кг`],
-    ['Габариты (Ш x В x Д)', formatDimensions(drone.width, drone.height)],
-    ['Максимальная скорость полёта', `${drone.maxFlightSpeed} м/с`],
-    ['Рабочая скорость', `${drone.maxWorkingSpeed} м/с`],
-    ['Максимальная скорость ветра', `${drone.maxWindSpeed} м/с`],
-    ['Рабочая температура', `${drone.operatingTemperature}°C`],
-    ['Максимальная высота полёта', `${drone.maxFlightHeight} м`],
-    ['Скорость разворота на 180 градусов', `${drone.rotationSpeed} об/мин`],
+    ['ID', drone.droneId],
+    ['Название', drone.droneName ?? '—'],
+    ['Время полёта', drone.flightTime ? `${drone.flightTime} мин` : '—'],
+    [
+      'Время зарядки',
+      drone.batteryChargeTime ? `${drone.batteryChargeTime} мин` : '—',
+    ],
+    ['Вес', drone.weight ? `${drone.weight} кг` : '—'],
+    ['Грузоподъёмность', drone.liftCapacity ? `${drone.liftCapacity} кг` : '—'],
+    [
+      'Габариты (Ш×В×Д)',
+      formatDimensions(drone.width, drone.height, drone.length ?? null),
+    ],
+    [
+      'Макс скорость',
+      drone.maxFlightSpeed ? `${drone.maxFlightSpeed} м/с` : '—',
+    ],
+    [
+      'Рабочая скорость',
+      drone.maxWorkingSpeed ? `${drone.maxWorkingSpeed} м/с` : '—',
+    ],
+    ['Макс ветер', drone.maxWindSpeed ? `${drone.maxWindSpeed} м/с` : '—'],
+    [
+      'Температура',
+      drone.operatingTemperature ? `${drone.operatingTemperature}°C` : '—',
+    ],
+    ['Макс высота', drone.maxFlightHeight ? `${drone.maxFlightHeight} м` : '—'],
   ];
 
   const sprayingCharacteristics = drone.spraying
     ? [
-        ['Расход', `${drone.spraying.flowRate} л/мин`],
-        ['Ёмкость', `${drone.spraying.capacity} кг`],
-        ['Ширина распыления', `${drone.spraying.width} м`],
+        [
+          'Расход',
+          drone.spraying.flowRate ? `${drone.spraying.flowRate} л/мин` : '—',
+        ],
+        [
+          'Ёмкость',
+          drone.spraying.capacity ? `${drone.spraying.capacity} кг` : '—',
+        ],
+        ['Ширина', drone.spraying.width ? `${drone.spraying.width} м` : '—'],
       ]
-    : [['Статус', 'Система распыления не настроена']];
+    : [['Статус', 'Не настроено']];
 
   const spreadingCharacteristics = drone.spreading
     ? [
-        ['Расход', `${drone.spreading.flowRate} кг/мин`],
-        ['Ёмкость', `${drone.spreading.capacity} кг`],
-        ['Ширина разбрасывания', `${drone.spreading.width} м`],
+        [
+          'Расход',
+          drone.spreading.flowRate ? `${drone.spreading.flowRate} кг/мин` : '—',
+        ],
+        [
+          'Ёмкость',
+          drone.spreading.capacity ? `${drone.spreading.capacity} кг` : '—',
+        ],
+        ['Ширина', drone.spreading.width ? `${drone.spreading.width} м` : '—'],
       ]
-    : [['Статус', 'Система разбрасывания не настроена']];
+    : [['Статус', 'Не настроено']];
 
   return (
-    <div className="min-h-[100vh] bg-[#f5f6f8]">
+    <div className="min-h-[100vh] bg-gradient-to-b from-slate-50 to-emerald-20 text-slate-900 font-nekstregular">
       <Header />
-      <div className="w-full mx-auto px-[50px] py-10">
-        {/* Header Section */}
-        <div className="mb-8">
-          <Link
-            href="/drones"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-xl hover:bg-gray-50 transition border"
-          >
-            <ArrowLeft size={20} />
-            Назад к списку дронов
-          </Link>
-        </div>
 
-        {/* Main Info Card */}
-        <div className="bg-white rounded-2xl shadow-md p-8 mb-8">
-          <div className="flex items-start justify-between mb-6 gap-8">
-            <div className="flex-1">
-              <div className="text-sm text-gray-500 uppercase tracking-wide mb-2">
-                ID: {drone.droneId}
+      <main className="max-w-7xl mx-auto px-6 py-12">
+        <div className="flex items-start justify-between gap-6 mb-8">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/drones"
+              className="inline-flex items-center gap-2 p-3 rounded-lg bg-white/30 backdrop-blur-sm border border-slate-200 hover:translate-x-0.5 transition"
+            >
+              <ArrowLeft size={18} />
+            </Link>
+
+            <div>
+              <div className="text-xs text-slate-500 uppercase tracking-widest">
+                Дрон
               </div>
-              <h1 className="text-4xl font-bold text-gray-800 mb-4">
+              <h1 className="text-3xl lg:text-4xl font-nekstmedium leading-tight mt-1">
                 {drone.droneName}
               </h1>
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div className="bg-blue-50 px-3 py-1 rounded-full">
-                  <span className="text-blue-700 font-medium">
-                    Вес: {drone.weight} кг
-                  </span>
-                </div>
-                <div className="bg-green-50 px-3 py-1 rounded-full">
-                  <span className="text-green-700 font-medium">
-                    Грузоподъёмность: {drone.liftCapacity} кг
-                  </span>
-                </div>
-                <div className="bg-purple-50 px-3 py-1 rounded-full">
-                  <span className="text-purple-700 font-medium">
-                    Время полёта: {drone.flightTime} мин
-                  </span>
-                </div>
+              <div className="mt-1 text-sm text-slate-600">
+                ID #{drone.droneId}
               </div>
             </div>
-            {drone.imageKey && (
-              <div className="w-48 h-48 rounded-2xl overflow-hidden bg-gray-100 flex-shrink-0 shadow-lg">
-                <img
-                  src={drone.imageKey}
-                  alt={drone.droneName}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    target.parentElement!.innerHTML = `
-                      <div class="w-full h-full flex items-center justify-center text-gray-400">
-                        <div class="text-center">
-                          <div class="text-2xl mb-2">📷</div>
-                          <div class="text-sm">Изображение недоступно</div>
-                        </div>
-                      </div>
-                    `;
-                  }}
-                />
+          </div>
+        </div>
+
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+          <div className="lg:col-span-2 bg-white rounded-2xl overflow-hidden shadow-md border border-slate-100">
+            {drone.imageKey ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={drone.imageKey}
+                alt={drone.droneName ?? 'drone'}
+                className="w-full h-[420px] object-cover"
+              />
+            ) : (
+              <div className="w-full h-[420px] flex items-center justify-center text-slate-400">
+                Изображение недоступно
               </div>
             )}
-          </div>
 
-          {/* Quick Stats Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl">
-              <div className="text-2xl font-bold text-blue-700">
-                {drone.maxFlightSpeed}
+            <div className="p-6">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <StatCard
+                  label="Макс скорость"
+                  value={
+                    drone.maxFlightSpeed ? `${drone.maxFlightSpeed} м/с` : '—'
+                  }
+                />
+                <StatCard
+                  label="Макс ветер"
+                  value={drone.maxWindSpeed ? `${drone.maxWindSpeed} м/с` : '—'}
+                />
+                <StatCard
+                  label="Ёмкость распыл."
+                  value={
+                    drone.spraying?.capacity
+                      ? `${drone.spraying.capacity} кг`
+                      : '—'
+                  }
+                  accent
+                />
+                <StatCard
+                  label="Ёмкость разбрас."
+                  value={
+                    drone.spreading?.capacity
+                      ? `${drone.spreading.capacity} кг`
+                      : '—'
+                  }
+                  accent
+                />
               </div>
-              <div className="text-sm text-blue-600">Макс скорость (м/с)</div>
-            </div>
-            <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl">
-              <div className="text-2xl font-bold text-green-700">
-                {drone.spraying?.capacity ?? 'N/A'}
-              </div>
-              <div className="text-sm text-green-600">Ёмкость распыл. (кг)</div>
-            </div>
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl">
-              <div className="text-2xl font-bold text-purple-700">
-                {drone.spreading?.capacity ?? 'N/A'}
-              </div>
-              <div className="text-sm text-purple-600">
-                Ёмкость разбрас. (кг)
-              </div>
-            </div>
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl">
-              <div className="text-2xl font-bold text-orange-700">
-                {drone.maxWindSpeed}
-              </div>
-              <div className="text-sm text-orange-600">Макс ветер (м/с)</div>
-            </div>
-          </div>
-        </div>
 
-        {/* Detailed Characteristics */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* General Characteristics */}
-          <div className="bg-white rounded-2xl shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">
-              Основные характеристики
-            </h2>
-            <div className="space-y-3">
-              {characteristics.map(([label, value], index) => (
-                <div
-                  key={index}
-                  className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0"
-                >
-                  <span className="text-sm text-gray-600">{label}</span>
-                  <span className="text-sm font-medium text-gray-800">
-                    {value}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Spraying System */}
-          <div className="bg-white rounded-2xl shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">
-              Система распыления
-            </h2>
-            <div className="space-y-3">
-              {sprayingCharacteristics.map(([label, value], index) => (
-                <div
-                  key={index}
-                  className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0"
-                >
-                  <span className="text-sm text-gray-600">{label}</span>
-                  <span className="text-sm font-medium text-gray-800">
-                    {value}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 p-3 bg-green-50 rounded-lg">
-              <div className="text-xs text-green-600 uppercase tracking-wide mb-1">
-                ID системы
-              </div>
-              <div className="text-lg font-bold text-green-700">
-                #{drone.spraying?.id}
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                <h3 className="text-lg font-nekstmedium mb-2">Описание</h3>
+                <p className="text-sm text-slate-700 leading-relaxed">
+                  {drone.description ||
+                    `Сельскохозяйственный дрон ${drone.droneName} — надёжное решение для обработки полей: эффективный, стабильный и простой в эксплуатации.`}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Spreading System */}
-          <div className="bg-white rounded-2xl shadow-md p-6">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800">
-              Система разбрасывания
-            </h2>
-            <div className="space-y-3">
-              {spreadingCharacteristics.map(([label, value], index) => (
-                <div
-                  key={index}
-                  className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0"
-                >
-                  <span className="text-sm text-gray-600">{label}</span>
-                  <span className="text-sm font-medium text-gray-800">
-                    {value}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 p-3 bg-purple-50 rounded-lg">
-              <div className="text-xs text-purple-600 uppercase tracking-wide mb-1">
-                ID системы
-              </div>
-              <div className="text-lg font-bold text-purple-700">
-                #{drone.spreading?.id}
+          <aside className="space-y-4">
+            <div className="p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
+              <h4 className="text-sm text-slate-500 mb-3">Характеристики</h4>
+              <div className="space-y-3 text-sm">
+                {characteristics.map(([label, value], idx) => (
+                  <div key={idx} className="flex justify-between items-center">
+                    <span className="text-slate-600">{label}</span>
+                    <span className="font-nekstmedium text-slate-800">
+                      {value}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
+
+            <div className="p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
+              <h4 className="text-sm text-slate-500 mb-3">
+                Система распыления
+              </h4>
+              <div className="space-y-2 text-sm">
+                {sprayingCharacteristics.map(([label, value], idx) => (
+                  <div key={idx} className="flex justify-between items-center">
+                    <span className="text-slate-600">{label}</span>
+                    <span className="font-nekstmedium text-slate-800">
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 bg-white rounded-xl border border-slate-100 shadow-sm">
+              <h4 className="text-sm text-slate-500 mb-3">
+                Система разбрасывания
+              </h4>
+              <div className="space-y-2 text-sm">
+                {spreadingCharacteristics.map(([label, value], idx) => (
+                  <div key={idx} className="flex justify-between items-center">
+                    <span className="text-slate-600">{label}</span>
+                    <span className="font-nekstmedium text-slate-800">
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+        </section>
+
+        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+            <h4 className="text-lg font-nekstmedium mb-3">
+              Дополнительные функции
+            </h4>
+            <ul className="list-inside list-disc text-sm text-slate-700 space-y-2">
+              <li>Режимы: ручной, точки А‑Б, автоматический</li>
+              <li>Интеллектуальное распыление с регулировкой расхода</li>
+              <li>Избегание препятствий и хранение истории полётов</li>
+              <li>Работа с GPS/RTK, облачные обновления и телеметрия</li>
+            </ul>
           </div>
-        </div>
 
-        {/* Description Section */}
-        <div className="mt-8 bg-white rounded-2xl shadow-md p-6">
-          <h2 className="text-2xl font-semibold mb-4 text-black">Описание</h2>
-          <p className="text-gray-700 text-base leading-relaxed">
-            Сельскохозяйственный агродрон {drone.droneName} — это современное
-            мультироторное устройство, которое совмещает в себе высокие
-            технологии и многофункциональность с простотой управления. Дрон
-            оснащен системой распыления с ёмкостью{' '}
-            {drone.spraying?.capacity ?? 'N/A'} кг и системой разбрасывания с
-            ёмкостью {drone.spreading?.capacity ?? 'N/A'} кг.
-            <br />
-            <br />
-            Максимальное время полёта составляет {drone.flightTime} минут, а
-            время зарядки — {drone.batteryChargeTime} минут. Дрон способен
-            работать при скорости ветра до {drone.maxWindSpeed} м/с и
-            температуре до {drone.operatingTemperature}°C.
-            <br />
-            <br />
-            Благодаря грузоподъёмности {drone.liftCapacity} кг и весу{' '}
-            {drone.weight} кг, дрон обеспечивает оптимальное соотношение
-            производительности и эффективности для сельскохозяйственных работ.
-          </p>
-        </div>
-
-        {/* Additional Features */}
-        <div className="mt-8 bg-white rounded-2xl shadow-md p-6">
-          <h2 className="text-2xl font-semibold mb-4 text-black">
-            Дополнительные функции и возможности
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              'Три основных режима работы: ручной режим, режим точек А-Б, автоматический режим.',
-              'Интеллектуальное распыление с регулируемым расходом.',
-              'Избегание препятствий в ходе обработки участков.',
-              `Противостояние порывам ветра до ${drone.maxWindSpeed} м/с.`,
-              'Запоминание точки прерывания.',
-              'Хранение данных в облаке.',
-              'Регулярные обновления ПО.',
-              'Динамическая калибровка расходомера.',
-              'Отображение данных о зарядке в режиме реального времени.',
-              'Работа с GPS и RTK позиционированием.',
-              'Отметка точек на карте с помощью дрона.',
-              'Сохранение истории полётов.',
-              'Командное управление заданиями.',
-              `Работа на высоте до ${drone.maxFlightHeight} м.`,
-            ].map((feature, index) => (
-              <div
-                key={index}
-                className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
-              >
-                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                <span className="text-gray-700 text-sm">{feature}</span>
-              </div>
-            ))}
+          <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+            <h4 className="text-lg font-nekstmedium mb-3">
+              Технические заметки
+            </h4>
+            <p className="text-sm text-slate-700">
+              Условия эксплуатации: проверьте ограничения по ветру и температуре
+              перед выполнением обширных задач. Соблюдайте инструкции по
+              безопасности и калибровке расходомеров.
+            </p>
           </div>
         </div>
-      </div>
+      </main>
+
       <Footer />
     </div>
   );
 };
 
 export default DronePage;
+
+function StatCard({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string | number;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={`p-3 rounded-xl border ${accent ? 'bg-emerald-50/30 border-emerald-100' : 'bg-white border-slate-100'} shadow-sm`}
+    >
+      <div className="text-xs text-slate-500">{label}</div>
+      <div className="text-lg font-nekstmedium text-slate-800">{value}</div>
+    </div>
+  );
+}
