@@ -1268,7 +1268,7 @@ export default function RequestsWithEditor({
         hover:border-emerald-400 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200"
                           onClick={() => setDropdownFieldOpen((o) => !o)}
                           tabIndex={0}
-                          onBlur={() => setDropdownFieldOpen(false)}
+                          // onBlur={() => setDropdownFieldOpen(false)}
                         >
                           <span>{form.field || 'Выберите поле'}</span>
                           <svg
@@ -1325,7 +1325,6 @@ export default function RequestsWithEditor({
         hover:border-emerald-400 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200"
                           onClick={() => setDropdownTypeOpen((o) => !o)}
                           tabIndex={0}
-                          onBlur={() => setDropdownTypeOpen(false)}
                         >
                           <span>{form.type || 'Выберите тип обработки'}</span>
                           <svg
