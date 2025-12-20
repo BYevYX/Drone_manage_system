@@ -1,15 +1,27 @@
-ARG NODE_VERSION=21
-
+# =========================
+# Base
+# =========================
+ARG NODE_VERSION=20.11.1
 FROM node:${NODE_VERSION}-alpine AS base
-WORKDIR /app
-RUN apk add --no-cache ca-certificates && update-ca-certificates
 
-# Установка зависимостей с кешированием по lock-файлу
+WORKDIR /app
+
+# Базовые сертификаты
+RUN apk add --no-cache ca-certificates \
+ && update-ca-certificates
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# =========================
+# Dependencies
+# =========================
 FROM base AS deps
-# Прокси/исключения (примут значения из build-args)
+
+# Настройки прокси (если используются)
 ARG HTTP_PROXY
 ARG HTTPS_PROXY
 ARG NO_PROXY
+
 ENV HTTP_PROXY=${HTTP_PROXY}
 ENV HTTPS_PROXY=${HTTPS_PROXY}
 ENV NO_PROXY=${NO_PROXY}
@@ -17,7 +29,7 @@ ENV http_proxy=${HTTP_PROXY}
 ENV https_proxy=${HTTPS_PROXY}
 ENV no_proxy=${NO_PROXY}
 
-# Настройка npm: ретраи и таймауты + отключение лишних сетевых запросов
+# Безопасная конфигурация npm
 RUN npm config set fund false \
  && npm config set audit false \
  && npm config set fetch-retries 5 \
@@ -27,25 +39,49 @@ RUN npm config set fund false \
  && npm config set registry https://registry.npmjs.org/
 
 COPY package.json package-lock.json* ./
-RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 
-# Сборка
+# Кеш только для build-стадии
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --no-audit --no-fund
+
+# =========================
+# Builder
+# =========================
 FROM base AS builder
+
+ENV NODE_ENV=production
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build;
 
-# Прод-раннер (standalone)
+RUN npm run build
+
+# =========================
+# Runner (production)
+# =========================
 FROM node:${NODE_VERSION}-alpine AS runner
+
 WORKDIR /app
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 
-# Копируем только то, что нужно для standalone
+# Создаём non-root пользователя
+RUN addgroup -S app \
+ && adduser -S app -G app
+
+# Копируем только необходимые файлы standalone
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# Меняем владельца файлов
+RUN chown -R app:app /app
+
+# ❗ КРИТИЧНО: runtime не под root
+USER app
+
 EXPOSE 3000
+
 CMD ["node", "server.js"]
