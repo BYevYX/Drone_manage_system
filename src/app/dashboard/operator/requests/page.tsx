@@ -1621,12 +1621,6 @@ export default function OperatorOrdersWizard(): JSX.Element {
                       </tbody>
                     </table>
                   </div>
-
-                  <div className="mt-3 text-xs text-gray-600">
-                    Подсказка: ключи в droneTasks — реальные cluster_id;
-                    значения — индекс дрона в списке <code>droneIds</code>{' '}
-                    (1-based).
-                  </div>
                 </div>
 
                 <div className="rounded-2xl p-5 bg-white border border-gray-200 shadow-lg">
@@ -1714,11 +1708,6 @@ export default function OperatorOrdersWizard(): JSX.Element {
                             </div>
                           </div>
                         ))}
-
-                        <div className="text-xs text-gray-400 italic pt-2">
-                          Индекс дрона (1, 2, 3...) соответствует его позиции в
-                          списке назначенных дронов.
-                        </div>
                       </div>
                     );
                   })()}
