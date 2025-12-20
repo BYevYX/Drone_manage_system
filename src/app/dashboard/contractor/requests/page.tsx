@@ -251,54 +251,6 @@ function FieldUploaderInline({
         className="hidden"
         onChange={(e) => e.target.files && handleFile(e.target.files[0])}
       />
-      <div className="rounded-xl border border-gray-100 p-3 bg-white/90">
-        {!jsonPreview && (
-          <div className="flex flex-col items-stretch gap-2">
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="py-2 rounded-lg bg-emerald-500 text-white"
-            >
-              Выбрать JSON характеристик поля
-            </button>
-            <div className="text-sm text-gray-500">
-              Загрузите JSON с описанием поля (он будет отправлен в неизменном
-              виде при сохранении заявки).
-            </div>
-          </div>
-        )}
-
-        {isParsing && (
-          <div className="mt-2">
-            <div className="text-sm text-gray-600">Парсинг файла...</div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div
-                style={{ width: `${progress}%` }}
-                className="h-2 rounded-full bg-gradient-to-r from-emerald-400 to-teal-500"
-              />
-            </div>
-          </div>
-        )}
-
-        {jsonPreview && (
-          <div className="mt-3">
-            <pre className="max-h-36 overflow-auto text-xs bg-gray-50 p-2 rounded-md">
-              {JSON.stringify(jsonPreview, null, 2)}
-            </pre>
-            <div className="mt-3 flex gap-2">
-              <button
-                onClick={() => {
-                  setJsonPreview(null);
-                  onChangeMetadata(null);
-                  if (onParsedJson) onParsedJson(null);
-                }}
-                className="px-3 py-1 rounded-lg border"
-              >
-                Убрать
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -340,6 +292,8 @@ export default function RequestsWithEditor({
   const [isNew, setIsNew] = useState(false);
   const [fieldsList, setFieldsList] = useState<FieldModel[]>([]);
   const [contractor, setContractor] = useState<UserModel | null>(null);
+  const [dropdownFieldOpen, setDropdownFieldOpen] = useState(false);
+  const [dropdownTypeOpen, setDropdownTypeOpen] = useState(false);
 
   const [form, setForm] = useState({
     id: 0,
@@ -410,7 +364,7 @@ export default function RequestsWithEditor({
   };
   const fetchContractorFromLocalStorage = async () => {
     try {
-      const res = await authFetch(`${API_BASE}/v1/me`);
+      const res = await authFetch(`${API_BASE}/api/me`);
       if (!res.ok) throw new Error(`Ошибка получения профиля (${res.status})`);
       const data = await res.json();
       setContractor(data);
@@ -717,12 +671,12 @@ export default function RequestsWithEditor({
     }
 
     // require uploaded JSON — regardless of radio choice we send pendingJson as-is
-    if (!pendingJson) {
-      alert(
-        'Пожалуйста, загрузите JSON с характеристиками поля (тот JSON, который должен быть отправлен на бэк).',
-      );
-      return;
-    }
+    // if (!pendingJson) {
+    //   alert(
+    //     'Пожалуйста, загрузите JSON с характеристиками поля (тот JSON, который должен быть отправлен на бэк).',
+    //   );
+    //   return;
+    // }
     const payload = pendingJson;
 
     // send payload to analytics endpoint, include order id as second parameter:
@@ -1272,12 +1226,7 @@ export default function RequestsWithEditor({
                     Удалить
                   </button>
                 )}
-                <button
-                  onClick={() => saveForm()}
-                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl hover:shadow-lg flex items-center gap-2"
-                >
-                  <Save size={16} /> Сохранить
-                </button>
+
                 <button
                   onClick={() => {
                     setEditorOpen(false);
@@ -1295,7 +1244,7 @@ export default function RequestsWithEditor({
                 <div className="lg:col-span-2 space-y-6">
                   <div className="bg-white/90 rounded-2xl border border-gray-100 p-4">
                     <div className="flex gap-4 border-b border-gray-100 pb-3 mb-4">
-                      <button
+                      <div
                         className={cn(
                           'pb-2 px-1 font-medium',
                           'details' === 'details'
@@ -1304,75 +1253,116 @@ export default function RequestsWithEditor({
                         )}
                       >
                         Данные
-                      </button>
-                      <button
-                        className={cn(
-                          'pb-2 px-1 font-medium',
-                          'upload' === 'upload'
-                            ? 'text-emerald-600 border-b-2 border-emerald-500'
-                            : 'text-gray-500',
-                        )}
-                      >
-                        Загрузка поля
-                      </button>
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
+                      {/* Поле */}
+                      <div className="relative">
                         <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
                           Поле
                         </label>
-                        <div className="relative flex items-center gap-2">
-                          <select
-                            value={form.selectedFieldId}
-                            onChange={(e) => {
-                              const id = Number(e.target.value);
-                              const f = fieldsList.find(
-                                (x) => x.fieldId === id,
-                              );
-                              setForm((s) => ({
-                                ...s,
-                                selectedFieldId: id,
-                                field: f
-                                  ? (f.cadastralNumber ?? `Поле ${f.fieldId}`)
-                                  : 'Выберите поле',
-                              }));
-                              if (f)
-                                setMetadata((m) => ({
-                                  ...(m ?? {}),
-                                  name: f.cadastralNumber ?? undefined,
-                                }));
-                            }}
-                            className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none"
+                        <div
+                          className="w-full px-4 py-3.5 bg-white rounded-xl border border-gray-300 shadow-sm 
+        cursor-pointer flex justify-between items-center transition-all
+        hover:border-emerald-400 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200"
+                          onClick={() => setDropdownFieldOpen((o) => !o)}
+                          tabIndex={0}
+                          onBlur={() => setDropdownFieldOpen(false)}
+                        >
+                          <span>{form.field || 'Выберите поле'}</span>
+                          <svg
+                            className={`w-5 h-5 text-gray-400 transition-transform ${
+                              dropdownFieldOpen ? 'rotate-180' : ''
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
                           >
-                            <option value={-1}>Выберите поле</option>
-                            {fieldsList.map((f) => (
-                              <option key={f.fieldId} value={f.fieldId}>
-                                {f.cadastralNumber ?? `Поле #${f.fieldId}`}
-                              </option>
-                            ))}
-                          </select>
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
                         </div>
+                        {dropdownFieldOpen && (
+                          <ul className="absolute z-10 mt-1 w-full bg-white rounded-xl border border-gray-300 shadow-lg max-h-60 overflow-auto">
+                            {fieldsList.map((f) => (
+                              <li
+                                key={f.fieldId}
+                                className="px-4 py-3 hover:bg-emerald-100 cursor-pointer transition-colors"
+                                onClick={() => {
+                                  setForm((s) => ({
+                                    ...s,
+                                    selectedFieldId: f.fieldId,
+                                    field:
+                                      f.cadastralNumber ?? `Поле ${f.fieldId}`,
+                                  }));
+                                  setMetadata((m) => ({
+                                    ...(m ?? {}),
+                                    name: f.cadastralNumber ?? undefined,
+                                  }));
+                                  setDropdownFieldOpen(false);
+                                }}
+                              >
+                                {f.cadastralNumber ?? `Поле #${f.fieldId}`}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
 
-                      <div>
+                      {/* Тип обработки */}
+                      <div className="relative">
                         <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
                           Тип обработки
                         </label>
-                        <select
-                          value={form.type}
-                          onChange={(e) =>
-                            setForm((s) => ({ ...s, type: e.target.value }))
-                          }
-                          className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none"
+                        <div
+                          className="w-full px-4 py-3.5 bg-white rounded-xl border border-gray-300 shadow-sm 
+        cursor-pointer flex justify-between items-center transition-all
+        hover:border-emerald-400 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200"
+                          onClick={() => setDropdownTypeOpen((o) => !o)}
+                          tabIndex={0}
+                          onBlur={() => setDropdownTypeOpen(false)}
                         >
-                          <option>Выберите тип обработки</option>
-                          <option>Опрыскивание</option>
-                          <option>Внесение удобрений</option>
-                          <option>Картографирование</option>
-                        </select>
+                          <span>{form.type || 'Выберите тип обработки'}</span>
+                          <svg
+                            className={`w-5 h-5 text-gray-400 transition-transform ${
+                              dropdownTypeOpen ? 'rotate-180' : ''
+                            }`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 9l-7 7-7-7"
+                            />
+                          </svg>
+                        </div>
+                        {dropdownTypeOpen && (
+                          <ul className="absolute z-10 mt-1 w-full bg-white rounded-xl border border-gray-300 shadow-lg max-h-60 overflow-auto">
+                            {['Опрыскивание'].map((t) => (
+                              <li
+                                key={t}
+                                className="px-4 py-3 hover:bg-emerald-100 cursor-pointer transition-colors"
+                                onClick={() => {
+                                  setForm((s) => ({ ...s, type: t }));
+                                  setDropdownTypeOpen(false);
+                                }}
+                              >
+                                {t}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
 
+                      {/* Желаемая дата */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
                           Желаемая дата выполнения
@@ -1383,15 +1373,20 @@ export default function RequestsWithEditor({
                           onChange={(e) =>
                             setForm((s) => ({ ...s, date: e.target.value }))
                           }
-                          className="w-full px-4 py-3.5 bg-white/90 rounded-xl border border-gray-300/80 outline-none"
+                          className="w-full px-4 py-3.5 bg-white rounded-xl border border-gray-300 shadow-sm
+        focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 
+        outline-none transition-all"
                         />
                       </div>
 
-                      <div className="md:col-span-2 flex flex-col gap-2">
+                      {/* Материалы */}
+                      <div className="md:col-span-2 flex flex-col gap-4">
                         <div className="text-sm font-medium text-gray-700/90 mb-1.5">
                           Материалы
                         </div>
-                        <label className="flex items-center gap-3 cursor-pointer">
+
+                        {/* Вариант "У меня нет материалов" */}
+                        <label className="flex items-center gap-3 cursor-pointer select-none">
                           <input
                             type="radio"
                             name="wavelengths"
@@ -1404,40 +1399,70 @@ export default function RequestsWithEditor({
                               setPendingJson(null);
                               setMetadata(null);
                             }}
-                            className="form-radio h-4 w-4"
+                            className="peer hidden"
                           />
-                          <span className="text-sm">У меня нет материалов</span>
+                          <span
+                            className="w-5 h-5 flex-shrink-0 rounded-md border-2 border-gray-300
+          flex items-center justify-center transition-all
+          peer-checked:border-emerald-500 peer-checked:bg-emerald-500"
+                          >
+                            <svg
+                              className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={3}
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </span>
+                          <span className="text-sm text-gray-700 peer-checked:text-emerald-700">
+                            У меня нет материалов
+                          </span>
                         </label>
-                        <label className="flex items-center gap-3 cursor-pointer">
+
+                        {/* Вариант "У меня есть материалы" */}
+                        <label className="flex items-center gap-3 cursor-pointer select-none">
                           <input
                             type="radio"
                             name="wavelengths"
                             checked={form.materialsProvided}
-                            onChange={() => {
+                            onChange={() =>
                               setForm((s) => ({
                                 ...s,
                                 materialsProvided: true,
-                              }));
-                            }}
-                            className="form-radio h-4 w-4"
+                              }))
+                            }
+                            className="peer hidden"
                           />
-                          <span className="text-sm">У меня есть материалы</span>
+                          <span
+                            className="w-5 h-5 flex-shrink-0 rounded-md border-2 border-gray-300
+          flex items-center justify-center transition-all
+          peer-checked:border-emerald-500 peer-checked:bg-emerald-500"
+                          >
+                            <svg
+                              className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth={3}
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M5 13l4 4L19 7"
+                              />
+                            </svg>
+                          </span>
+                          <span className="text-sm text-gray-700 peer-checked:text-emerald-700">
+                            У меня есть материалы
+                          </span>
                         </label>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* uploader - always visible now (user must upload JSON) */}
-                  <div className="bg-white/90 rounded-2xl border border-gray-100 p-4">
-                    <FieldUploaderInline
-                      initialPreview={preview ?? undefined}
-                      onChangePreview={(p) => setPreview(p)}
-                      onChangeMetadata={(m) => setMetadata(m ?? null)}
-                      onParsedJson={(parsed) => setPendingJson(parsed)}
-                    />
-                    <div className="text-xs text-gray-500 mt-2">
-                      Загрузите JSON характеристик поля. JSON будет отправлен на
-                      сервер в неизменном виде при сохранении заявки.
                     </div>
                   </div>
                 </div>

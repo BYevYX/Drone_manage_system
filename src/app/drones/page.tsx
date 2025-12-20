@@ -22,9 +22,9 @@ const API_BASE = 'https://droneagro.duckdns.org';
 
 /**
  * DronesPage — только дроны
- * - GET /v1/drones?page=&limit=
- * - POST /v1/drones
- * - DELETE /v1/drones/{droneId}
+ * - GET /api/drones?page=&limit=
+ * - POST /api/drones
+ * - DELETE /api/drones/{droneId}
  * - Authorization: Bearer <accessToken> (localStorage['accessToken'])
  * - role from localStorage['userRole'] -> show add/delete only for DRONE_SUPPLIER
  */
@@ -83,7 +83,7 @@ export default function DronesPage() {
           ? localStorage.getItem('accessToken')
           : null;
       const qs = new URLSearchParams({ page: String(p), limit: String(lim) });
-      const res = await fetch(`${API_BASE}/v1/drones?${qs.toString()}`, {
+      const res = await fetch(`${API_BASE}/api/drones?${qs.toString()}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -96,7 +96,7 @@ export default function DronesPage() {
             '403 Forbidden — проверьте токен (localStorage.accessToken)',
           );
         if (res.status === 404)
-          throw new Error('404 Not Found — проверьте URL /v1/drones');
+          throw new Error('404 Not Found — проверьте URL /api/drones');
         const body = await res.text();
         throw new Error(`Ошибка ${res.status}: ${body}`);
       }
@@ -117,7 +117,7 @@ export default function DronesPage() {
         typeof window !== 'undefined'
           ? localStorage.getItem('accessToken')
           : null;
-      const res = await fetch(`${API_BASE}/v1/drones`, {
+      const res = await fetch(`${API_BASE}/api/drones`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -130,7 +130,7 @@ export default function DronesPage() {
         if (res.status === 403)
           throw new Error('403 Forbidden — токен недействителен или нет прав.');
         if (res.status === 404)
-          throw new Error('404 Not Found — проверьте путь POST /v1/drones');
+          throw new Error('404 Not Found — проверьте путь POST /api/drones');
         throw new Error(body?.message || `Ошибка сервера: ${res.status}`);
       }
       const created = await res.json();
@@ -157,7 +157,7 @@ export default function DronesPage() {
         typeof window !== 'undefined'
           ? localStorage.getItem('accessToken')
           : null;
-      const res = await fetch(`${API_BASE}/v1/drones/${droneId}`, {
+      const res = await fetch(`${API_BASE}/api/drones/${droneId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -200,7 +200,7 @@ export default function DronesPage() {
         typeof window !== 'undefined'
           ? localStorage.getItem('accessToken')
           : null;
-      const res = await fetch(`${API_BASE}/v1/drones/${droneId}`, {
+      const res = await fetch(`${API_BASE}/api/drones/${droneId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -1139,13 +1139,13 @@ function EditDroneModal({
       console.log('Token available:', !!token);
       console.log(
         'Request URL:',
-        `${API_BASE}/v1/drones-upload?droneId=${droneId}`,
+        `${API_BASE}/api/drones-upload?droneId=${droneId}`,
       );
 
       let uploadUrlRes;
       try {
         uploadUrlRes = await fetch(
-          `${API_BASE}/v1/drones-upload?droneId=${droneId}`,
+          `${API_BASE}/api/drones-upload?droneId=${droneId}`,
           {
             method: 'GET',
             headers: {
@@ -1351,7 +1351,7 @@ function EditDroneModal({
       let confirmRes;
       try {
         confirmRes = await fetch(
-          `${API_BASE}/v1/drones-confirm-upload?droneId=${droneId}`,
+          `${API_BASE}/api/drones-confirm-upload?droneId=${droneId}`,
           {
             method: 'POST',
             headers: {

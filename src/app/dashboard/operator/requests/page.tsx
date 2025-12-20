@@ -1,66 +1,23 @@
 'use client';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Search, RefreshCw, Eye, X, Check, ArrowRight } from 'lucide-react';
+import {
+  Search,
+  RefreshCw,
+  Eye,
+  X,
+  Check,
+  ArrowRight,
+  Edit2,
+} from 'lucide-react';
 import { useGlobalContext } from '@/src/app/GlobalContext';
 
-/**
- * OperatorOrders — улучшения UI
- *
- * Изменения в этой версии:
- * - Убрал кнопку "← Назад" внизу панели и вместо неё добавил кнопку "Run Analytics" в правом нижнем углу.
- *   Кнопка изначально неактивна (серая). Становится активной, когда для выбранной заявки загружён JSON
- *   (selectedOrder.metadata?.uploadedJson).
- * - Кнопка запуска аналитики использует ту же логику runSparseAnalytics.
- * - Модальное окно просмотра картинок стало адаптивным: изображение масштабируется с учетом viewport,
- *   используется max-width и max-height (с отступами), фон кликабелен для закрытия, закрытие по ESC и крестик.
- * - Слегка упрощён и приведён в порядок код показа итогов и загрузчика JSON (FieldJsonUploader принимает initialParsed).
- *
- * Поведение:
- * - Загрузка JSON сохраняется в metadata заявки и один раз загруженный JSON виден при переключении вкладок.
- * - Как только JSON загружен (для выбранной заявки), кнопка "Run Analytics" внизу включается.
- * - После успешной аналитики мы автоматически переключаемся на вкладку "Итог" (activeTab='result').
- */
+/* --------------------------
+   Helpers: ModernSelect, FieldJsonUploader, ensureDataUrl,
+   renderTableCard, getOrderedTables, DroneMock, etc.
+   (kept the same as in your file; only behavioral changes below)
+   -------------------------- */
 
-// -------------------- Типы --------------------
-type OrderStatus =
-  | 'new'
-  | 'assigned'
-  | 'data_collection'
-  | 'ready_for_calc'
-  | 'calculating'
-  | 'segmented'
-  | 'routes_planned'
-  | 'completed';
-
-interface Order {
-  id: number;
-  date: string;
-  fieldName: string;
-  coords?: [number, number][];
-  wavelengthsPresent?: boolean;
-  assignedOperatorId?: number | null;
-  status: OrderStatus;
-  preview?: {
-    fieldPhoto?: string | null;
-    indexPhoto?: string | null;
-  };
-  stats?: {
-    totalFlightTimeMin?: number;
-    routesCount?: number;
-    segmentsCount?: number;
-  };
-  metadata?: {
-    raw?: any;
-    fieldId?: number;
-    fieldRaw?: any;
-    uploadedJson?: any;
-    analyticsResponse?: any;
-    analyticsImages?: Record<string, string | null>;
-  };
-}
-
-// -------------------- ModernSelect --------------------
 function ModernSelect({
   label,
   options,
@@ -88,24 +45,20 @@ function ModernSelect({
       <div className="relative">
         <button
           onClick={() => setOpen((s) => !s)}
-          className={`w-full px-4 py-3 text-left bg-white rounded-xl border shadow-sm flex items-center justify-between transition ${
-            open
-              ? 'ring-2 ring-emerald-300 border-emerald-300'
-              : 'border-gray-200'
-          }`}
+          type="button"
+          className={`w-full px-4 py-3 text-left bg-white rounded-xl border shadow-sm flex items-center justify-between transition ${open ? 'ring-2 ring-emerald-300 border-emerald-300' : 'border-gray-100'}`}
         >
           <span className={value ? 'text-gray-800' : 'text-gray-400'}>
             {value || '—'}
           </span>
           <ArrowRight size={16} className="text-gray-400" />
         </button>
-
         {open && (
           <motion.ul
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            className="absolute z-40 w-full mt-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden"
+            className="absolute z-40 w-full mt-2 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden"
           >
             {options.map((o) => (
               <li
@@ -115,6 +68,14 @@ function ModernSelect({
                   setOpen(false);
                 }}
                 className="px-4 py-2.5 cursor-pointer hover:bg-gray-50 flex justify-between items-center"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    onChange(o);
+                    setOpen(false);
+                  }
+                }}
               >
                 <span className="text-gray-700">{o}</span>
                 {value === o && (
@@ -129,7 +90,6 @@ function ModernSelect({
   );
 }
 
-// -------------------- FieldJsonUploader --------------------
 function FieldJsonUploader({
   initialParsed,
   onParsed,
@@ -141,16 +101,9 @@ function FieldJsonUploader({
   const [jsonPreview, setJsonPreview] = useState<any | null>(
     initialParsed ?? null,
   );
-
-  useEffect(() => {
-    setJsonPreview(initialParsed ?? null);
-  }, [initialParsed]);
-
+  useEffect(() => setJsonPreview(initialParsed ?? null), [initialParsed]);
   const handleFile = async (file?: File) => {
-    if (!file) {
-      fileRef.current?.click();
-      return;
-    }
+    if (!file) return fileRef.current?.click();
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
@@ -163,7 +116,6 @@ function FieldJsonUploader({
       alert('Не удалось распарсить JSON. Убедитесь, что файл валидный JSON.');
     }
   };
-
   return (
     <div className="rounded-2xl border border-gray-100 p-3 bg-white shadow-sm">
       <input
@@ -176,6 +128,7 @@ function FieldJsonUploader({
       {!jsonPreview ? (
         <div className="flex flex-col gap-2">
           <button
+            type="button"
             onClick={() => fileRef.current?.click()}
             className="py-2 rounded-lg bg-emerald-600 text-white font-medium shadow"
           >
@@ -196,12 +149,14 @@ function FieldJsonUploader({
             </div>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => fileRef.current?.click()}
                 className="text-xs text-emerald-600 hover:underline"
               >
                 Заменить
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setJsonPreview(null);
                   onParsed(null);
@@ -221,10 +176,247 @@ function FieldJsonUploader({
   );
 }
 
-// -------------------- Main component --------------------
-export default function OperatorOrders() {
+const ensureDataUrl = (s: string | null | undefined) => {
+  if (!s) return null;
+  if (s.startsWith('data:')) return s;
+  if (/^https?:\/\//.test(s)) return s;
+  const isProbablyBase64 = /^[A-Za-z0-9+/=\s]+$/.test(
+    (s || '').replace(/\s+/g, ''),
+  );
+  if (isProbablyBase64)
+    return `data:image/png;base64,${(s || '').replace(/\s+/g, '')}`;
+  return s;
+};
+
+function renderTableCard(name: string, rows: any[] | null): JSX.Element {
+  if (!rows)
+    return (
+      <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
+        <div className="text-sm font-medium text-gray-700 mb-2">{name}</div>
+        <div className="text-xs text-gray-500">
+          Таблица пуста или не удалось распарсить.
+        </div>
+      </div>
+    );
+  const cols = Array.from(
+    rows.reduce((acc, r) => {
+      Object.keys(r || {}).forEach((k) => acc.add(k));
+      return acc;
+    }, new Set<string>()),
+  );
+  return (
+    <div className="rounded-xl bg-white p-3 shadow-sm border border-gray-100 overflow-auto">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-medium text-gray-700">{name}</div>
+        <div className="text-xs text-gray-500">Строк: {rows.length}</div>
+      </div>
+      <div className="min-w-full overflow-auto">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr>
+              {cols.map((c) => (
+                <th
+                  key={c}
+                  className="text-xs text-gray-500 text-left py-2 pr-3 border-b"
+                >
+                  {c}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                {cols.map((c) => (
+                  <td key={c} className="py-2 pr-3 align-top text-gray-700">
+                    {r?.[c] === null || r?.[c] === undefined
+                      ? '—'
+                      : String(r?.[c])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* DroneMock and getOrderedTables are unchanged (omitted here for brevity in comment) */
+interface DroneMock {
+  droneId: number;
+  droneName: string;
+  batteryChargeTime: number;
+  flightTime: number;
+  maxWindSpeed: number;
+  maxFlightSpeed: number;
+  maxWorkingSpeed: number;
+  spraying: { id: number; flowRate: number; capacity: number; width: number };
+  spreading: { id: number; flowRate: number; capacity: number; width: number };
+  weight: number;
+  liftCapacity: number;
+  width: number;
+  height: number;
+  operatingTemperature: number;
+  maxFlightHeight: number;
+  rotationSpeed: number;
+  imageKey: string;
+  quantity: number;
+}
+const droneMocks: DroneMock[] = [
+  {
+    droneId: 1,
+    droneName: 'DJI Agras T50',
+    batteryChargeTime: 20,
+    flightTime: 25,
+    maxWindSpeed: 8,
+    maxFlightSpeed: 20,
+    maxWorkingSpeed: 8,
+    spraying: { id: 1, flowRate: 100, capacity: 8, width: 10 },
+    spreading: { id: 2, flowRate: 50, capacity: 6, width: 8 },
+    weight: 30,
+    liftCapacity: 10,
+    width: 1,
+    height: 0.8,
+    operatingTemperature: -10,
+    maxFlightHeight: 120,
+    rotationSpeed: 2000,
+    imageKey: '',
+    quantity: 2,
+  },
+  {
+    droneId: 2,
+    droneName: 'JOYANCE JT30L-606',
+    batteryChargeTime: 18,
+    flightTime: 22,
+    maxWindSpeed: 7,
+    maxFlightSpeed: 18,
+    maxWorkingSpeed: 7,
+    spraying: { id: 3, flowRate: 90, capacity: 6, width: 9 },
+    spreading: { id: 4, flowRate: 40, capacity: 5, width: 7 },
+    weight: 28,
+    liftCapacity: 8,
+    width: 0.9,
+    height: 0.7,
+    operatingTemperature: -10,
+    maxFlightHeight: 100,
+    rotationSpeed: 1900,
+    imageKey: '',
+    quantity: 1,
+  },
+  {
+    droneId: 3,
+    droneName: 'Topxgun FP600',
+    batteryChargeTime: 22,
+    flightTime: 28,
+    maxWindSpeed: 9,
+    maxFlightSpeed: 22,
+    maxWorkingSpeed: 9,
+    spraying: { id: 5, flowRate: 120, capacity: 10, width: 12 },
+    spreading: { id: 6, flowRate: 60, capacity: 8, width: 9 },
+    weight: 35,
+    liftCapacity: 12,
+    width: 1.1,
+    height: 0.9,
+    operatingTemperature: -10,
+    maxFlightHeight: 130,
+    rotationSpeed: 2100,
+    imageKey: '',
+    quantity: 3,
+  },
+];
+
+function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
+  if (!tables) return [] as [string, any[] | null][];
+  const preferred = [
+    'clusterStatsDf',
+    'dronesDf',
+    'segmentsDf',
+    'segmentSummaryDf',
+  ];
+  const present: [string, any[] | null][] = [];
+  preferred.forEach((k) => {
+    if (k in tables) present.push([k, tables[k]]);
+  });
+  Object.keys(tables)
+    .sort()
+    .forEach((k) => {
+      if (!preferred.includes(k)) present.push([k, tables[k]]);
+    });
+  return present;
+}
+
+/* --------------------------
+   Main component
+   -------------------------- */
+
+type OrderStatus =
+  | 'new'
+  | 'assigned'
+  | 'data_collection'
+  | 'ready_for_calc'
+  | 'calculating'
+  | 'segmented'
+  | 'routes_planned'
+  | 'completed';
+
+interface Order {
+  id: number;
+  date: string;
+  fieldName: string;
+  coords?: [number, number][];
+  status: OrderStatus;
+  preview?: { fieldPhoto?: string | null };
+  metadata?: {
+    raw?: any;
+    processed?: boolean;
+    inputs?: any[];
+    latestInput?: { id: number; indexName?: string; createdAt?: string } | null;
+    uploadedJson?: any;
+    analyticsResponse?: any;
+    analyticsImages?: Record<string, string | null>;
+    analyticsTables?: Record<string, any[] | null>;
+    fieldId?: number;
+    fieldRaw?: any;
+    finalOutput?: any;
+  };
+}
+
+export default function OperatorOrdersWizard(): JSX.Element {
   const { userInfo } = useGlobalContext() as any;
   const API_BASE = 'https://droneagro.duckdns.org';
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [isViewOnly, setIsViewOnly] = useState(false); // <-- read-only flag for step 2
+  const [selectedIndex, setSelectedIndex] = useState('NDVI');
+  const [calcInProgress, setCalcInProgress] = useState(false);
+  const [calcProgress, setCalcProgress] = useState(0);
+  const [modalImage, setModalImage] = useState<string | null>(null);
+  const [availableDrones] = useState<DroneMock[]>(droneMocks);
+  const [selectedDroneIds, setSelectedDroneIds] = useState<number[]>([]);
+  const [processingMode, setProcessingMode] = useState<
+    'spraying' | 'spreading'
+  >('spraying');
+  const [mergeOpen, setMergeOpen] = useState(false);
+  const [mergePlot1, setMergePlot1] = useState('');
+  const [mergePlot2, setMergePlot2] = useState('');
+
+  useEffect(() => {
+    loadOrders(); /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (modalImage) setModalImage(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [modalImage]);
 
   const authFetch = async (url: string, options: RequestInit = {}) => {
     const token =
@@ -241,302 +433,198 @@ export default function OperatorOrders() {
     return fetch(url, { ...options, headers: merged });
   };
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState<
-    'all' | 'assigned' | 'data' | 'ready' | 'inwork'
-  >('all');
-  const [query, setQuery] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-
-  // operator UI state
-  const [activeTab, setActiveTab] = useState<'data' | 'result'>('data');
-  const [selectedIndex, setSelectedIndex] = useState<string>('NDVI');
-  const [selectedDrone, setSelectedDrone] = useState<string>('');
-  const [metersPerPixel, setMetersPerPixel] = useState<string>('1.0');
-  const [nSegments, setNSegments] = useState<string>('2');
-  const [widthA, setWidthA] = useState<string>('5');
-  const [widthB, setWidthB] = useState<string>('5');
-
-  const [calcInProgress, setCalcInProgress] = useState(false);
-  const [calcProgress, setCalcProgress] = useState(0);
-
-  const [modalImage, setModalImage] = useState<string | null>(null);
-
-  const indexOptions = [
-    'NDVI',
-    'RGB Field',
-    'NDVI Masked',
-    'Split RGB',
-    'Split NDVI',
-  ];
-  const [availableDrones] = useState([
-    'DJI Agras T50',
-    'JOYANCE JT30L-606',
-    'Topxgun FP600',
-  ]);
-
-  // load orders (same as before)
+  // load orders and then check inputs for each order
   const loadOrders = async () => {
-    setLoading(true);
+    setLoadingOrders(true);
     try {
-      const res = await authFetch(`${API_BASE}/api/orders?page=1&limit=200`);
+      const stored =
+        typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+      const userId = Number(stored ?? userInfo?.id ?? 0);
+      if (!userId) {
+        setOrders([]);
+        setLoadingOrders(false);
+        return;
+      }
+      const res = await authFetch(`${API_BASE}/api/orders/operator/${userId}`);
       if (!res.ok) {
         setOrders([]);
-        setLoading(false);
+        setLoadingOrders(false);
         return;
       }
       const data = await res.json().catch(() => ({}));
       const arr = Array.isArray(data.orders) ? data.orders : [];
-      const local: Order[] = arr.map((o: any) => {
-        const id = Number(o.orderId ?? o.id ?? 0);
-        const rawDate = o.dataStart ?? o.dataEnd ?? o.createdAt;
-        const dateIso = rawDate
-          ? new Date(rawDate).toISOString().slice(0, 10)
-          : new Date().toISOString().slice(0, 10);
-        return {
-          id,
-          date: dateIso,
-          fieldName: `ID:${id}`,
-          coords: Array.isArray(o.coords) ? o.coords : undefined,
-          wavelengthsPresent: Boolean(o.materialsProvided),
-          assignedOperatorId: o.contractorId ?? null,
-          status: ((): Order['status'] => {
-            const low = String(o.status ?? '').toLowerCase();
-            if (/complete|done/.test(low)) return 'completed';
-            if (/in[_\s]?progress|progress/.test(low)) return 'in_progress';
-            if (/data_collection/.test(low)) return 'data_collection';
-            if (/ready_for_calc/.test(low)) return 'ready_for_calc';
-            if (/assigned/.test(low)) return 'assigned';
-            return 'new';
-          })(),
-          preview: { fieldPhoto: null },
-          metadata: { raw: o },
-        } as Order;
-      });
+      const local: Order[] = arr.map((o: any) => ({
+        id: Number(o.orderId ?? o.id ?? 0),
+        date: new Date(o.createdAt ?? Date.now()).toISOString().slice(0, 10),
+        fieldName: o.fieldName ?? `ID:${o.id ?? o.orderId}`,
+        status: 'new' as OrderStatus,
+        preview: { fieldPhoto: null },
+        metadata: { raw: o, processed: false, inputs: [], latestInput: null },
+      }));
       setOrders(local);
-
-      // enrich with field info as before
-      await Promise.all(
-        local.map(async (order) => {
-          try {
-            const rFields = await authFetch(
-              `${API_BASE}/api/orders/${order.id}/fields`,
-            );
-            if (!rFields.ok) return;
-            const dFields = await rFields.json().catch(() => ({}));
-            const fieldIds: number[] = Array.isArray(dFields.fieldIds)
-              ? dFields.fieldIds
-                  .map((n: any) => Number(n))
-                  .filter(Number.isFinite)
-              : [];
-            if (!fieldIds.length) return;
-            const fid = fieldIds[0];
-            const rField = await authFetch(`${API_BASE}/api/fields/${fid}`);
-            if (!rField.ok) return;
-            const df = await rField.json().catch(() => ({}));
-            const cadastral = df.cadastralNumber ?? df.name ?? `Поле #${fid}`;
-            let mapFile: string | null = null;
-            if (df.mapFile && typeof df.mapFile === 'string') {
-              const txt: string = df.mapFile;
-              mapFile = txt.startsWith('data:')
-                ? txt
-                : `data:image/png;base64,${txt}`;
-            }
-            setOrders((prev) =>
-              prev.map((p) =>
-                p.id === order.id
-                  ? {
-                      ...p,
-                      fieldName: cadastral,
-                      preview: {
-                        ...(p.preview ?? {}),
-                        fieldPhoto: mapFile ?? p.preview?.fieldPhoto ?? null,
-                      },
-                      metadata: {
-                        ...(p.metadata ?? {}),
-                        fieldId: fid,
-                        fieldRaw: df,
-                      },
-                    }
-                  : p,
-              ),
-            );
-          } catch (e) {
-            /* ignore per-order errors */
-          }
-        }),
-      );
+      // immediately check inputs for each order
+      checkInputsForOrders(local);
     } catch (e) {
       console.error(e);
       setOrders([]);
     } finally {
-      setLoading(false);
+      setLoadingOrders(false);
     }
   };
 
-  useEffect(() => {
-    loadOrders();
-  }, []);
+  const checkInputsForOrders = async (currentOrders: Order[]) => {
+    if (!currentOrders || !currentOrders.length) return;
+    try {
+      const checks = currentOrders.map(async (ord) => {
+        try {
+          const r = await authFetch(
+            `${API_BASE}/api/workflow/inputs?orderId=${ord.id}`,
+          );
+          if (!r.ok) return ord;
+          const json = await r.json().catch(() => ({}));
+          const inputs = Array.isArray(json.inputs) ? json.inputs : [];
+          if (!inputs.length) {
+            return {
+              ...ord,
+              metadata: {
+                ...(ord.metadata ?? {}),
+                processed: false,
+                inputs: [],
+              },
+            } as Order;
+          }
+          // pick last by createdAt, fallback to max id
+          const sorted = [...inputs].sort((a: any, b: any) => {
+            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            if (ta === tb) return (a.id ?? 0) - (b.id ?? 0);
+            return ta - tb;
+          });
+          const last = sorted[sorted.length - 1];
+          return {
+            ...ord,
+            metadata: {
+              ...(ord.metadata ?? {}),
+              processed: true,
+              inputs,
+              latestInput: {
+                id: Number(last.id ?? last.inputId ?? 0),
+                indexName: last.indexName ?? last.index_name,
+                createdAt: last.createdAt ?? null,
+              },
+            },
+          } as Order;
+        } catch (e) {
+          console.warn('checkInputs error for', ord.id, e);
+          return ord;
+        }
+      });
 
-  const filtered = useMemo(() => {
-    return orders.filter((o) => {
-      if (filter === 'assigned' && o.status !== 'assigned') return false;
-      if (filter === 'data' && o.status !== 'data_collection') return false;
-      if (filter === 'ready' && o.status !== 'ready_for_calc') return false;
-      if (
-        filter === 'inwork' &&
-        !['calculating', 'segmented', 'routes_planned'].includes(o.status)
-      )
-        return false;
-      if (
-        query &&
-        !(`${o.id}` + o.fieldName).toLowerCase().includes(query.toLowerCase())
-      )
-        return false;
-      return true;
-    });
-  }, [orders, filter, query]);
+      const resolved = await Promise.all(checks);
+      setOrders(resolved);
+    } catch (e) {
+      console.error('checkInputsForOrders failed', e);
+    }
+  };
 
-  // ESC modal handler & click on backdrop closes modal
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setModalImage(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  const isJsonUploaded = Boolean(selectedOrder?.metadata?.uploadedJson);
+  const isAnalyzeDisabled = calcInProgress || !isJsonUploaded;
 
-  const runSparseAnalytics = async (order: Order) => {
-    const uploaded = order.metadata?.uploadedJson ?? null;
-    if (!uploaded) {
-      alert(
+  const runAnalyze = async () => {
+    if (!selectedOrder) return alert('Выберите заявку и загрузите JSON.');
+    const uploaded = selectedOrder.metadata?.uploadedJson ?? null;
+    if (!uploaded)
+      return alert(
         'Сначала загрузите JSON с полями coords_polygon, coords_index, bands_index.',
       );
-      return;
-    }
-    const coords_polygon =
-      uploaded.coords_polygon ??
-      uploaded.coordsPolygon ??
-      uploaded.polygon ??
-      null;
-    const coords_index = uploaded.coords_index ?? uploaded.coordsIndex ?? null;
-    const bands_index =
-      uploaded.bands_index ?? uploaded.bandsIndex ?? uploaded.bands ?? null;
-    if (!coords_polygon || !coords_index || !bands_index) {
-      alert(
-        'В загруженном JSON не найдены все требуемые поля: coords_polygon, coords_index, bands_index.',
-      );
-      return;
-    }
-
-    const payload: any = {
-      coords_polygon,
-      coords_index,
-      bands_index,
-      index_name: selectedIndex || 'NDVI',
-      meters_per_pixel: Number(metersPerPixel),
-      n_segments: Number(nSegments),
-      width_a: Number(widthA),
-      width_b: Number(widthB),
+    const body = {
+      orderId: selectedOrder.id,
+      indexName: selectedIndex || 'NDVI',
+      payload: uploaded,
     };
-
-    if (
-      !Number.isFinite(payload.meters_per_pixel) ||
-      payload.meters_per_pixel <= 0
-    ) {
-      alert('meters_per_pixel должен быть положительным числом');
-      return;
-    }
-    if (!Number.isFinite(payload.n_segments) || payload.n_segments <= 0) {
-      alert('n_segments должен быть положительным числом');
-      return;
-    }
-    if (!Number.isFinite(payload.width_a) || payload.width_a <= 0) {
-      alert('width_a должен быть положительным числом');
-      return;
-    }
-    if (!Number.isFinite(payload.width_b) || payload.width_b <= 0) {
-      alert('width_b должен быть положительным числом');
-      return;
-    }
-
     try {
       setCalcInProgress(true);
       setCalcProgress(10);
-
-      const res = await authFetch(`${API_BASE}/api/analytics/sparse`, {
+      const res = await authFetch(`${API_BASE}/api/workflow/analyze`, {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(body),
       });
       setCalcProgress(50);
-      const text = await res.text().catch(() => '');
       if (!res.ok) {
-        console.error('analytics/sparse failed', res.status, text);
-        alert('Успешно');
+        const txt = await res.text().catch(() => '');
+        console.error('analyze failed', res.status, txt);
+        alert('Ошибка от сервера при запуске анализа.');
         setCalcInProgress(false);
         setCalcProgress(0);
         return;
       }
-      let parsed: any = {};
-      try {
-        parsed = JSON.parse(text || '{}');
-      } catch {
-        parsed = { rawText: text };
-      }
-
-      const keys = [
-        'rgb_field_image',
-        'ndvi_masked_image',
-        'clusters_image',
-        'split_rgb_image',
-        'split_ndvi_image',
-        'composite_image',
+      const parsed = await res.json().catch(async () => {
+        const t = await res.text().catch(() => '');
+        return { rawText: t };
+      });
+      const out = parsed?.output ?? parsed;
+      const imageKeys = [
+        'originalImage',
+        'indexImage',
+        'areasWithFullIdsImage',
+        'indexWithBoundsImage',
       ];
       const images: Record<string, string | null> = {};
-      keys.forEach((k) => {
-        const v = parsed[k] ?? parsed[k.replace(/_image$/, '_img')] ?? null;
-        if (!v) {
-          images[k] = null;
-          return;
+      imageKeys.forEach((k) => (images[k] = ensureDataUrl(out?.[k] ?? null)));
+      const tables: Record<string, any[] | null> = {};
+      Object.keys(out || {}).forEach((k) => {
+        const kl = k.toLowerCase();
+        if (
+          kl.endsWith('df') ||
+          kl.endsWith('statsdf') ||
+          (kl.includes('cluster') && kl.includes('df'))
+        ) {
+          const v = out[k];
+          if (!v) {
+            tables[k] = null;
+            return;
+          }
+          try {
+            tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+          } catch {
+            tables[k] = null;
+          }
         }
-        if (typeof v === 'string')
-          images[k] = v.startsWith('data:') ? v : `data:image/png;base64,${v}`;
-        else images[k] = null;
       });
-
-      setOrders((prev) =>
-        prev.map((p) =>
-          p.id === order.id
-            ? {
-                ...p,
-                metadata: {
-                  ...(p.metadata ?? {}),
-                  analyticsResponse: parsed,
-                  analyticsImages: images,
-                },
-              }
-            : p,
-        ),
-      );
       setSelectedOrder((so) =>
-        so && so.id === order.id
-          ? {
+        so
+          ? ({
               ...so,
               metadata: {
                 ...(so.metadata ?? {}),
                 analyticsResponse: parsed,
                 analyticsImages: images,
+                analyticsTables: tables,
               },
-            }
-          : so,
+            } as Order)
+          : selectedOrder,
       );
-
-      setActiveTab('result');
+      setOrders((prev) =>
+        prev.map((p) =>
+          p.id === selectedOrder.id
+            ? ({
+                ...p,
+                metadata: {
+                  ...(p.metadata ?? {}),
+                  analyticsResponse: parsed,
+                  analyticsImages: images,
+                  analyticsTables: tables,
+                },
+              } as Order)
+            : p,
+        ),
+      );
       setCalcProgress(100);
+      setIsViewOnly(false); // analyses started by operator are editable (not view-only)
+      setStep(2);
     } catch (e) {
-      console.error(e);
-      alert('Ошибка при вызове аналитики.');
+      console.error('runAnalyze error', e);
+      alert('Ошибка при вызове analyze.');
     } finally {
       setTimeout(() => {
         setCalcInProgress(false);
@@ -545,42 +633,307 @@ export default function OperatorOrders() {
     }
   };
 
-  const handleParsedJsonForOrder = (orderId: number, parsed: any | null) => {
-    setOrders((prev) =>
-      prev.map((p) =>
-        p.id === orderId
-          ? { ...p, metadata: { ...(p.metadata ?? {}), uploadedJson: parsed } }
-          : p,
-      ),
-    );
-    if (selectedOrder && selectedOrder.id === orderId)
+  const applyMerge = async () => {
+    if (!selectedOrder) return;
+    if (isViewOnly)
+      return alert('Нет доступа: режим просмотра. Сначала нажмите "Изменить".');
+    const parsed = selectedOrder.metadata?.analyticsResponse;
+    const inputId =
+      parsed?.inputId ?? parsed?.output?.inputId ?? parsed?.input_id ?? null;
+    if (!inputId)
+      return alert('Не удалось обнаружить inputId в ответе analyze.');
+    if (!mergePlot1 || !mergePlot2) return alert('Укажите оба plotId.');
+    try {
+      const body = {
+        inputId,
+        plotId1: String(mergePlot1),
+        plotId2: String(mergePlot2),
+      };
+      const res = await authFetch(`${API_BASE}/api/workflow/merge`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        console.error('merge failed', res.status, txt);
+        alert('Ошибка при объединении участков.');
+        return;
+      }
+      const parsedRes = await res.json().catch(async () => {
+        const t = await res.text().catch(() => '');
+        return { rawText: t };
+      });
+      const out = parsedRes?.output ?? parsedRes;
+      const newImages = {
+        areasWithFullIdsImage: ensureDataUrl(
+          out?.areasWithFullIdsImage ?? null,
+        ),
+        indexWithBoundsImage: ensureDataUrl(out?.indexWithBoundsImage ?? null),
+      };
       setSelectedOrder((so) =>
         so
-          ? {
+          ? ({
               ...so,
-              metadata: { ...(so.metadata ?? {}), uploadedJson: parsed },
-            }
-          : so,
+              metadata: {
+                ...(so.metadata ?? {}),
+                analyticsImages: {
+                  ...(so.metadata?.analyticsImages ?? {}),
+                  ...newImages,
+                },
+              },
+            } as Order)
+          : selectedOrder,
       );
+      setOrders((prev) =>
+        prev.map((p) =>
+          p.id === selectedOrder.id
+            ? ({
+                ...p,
+                metadata: {
+                  ...(p.metadata ?? {}),
+                  analyticsImages: {
+                    ...(p.metadata?.analyticsImages ?? {}),
+                    ...newImages,
+                  },
+                },
+              } as Order)
+            : p,
+        ),
+      );
+      setMergeOpen(false);
+    } catch (e) {
+      console.error('applyMerge error', e);
+      alert('Ошибка при вызове merge.');
+    }
   };
 
-  const openDetail = (o: Order) => {
-    setSelectedOrder(o);
-    setActiveTab('data');
-    setSelectedIndex('NDVI');
-    setSelectedDrone('');
-    setCalcInProgress(false);
-    setCalcProgress(0);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const applyFinal = async () => {
+    if (!selectedOrder) return alert('Выберите заявку.');
+    const parsed = selectedOrder.metadata?.analyticsResponse;
+    const inputId =
+      parsed?.inputId ?? parsed?.output?.inputId ?? parsed?.input_id ?? null;
+    if (!inputId)
+      return alert('Не удалось обнаружить inputId в ответе analyze.');
+    if (!selectedDroneIds.length) return alert('Выберите хотя бы один дрон.');
+    const droneTasks: Record<string, number> = {};
+    const numType: Record<string, number> = {};
+    selectedDroneIds.forEach((id) => {
+      droneTasks[String(id)] = 1;
+      numType[String(id)] = 1;
+    });
+    const body = {
+      inputId,
+      processingMode,
+      droneIds: selectedDroneIds,
+      droneTasks,
+      numType,
+    };
+    try {
+      setCalcInProgress(true);
+      setCalcProgress(20);
+      const res = await authFetch(`${API_BASE}/api/workflow/final`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+      setCalcProgress(60);
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        console.error('final failed', res.status, txt);
+        alert('Ошибка от сервера при запуске final.');
+        return;
+      }
+      const parsedRes = await res.json().catch(async () => {
+        const t = await res.text().catch(() => '');
+        return { rawText: t };
+      });
+      const out = parsedRes?.output ?? parsedRes;
+      const images: Record<string, string | null> = {};
+      [
+        'originalImage',
+        'indexImage',
+        'areasWithFullIdsImage',
+        'indexWithBoundsImage',
+        'areasWithSegmentsAndFullIds',
+      ].forEach((k) => {
+        if (out?.[k]) images[k] = ensureDataUrl(out[k]);
+      });
+      const existingTables = selectedOrder.metadata?.analyticsTables ?? {};
+      const newTables: Record<string, any[] | null> = { ...existingTables };
+      ['clusterStatsDf', 'dronesDf', 'segmentsDf', 'segmentSummaryDf'].forEach(
+        (k) => {
+          const v = out?.[k];
+          if (v !== undefined && v !== null) {
+            try {
+              newTables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+            } catch {
+              newTables[k] = null;
+            }
+          }
+        },
+      );
+      setSelectedOrder((so) =>
+        so
+          ? ({
+              ...so,
+              metadata: {
+                ...(so.metadata ?? {}),
+                finalOutput: out,
+                analyticsImages: {
+                  ...(so.metadata?.analyticsImages ?? {}),
+                  ...images,
+                },
+                analyticsTables: newTables,
+              },
+            } as Order)
+          : selectedOrder,
+      );
+      setOrders((prev) =>
+        prev.map((p) =>
+          p.id === selectedOrder.id
+            ? ({
+                ...p,
+                metadata: {
+                  ...(p.metadata ?? {}),
+                  finalOutput: out,
+                  analyticsImages: {
+                    ...(p.metadata?.analyticsImages ?? {}),
+                    ...images,
+                  },
+                  analyticsTables: newTables,
+                },
+              } as Order)
+            : p,
+        ),
+      );
+      setCalcProgress(100);
+      setStep(4);
+    } catch (e) {
+      console.error('applyFinal error', e);
+      alert('Ошибка при вызове final.');
+    } finally {
+      setTimeout(() => {
+        setCalcInProgress(false);
+        setCalcProgress(0);
+      }, 400);
+    }
   };
 
-  const goBack = () => {
+  const toggleDrone = (id: number) =>
+    setSelectedDroneIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
+  // VIEW: fetch result and show as read-only
+  const handleView = async (e: React.MouseEvent, o: Order) => {
+    e.stopPropagation();
+    const latest = o.metadata?.latestInput?.id ?? null;
+    if (!latest) return alert('Не найден latest inputId для этого ордера.');
+    try {
+      const res = await authFetch(
+        `${API_BASE}/api/workflow/result?inputId=${latest}`,
+      );
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        console.error('result fetch failed', res.status, txt);
+        alert('Ошибка при получении результата.');
+        return;
+      }
+      const parsed = await res.json().catch(async () => {
+        const t = await res.text().catch(() => '');
+        return { rawText: t };
+      });
+      const result = parsed?.result ?? parsed;
+      // parse images and tables same as analyze/final
+      const imageKeys = [
+        'originalImage',
+        'indexImage',
+        'areasWithFullIdsImage',
+        'indexWithBoundsImage',
+        'areasWithSegmentsAndFullIds',
+      ];
+      const images: Record<string, string | null> = {};
+      imageKeys.forEach((k) => {
+        images[k] = ensureDataUrl(result?.[k] ?? null);
+      });
+      const tables: Record<string, any[] | null> = {};
+      Object.keys(result || {}).forEach((k) => {
+        const kl = k.toLowerCase();
+        if (
+          kl.endsWith('df') ||
+          kl.endsWith('statsdf') ||
+          (kl.includes('cluster') && kl.includes('df'))
+        ) {
+          const v = result[k];
+          if (!v) {
+            tables[k] = null;
+            return;
+          }
+          try {
+            tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+          } catch {
+            tables[k] = null;
+          }
+        }
+      });
+      // set as selected order and move to step 2 (view-only)
+      const updatedOrder = {
+        ...o,
+        metadata: {
+          ...(o.metadata ?? {}),
+          analyticsResponse: result,
+          analyticsImages: {
+            ...(o.metadata?.analyticsImages ?? {}),
+            ...images,
+          },
+          analyticsTables: {
+            ...(o.metadata?.analyticsTables ?? {}),
+            ...tables,
+          },
+        },
+      } as Order;
+      setSelectedOrder(updatedOrder);
+      setOrders((prev) =>
+        prev.map((p) => (p.id === updatedOrder.id ? updatedOrder : p)),
+      );
+      setIsViewOnly(true); // <-- important: view-only mode
+      setStep(2);
+    } catch (e) {
+      console.error('handleView error', e);
+      alert('Ошибка при получении результата.');
+    }
+  };
+
+  // edit/re-run: open order and clear analytics so user can start over
+  const handleEdit = (e: React.MouseEvent, o: Order) => {
+    e.stopPropagation();
+    const cleaned: Order = {
+      ...o,
+      metadata: {
+        ...(o.metadata ?? {}),
+        analyticsResponse: null,
+        analyticsImages: {},
+        analyticsTables: {},
+        finalOutput: null,
+      },
+    };
+    setSelectedOrder(cleaned);
+    setOrders((prev) => prev.map((p) => (p.id === cleaned.id ? cleaned : p)));
+    setIsViewOnly(false); // editing mode
+    setStep(1);
+  };
+
+  const stepTitles = [
+    '1. Загрузить поле',
+    '2. Просмотр результатов',
+    '3. Выбрать дроны',
+    '4. Финальные данные',
+  ];
+
+  const closeSelected = () => {
     setSelectedOrder(null);
-    setActiveTab('data');
-    setSelectedIndex('NDVI');
+    setStep(1);
+    setIsViewOnly(false);
   };
-
-  const canRun = Boolean(selectedOrder?.metadata?.uploadedJson);
 
   return (
     <div className="space-y-6">
@@ -590,391 +943,587 @@ export default function OperatorOrders() {
             Оперативная панель — Оператор процессов
           </h2>
           <div className="text-sm text-gray-500 mt-1">
-            Список назначенных заказов и инструменты обработки полей.
+            Пошаговый процесс обработки: загрузка → анализ → дроны → итог.
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="text-sm text-gray-600 bg-white/90 px-3 py-2 rounded-lg shadow-sm border border-gray-100">
-            В работе:{' '}
-            <span className="font-semibold ml-2">
-              {orders.filter((o) => o.status !== 'completed').length}
-            </span>
-          </div>
-          <button
-            onClick={() => loadOrders()}
-            className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2"
-            title="Обновить"
-          >
-            <RefreshCw size={16} /> Обновить
-          </button>
+          {!selectedOrder ? (
+            <button
+              onClick={() => loadOrders()}
+              className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2"
+              title="Обновить"
+            >
+              <RefreshCw size={16} /> Обновить
+            </button>
+          ) : (
+            <button
+              onClick={closeSelected}
+              className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2"
+              title="Закрыть заявку"
+            >
+              <X size={16} /> Закрыть
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="w-full max-w-md relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center text-black pointer-events-none z-10">
-              <Search size={18} className="text-gray-400" />
-            </div>
-            <input
-              placeholder="Поиск по номеру заявки или полю..."
-              className="w-full pl-10 pr-4 py-3 bg-white rounded-xl border border-gray-300/80 focus:ring-2 focus:ring-emerald-400 outline-none"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-3 py-2 rounded-lg ${filter === 'all' ? 'bg-emerald-50 border border-emerald-100' : 'bg-white border border-gray-100'}`}
-            >
-              Все
-            </button>
-            <button
-              onClick={() => setFilter('assigned')}
-              className={`px-3 py-2 rounded-lg ${filter === 'assigned' ? 'bg-emerald-50 border border-emerald-100' : 'bg-white border border-gray-100'}`}
-            >
-              Назначенные
-            </button>
-            <button
-              onClick={() => setFilter('data')}
-              className={`px-3 py-2 rounded-lg ${filter === 'data' ? 'bg-emerald-50 border border-emerald-100' : 'bg-white border border-gray-100'}`}
-            >
-              Сбор данных
-            </button>
-            <button
-              onClick={() => setFilter('ready')}
-              className={`px-3 py-2 rounded-lg ${filter === 'ready' ? 'bg-emerald-50 border border-emerald-100' : 'bg-white border border-gray-100'}`}
-            >
-              Готовы к расчёту
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {!selectedOrder ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div className="text-sm text-gray-600">Заявки</div>
-            <div className="text-sm text-gray-500">
-              Кликните по заявке, чтобы открыть инструменты оператора
-            </div>
-          </div>
-          <div className="divide-y divide-gray-100">
-            {loading && (
-              <div className="p-6 text-sm text-gray-500">
-                Загрузка заявок...
-              </div>
-            )}
-            {!loading && filtered.length === 0 && (
-              <div className="p-6 text-sm text-gray-500">
-                Нет заявок, подходящих под фильтр.
-              </div>
-            )}
-            {filtered.map((o) => (
-              <div
-                key={o.id}
-                className="p-4 flex items-center justify-between hover:bg-gray-50"
-              >
-                <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    #{o.id} • {o.fieldName}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Дата: {o.date} • Статус:{' '}
-                    <span className="font-medium">{o.status}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
+      {selectedOrder && (
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+          <div className="flex items-center gap-4">
+            {stepTitles.map((t, i) => {
+              const idx = (i + 1) as 1 | 2 | 3 | 4;
+              const active = step === idx;
+              const done = step > idx;
+              const disabled = isViewOnly && idx !== 2; // when view-only, only step 2 active
+              return (
+                <div key={t} className="flex-1">
                   <button
-                    onClick={() => openDetail(o)}
-                    className="px-3 py-2 rounded-md bg-white border border-gray-100 hover:shadow-sm"
+                    onClick={() => {
+                      if (disabled) return;
+                      setStep(idx);
+                    }}
+                    className="w-full text-left"
+                    aria-disabled={disabled}
                   >
-                    <Eye size={16} />
+                    <div
+                      className={`p-3 rounded-lg border ${active ? 'border-emerald-300 bg-emerald-50' : 'border-gray-100 bg-white'} flex items-center gap-3 ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center ${active ? 'bg-emerald-600 text-white' : done ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}
+                      >
+                        {done ? (
+                          <Check size={16} />
+                        ) : (
+                          <span className="font-medium">{idx}</span>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium">{t}</div>
+                        <div className="text-xs text-gray-500">
+                          {idx === 1
+                            ? 'Загрузите JSON поля'
+                            : idx === 2
+                              ? 'Просмотрите изображения и таблицы'
+                              : idx === 3
+                                ? 'Выберите дрон(ы) и режим'
+                                : 'Полный результат'}
+                        </div>
+                      </div>
+                    </div>
                   </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
-      ) : (
-        <div className="relative bg-white rounded-xl shadow-sm border border-gray-100 overflow-auto">
-          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-500">
-                Заявка #{selectedOrder.id} • {selectedOrder.fieldName}
-              </div>
-              <div className="text-lg font-semibold mt-1">
-                Инструменты оператора
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSelectedOrder(null)}
-                className="px-3 py-2 rounded-lg bg-white border border-gray-200"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          </div>
+      )}
 
-          {/* Tabs */}
-          <div className="p-4 border-b border-gray-100 flex items-center gap-4">
-            <button
-              onClick={() => setActiveTab('data')}
-              className={`px-4 py-2 rounded-t-lg relative ${activeTab === 'data' ? 'text-emerald-700' : 'text-gray-600'}`}
-            >
-              <div className="font-medium">Заполнение данных</div>
-              {activeTab === 'data' && (
-                <div className="absolute left-0 right-0 -bottom-2 h-1 bg-emerald-400 rounded-t-lg shadow-[0_6px_18px_rgba(16,185,129,0.16)]"></div>
+      <div className="bg-white p-6 rounded-2xl shadow border border-gray-100">
+        {!selectedOrder ? (
+          <div>
+            <div className="text-sm text-gray-600 mb-3">Выберите заявку</div>
+            <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+              {loadingOrders ? (
+                <div className="p-6 text-sm text-gray-500">Загрузка...</div>
+              ) : orders.length === 0 ? (
+                <div className="p-6 text-sm text-gray-500">Нет заявок</div>
+              ) : (
+                <table className="w-full border-collapse text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">
+                        ID
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">
+                        Поле
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">
+                        Дата
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">
+                        Статус
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">
+                        Действие
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((o, i) => (
+                      <tr
+                        key={o.id}
+                        className={` transition ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-emerald-50`}
+                      >
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          #{o.id}
+                        </td>
+                        <td className="px-4 py-3 text-gray-700">
+                          {o.fieldName}
+                        </td>
+                        <td className="px-4 py-3 text-gray-500">{o.date}</td>
+                        <td className="px-4 py-3 text-sm">
+                          {o.metadata?.processed ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700">
+                              Обработана
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700">
+                              Не обработана
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="inline-flex items-center gap-2">
+                            {o.metadata?.processed ? (
+                              <>
+                                <button
+                                  onClick={(e) => handleView(e, o)}
+                                  title="Просмотреть"
+                                  className="p-2 rounded-md bg-white hover:bg-gray-50 shadow-sm"
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  <Eye size={16} />
+                                </button>
+                                <button
+                                  onClick={(e) => handleEdit(e, o)}
+                                  title="Изменить"
+                                  className="p-2 rounded-md bg-white hover:bg-gray-50 shadow-sm"
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOrder(o);
+                                  setIsViewOnly(false);
+                                  setStep(1);
+                                }}
+                                className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs"
+                              >
+                                Обработать
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
-            </button>
-            <button
-              onClick={() => setActiveTab('result')}
-              className={`px-4 py-2 rounded-t-lg relative ${activeTab === 'result' ? 'text-emerald-700' : 'text-gray-600'}`}
-            >
-              {/* <div className="font-medium">Итог</div> */}
-              {/* {activeTab === 'result' && (
-                <div className="absolute left-0 right-0 -bottom-2 h-1 bg-emerald-400 rounded-t-lg shadow-[0_6px_18px_rgba(16,185,129,0.16)]"></div>
-              )} */}
-            </button>
+            </div>
           </div>
+        ) : (
+          <div>
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <div className="text-sm text-gray-500">
+                  Заявка #{selectedOrder.id} • {selectedOrder.fieldName}
+                </div>
+                <div className="text-lg font-semibold mt-1">
+                  Пошаговая обработка поля
+                </div>
+              </div>
+            </div>
 
-          {/* Tab content */}
-          <div className="p-6">
-            {activeTab === 'data' ? (
+            {step === 1 && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-4">
-                  <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
-                    {/* <div className="text-lg font-semibold mb-2">Фото поля</div>
-                    <div className="w-full h-44 rounded-md overflow-hidden mb-3 bg-gray-100 flex items-center justify-center">
-                      {selectedOrder.preview?.fieldPhoto ? (
-                        <img
-                          src={selectedOrder.preview.fieldPhoto}
-                          alt="field"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-400 text-sm">
-                          Фото поля отсутствует
-                        </div>
-                      )}
-                    </div> */}
-                    <div className="text-xs text-gray-500">
-                      Поле:{' '}
-                      <span className="font-medium">
-                        {selectedOrder.fieldName}
-                      </span>
+                  <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                    <div className="text-sm text-gray-500">Поле</div>
+                    <div className="text-lg font-medium mt-1">
+                      {selectedOrder.fieldName}
                     </div>
                   </div>
-
-                  <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
-                    <div className="text-lg font-semibold mb-2">Дрон</div>
+                  <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                    <div className="text-sm font-medium mb-2">Параметры</div>
                     <ModernSelect
-                      label="Выбор дрона"
-                      options={availableDrones}
-                      value={selectedDrone}
-                      onChange={(v) => setSelectedDrone(v)}
+                      label="Индекс"
+                      options={[
+                        'NDVI',
+                        'RGB Field',
+                        'NDVI Masked',
+                        'Split RGB',
+                        'Split NDVI',
+                      ]}
+                      value={selectedIndex}
+                      onChange={setSelectedIndex}
                     />
-                    <div className="text-xs text-gray-500 mt-2">
-                      Выбор используется для дальнейшей интеграции.
-                    </div>
                   </div>
                 </div>
 
-                <div className="lg:col-span-2 space-y-4">
-                  <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
-                    <div className="text-lg font-semibold mb-2">
-                      Параметры аналитики
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-xs text-gray-600 mb-1 block">
-                          Индекс (index_name)
-                        </label>
-                        <ModernSelect
-                          options={indexOptions}
-                          value={selectedIndex}
-                          onChange={(v) => setSelectedIndex(v)}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-xs text-gray-600 mb-1 block">
-                          meters_per_pixel
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          value={metersPerPixel}
-                          onChange={(e) => setMetersPerPixel(e.target.value)}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-200 shadow-sm focus:ring-2 focus:ring-emerald-200 outline-none"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-xs text-gray-600 mb-1 block">
-                          n_segments
-                        </label>
-                        <input
-                          type="number"
-                          value={nSegments}
-                          onChange={(e) => setNSegments(e.target.value)}
-                          className="w-full px-4 py-2 rounded-lg border border-gray-200 shadow-sm focus:ring-2 focus:ring-emerald-200 outline-none"
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-xs text-gray-600 mb-1 block">
-                            width_a
-                          </label>
-                          <input
-                            type="number"
-                            value={widthA}
-                            onChange={(e) => setWidthA(e.target.value)}
-                            className="w-full px-4 py-2 rounded-lg border border-gray-200 shadow-sm focus:ring-2 focus:ring-emerald-200 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-600 mb-1 block">
-                            width_b
-                          </label>
-                          <input
-                            type="number"
-                            value={widthB}
-                            onChange={(e) => setWidthB(e.target.value)}
-                            className="w-full px-4 py-2 rounded-lg border border-gray-200 shadow-sm focus:ring-2 focus:ring-emerald-200 outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center gap-3">
-                      <button
-                        onClick={() => {
-                          setMetersPerPixel('1.0');
-                          setNSegments('2');
-                          setWidthA('5');
-                          setWidthB('5');
-                          setSelectedIndex('NDVI');
-                        }}
-                        className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-700"
-                      >
-                        Reset
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
-                    <div className="text-sm text-gray-600 mb-2">
+                <div className="lg:col-span-2 flex flex-col gap-4">
+                  <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                    <div className="text-sm font-medium mb-2">
                       Загрузить JSON поля
                     </div>
                     <FieldJsonUploader
                       initialParsed={
                         selectedOrder.metadata?.uploadedJson ?? null
                       }
-                      onParsed={(parsed) =>
-                        handleParsedJsonForOrder(selectedOrder.id, parsed)
+                      onParsed={(p) =>
+                        setSelectedOrder((so) =>
+                          so
+                            ? ({
+                                ...so,
+                                metadata: {
+                                  ...(so.metadata ?? {}),
+                                  uploadedJson: p,
+                                },
+                              } as Order)
+                            : so,
+                        )
                       }
                     />
                   </div>
+
+                  <div className="mt-auto flex items-center justify-end gap-2 pt-4">
+                    <button
+                      onClick={closeSelected}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      onClick={isAnalyzeDisabled ? undefined : runAnalyze}
+                      disabled={isAnalyzeDisabled}
+                      className={`px-5 py-2 rounded-lg text-sm font-medium select-none transition ${isAnalyzeDisabled ? 'bg-gray-200 text-gray-400 border border-gray-200 shadow-none opacity-80 cursor-not-allowed' : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97] cursor-pointer'}`}
+                    >
+                      {calcInProgress
+                        ? `Running ${calcProgress}%`
+                        : 'Запустить анализ'}
+                    </button>
+                  </div>
                 </div>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
-                  <div className="text-lg font-semibold mb-2">Итог</div>
-                  <div className="text-sm text-gray-600 mb-4">
-                    {selectedOrder.metadata?.analyticsResponse
-                      ? 'Ниже — изображения, полученные от аналитики.'
-                      : 'Выполните аналитику в разделе "Заполнение данных" чтобы увидеть результаты.'}
-                  </div>
+            )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {[
-                      { key: 'rgb_field_image', label: 'RGB Field' },
-                      { key: 'ndvi_masked_image', label: 'NDVI Masked' },
-                      { key: 'clusters_image', label: 'Clusters' },
-                      { key: 'split_rgb_image', label: 'Split RGB' },
-                      { key: 'split_ndvi_image', label: 'Split NDVI' },
-                      { key: 'composite_image', label: 'Composite' },
-                    ].map((item) => {
-                      const img =
-                        selectedOrder.metadata?.analyticsImages?.[item.key] ??
-                        null;
-                      return (
-                        <div key={item.key} className="flex flex-col">
-                          <div className="text-sm font-medium text-gray-700 mb-2">
-                            {item.label}
-                          </div>
-                          <div className="w-full h-48 bg-gray-50 rounded-lg border overflow-hidden flex items-center justify-center">
-                            {img ? (
+            {step === 2 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    'originalImage',
+                    'indexImage',
+                    'areasWithFullIdsImage',
+                    'indexWithBoundsImage',
+                  ].map((k) => {
+                    const img =
+                      selectedOrder.metadata?.analyticsImages?.[k] ?? null;
+                    const label =
+                      (
+                        {
+                          originalImage: 'Original',
+                          indexImage: 'Index',
+                          areasWithFullIdsImage: 'Areas with Full IDs',
+                          indexWithBoundsImage: 'Index with Bounds',
+                        } as Record<string, string>
+                      )[k] ?? k;
+                    return (
+                      <div
+                        key={k}
+                        className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="text-sm font-medium">{label}</div>
+                          {/* hide merge button in view-only mode */}
+                          {k === 'areasWithFullIdsImage' && !isViewOnly && (
+                            <button
+                              onClick={() => setMergeOpen(true)}
+                              className="text-xs px-2 py-1 rounded bg-emerald-50 border border-emerald-100"
+                            >
+                              Объединить участки
+                            </button>
+                          )}
+                        </div>
+                        <div className="h-64 rounded overflow-hidden flex items-center justify-center">
+                          {img ? (
+                            <div className="relative w-full h-full group">
                               <img
                                 src={img}
-                                alt={item.label}
-                                className="w-full h-full object-contain cursor-pointer"
+                                alt={label}
+                                className="object-contain w-full h-full rounded-md transform transition-transform duration-300 group-hover:scale-105 cursor-zoom-in"
                                 onClick={() => setModalImage(img)}
                               />
-                            ) : (
-                              <div className="text-xs text-gray-400">
-                                Нет изображения
-                              </div>
-                            )}
+                            </div>
+                          ) : (
+                            <div className="text-xs text-gray-400">
+                              Нет изображения
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* merge panel: disabled/hidden in view-only */}
+                {mergeOpen && !isViewOnly && (
+                  <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          Объединить участки
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        value={mergePlot1}
+                        onChange={(e) => setMergePlot1(e.target.value)}
+                        placeholder="plotId 1"
+                        className="px-3 py-2 rounded-lg bg-gray-50 focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm"
+                      />
+                      <input
+                        value={mergePlot2}
+                        onChange={(e) => setMergePlot2(e.target.value)}
+                        placeholder="plotId 2"
+                        className="px-3 py-2 rounded-lg bg-gray-50 focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm"
+                      />
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => setMergeOpen(false)}
+                          className="px-3 py-2 rounded-lg text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          onClick={applyMerge}
+                          className="px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:shadow-md transition"
+                        >
+                          Применить
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-4">
+                  {getOrderedTables(selectedOrder.metadata?.analyticsTables)
+                    .length > 0 ? (
+                    getOrderedTables(
+                      selectedOrder.metadata?.analyticsTables,
+                    ).map(([k, rows]) => (
+                      <div key={k}>{renderTableCard(k, rows ?? null)}</div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-gray-500">
+                      Таблицы отсутствуют.
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setStep(1);
+                        setIsViewOnly(false);
+                      }}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                    >
+                      Назад
+                    </button>
+
+                    {/* if view-only, hide the Next button (no advancing). Otherwise show Next */}
+                    {!isViewOnly && (
+                      <button
+                        onClick={() => setStep(3)}
+                        className="px-4 py-2 rounded bg-gradient-to-r from-emerald-500 to-teal-600 text-white"
+                      >
+                        Далее — выбрать дроны
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-4">
+                <div className="rounded-lg p-4 bg-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <div className="text-lg font-semibold">Выбор дронов</div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-gray-500">Режим:</div>
+                      <div
+                        className="inline-flex p-1 bg-gray-100 rounded-full border border-gray-100"
+                        role="tablist"
+                        aria-label="Режим обработки"
+                      >
+                        <button
+                          onClick={() => setProcessingMode('spraying')}
+                          className={`px-3 py-1 rounded-full text-sm ${processingMode === 'spraying' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-600'}`}
+                          role="tab"
+                          aria-selected={processingMode === 'spraying'}
+                        >
+                          Spraying
+                        </button>
+                        <button
+                          onClick={() => setProcessingMode('spreading')}
+                          className={`px-3 py-1 rounded-full text-sm ${processingMode === 'spreading' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-600'}`}
+                          role="tab"
+                          aria-selected={processingMode === 'spreading'}
+                        >
+                          Spreading
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {availableDrones.map((d) => {
+                      const selected = selectedDroneIds.includes(d.droneId);
+                      return (
+                        <div
+                          key={d.droneId}
+                          onClick={() => toggleDrone(d.droneId)}
+                          className={`cursor-pointer p-4 rounded-xl border transition-shadow ${selected ? 'border-emerald-400 shadow-md bg-emerald-50' : 'border-gray-100 bg-white hover:shadow-sm'}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-semibold">
+                              {d.droneName}
+                            </div>
+                            <div
+                              className={`text-xs px-2 py-1 rounded ${selected ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+                            >
+                              {selected ? 'Выбрано' : 'Выбрать'}
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-500 mt-2">
+                            flight: {d.flightTime} min • cap:{' '}
+                            {processingMode === 'spraying'
+                              ? d.spraying.capacity
+                              : d.spreading.capacity}
+                          </div>
+                          <div className="text-xs text-gray-400 mt-2">
+                            Вес: {d.weight}kg • lift: {d.liftCapacity}kg
                           </div>
                         </div>
                       );
                     })}
                   </div>
+
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => setStep(2)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                    >
+                      Назад
+                    </button>
+                    <button
+                      onClick={applyFinal}
+                      disabled={calcInProgress || !selectedDroneIds.length}
+                      className={`px-4 py-2 rounded ${!selectedDroneIds.length || calcInProgress ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white'}`}
+                    >
+                      {calcInProgress
+                        ? `Running ${calcProgress}%`
+                        : 'Запустить финальную обработку'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[
+                    'originalImage',
+                    'indexImage',
+                    'areasWithFullIdsImage',
+                    'indexWithBoundsImage',
+                    'areasWithSegmentsAndFullIds',
+                  ].map((k) => {
+                    const img =
+                      selectedOrder.metadata?.analyticsImages?.[k] ?? null;
+                    const label =
+                      (
+                        {
+                          originalImage: 'Original',
+                          indexImage: 'Index',
+                          areasWithFullIdsImage: 'Areas with Full IDs',
+                          indexWithBoundsImage: 'Index with Bounds',
+                          areasWithSegmentsAndFullIds:
+                            'Areas with Segments and Full IDs',
+                        } as Record<string, string>
+                      )[k] ?? k;
+                    return (
+                      <div
+                        key={k}
+                        className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm"
+                      >
+                        <div className="text-sm font-medium mb-2">{label}</div>
+                        <div className="h-72 bg-gray-50 rounded overflow-hidden flex items-center justify-center">
+                          {img ? (
+                            <img
+                              src={img}
+                              alt={label}
+                              className="object-contain h-full w-full rounded-md"
+                            />
+                          ) : (
+                            <div className="text-xs text-gray-400">
+                              Нет изображения
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                <div className="rounded-2xl p-4 bg-white shadow border border-gray-100">
-                  <div className="text-sm text-gray-600 mb-2">
-                    Ответ сервера (raw)
-                  </div>
-                  <pre className="max-h-64 overflow-auto text-xs bg-gray-50 p-2 rounded-md">
-                    {JSON.stringify(
-                      selectedOrder.metadata?.analyticsResponse ?? 'Нет данных',
-                      null,
-                      2,
-                    )}
-                  </pre>
+                <div className="flex flex-col gap-4">
+                  {getOrderedTables(selectedOrder.metadata?.analyticsTables)
+                    .length > 0 ? (
+                    getOrderedTables(
+                      selectedOrder.metadata?.analyticsTables,
+                    ).map(([k, rows]) => (
+                      <div key={k}>{renderTableCard(k, rows ?? null)}</div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-gray-500">
+                      Таблицы отсутствуют.
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setStep(3)}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                  >
+                    Назад
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedOrder(null);
+                      setStep(1);
+                    }}
+                    className="px-4 py-2 rounded bg-emerald-600 text-white"
+                  >
+                    Завершить
+                  </button>
                 </div>
               </div>
             )}
           </div>
+        )}
+      </div>
 
-          {/* Bottom-right Run Analytics button (replaces old "Назад" position) */}
-          <div className="p-4 border-t border-gray-100 flex items-center justify-end gap-2">
-            <button
-              onClick={() => selectedOrder && runSparseAnalytics(selectedOrder)}
-              disabled={!canRun || calcInProgress}
-              className={`px-5 py-2 rounded-lg font-medium transition ${
-                canRun && !calcInProgress
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow'
-                  : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-              }`}
-              title={
-                canRun
-                  ? 'Запустить аналитику'
-                  : 'Загрузите JSON, чтобы включить'
-              }
-            >
-              {calcInProgress ? `Running ${calcProgress}%` : 'Run Analytics'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Fullscreen image modal */}
       {modalImage && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
           onClick={(e) => {
-            // close when clicking backdrop (but not when clicking the image itself)
             if (e.target === e.currentTarget) setModalImage(null);
           }}
+          role="dialog"
+          aria-modal="true"
         >
           <div className="relative w-full max-w-[calc(100vw-64px)] max-h-[calc(100vh-64px)]">
             <button
@@ -983,7 +1532,6 @@ export default function OperatorOrders() {
             >
               <X size={18} />
             </button>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={modalImage}
               alt="preview full"

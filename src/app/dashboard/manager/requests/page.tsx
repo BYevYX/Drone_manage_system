@@ -1,7 +1,7 @@
 'use client';
 import React, {
+  useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -17,10 +17,35 @@ import {
   Copy,
 } from 'lucide-react';
 
+type OperatorProfile = {
+  organization?: string;
+  organizationName?: string;
+  organizationType?: string;
+  inn?: string;
+  kpp?: string;
+  okpoCode?: string;
+  addressUr?: string;
+  addressFact?: string;
+};
+
+type Operator = {
+  id: number;
+  email: string;
+  phone: string;
+  userRole: string;
+  firstName: string;
+  lastName: string;
+  surname: string;
+  createdAt: string;
+  contractorProfile?: OperatorProfile;
+};
+
 type ApiOrder = {
   orderId: number;
   contractorId?: number | null;
   contractorPhone?: string | null;
+  operatorId?: number | null;
+  operatorName?: string | null;
   typeProcessId?: number | null;
   status?: string | null;
   createdAt?: string | null;
@@ -57,18 +82,24 @@ const STATUS_OPTIONS = [
 
 export default function FriendlyOrdersPanel() {
   const API_BASE = 'https://droneagro.duckdns.org';
+
   const [allOrders, setAllOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(30); // client-side page size
-  const [pageInput, setPageInput] = useState<string>('1'); // string input so user can clear
+  const [pageSize, setPageSize] = useState(30);
+  const [pageInput, setPageInput] = useState<string>('1');
   const [pageSizeInput, setPageSizeInput] = useState<string>('30');
   const [selected, setSelected] = useState<ApiOrder | null>(null);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [operators, setOperators] = useState<Operator[]>([]);
+  const [selectedOperatorId, setSelectedOperatorId] = useState<number | null>(
+    null,
+  );
+  const [operatorLoading, setOperatorLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // dropdown portal state
+  // dropdown portal state for row actions
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
   const [dropdownPos, setDropdownPos] = useState<{
     top: number;
@@ -77,6 +108,12 @@ export default function FriendlyOrdersPanel() {
     up: boolean;
   } | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // status selector dropdown inside modal
+  const [statusOpen, setStatusOpen] = useState(false);
+  const statusRef = useRef<HTMLDivElement | null>(null);
+
+  const assignedOperatorsRef = useRef(false); // prevent repeated runs
 
   const humanDate = (d?: string | null) =>
     d ? new Date(d).toLocaleString() : '—';
@@ -97,8 +134,8 @@ export default function FriendlyOrdersPanel() {
     return fetch(url, { ...options, headers });
   };
 
-  // Fetch all orders (no backend pagination) — client-side pagination will handle slicing.
-  const fetchOrders = async () => {
+  // --- fetchOrders
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -110,8 +147,9 @@ export default function FriendlyOrdersPanel() {
       const data = await res.json();
       const list: ApiOrder[] = Array.isArray(data.orders) ? data.orders : [];
       setAllOrders(list);
-      setPage(1); // reset to first page when new data arrives
+      setPage(1);
       setPageInput('1');
+      assignedOperatorsRef.current = false; // allow re-run operator assignment after fresh fetch
     } catch (err: any) {
       console.error(err);
       setError(String(err?.message ?? err));
@@ -119,23 +157,97 @@ export default function FriendlyOrdersPanel() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE]);
+
+  // --- fetchOperators (normalize id->number)
+  const fetchOperators = useCallback(async () => {
+    try {
+      setOperatorLoading(true);
+      setError(null);
+      const res = await authFetch(`${API_BASE}/api/users/operators`);
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(
+          `Ошибка получения списка операторов: ${res.status} ${txt}`,
+        );
+      }
+      const data = await res.json();
+      const list: Operator[] = Array.isArray(data.users)
+        ? data.users.map((u: any) => ({ ...u, id: Number(u.id) }))
+        : [];
+      setOperators(list);
+      console.log('FETCH OPERATORS SUCCESS', list);
+    } catch (err: any) {
+      console.error('Ошибка fetchOperators:', err);
+    } finally {
+      setOperatorLoading(false);
+    }
+  }, [API_BASE]);
 
   useEffect(() => {
     fetchOrders();
+    fetchOperators();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Keep pageInput/pageSizeInput in sync when page/pageSize change externally
+  // --- assign operators to existing orders once, safely (no infinite loop)
   useEffect(() => {
-    setPageInput(String(page));
-  }, [page]);
+    if (assignedOperatorsRef.current) return;
+    if (!operators.length || !allOrders.length) return;
 
-  useEffect(() => {
-    setPageSizeInput(String(pageSize));
-  }, [pageSize]);
+    // take snapshot of current orders so that later setAllOrders doesn't retrigger this effect
+    assignedOperatorsRef.current = true;
+    const ordersSnapshot = allOrders;
 
-  // client-side paginated slice
+    (async () => {
+      const updated = [...ordersSnapshot];
+      // fetch operator orders in parallel with small concurrency
+      const batch = async (ops: Operator[], batchSize = 6) => {
+        for (let i = 0; i < ops.length; i += batchSize) {
+          const slice = ops.slice(i, i + batchSize);
+          const promises = slice.map(async (op) => {
+            try {
+              const res = await authFetch(
+                `${API_BASE}/api/orders/operator/${op.id}`,
+              );
+              if (!res.ok) return null;
+              const data = await res.json();
+              return {
+                op,
+                orders: Array.isArray(data.orders) ? data.orders : [],
+              } as { op: Operator; orders: ApiOrder[] } | null;
+            } catch (e) {
+              console.error('Ошибка проверки ордеров оператора', op.id, e);
+              return null;
+            }
+          });
+          const results = await Promise.all(promises);
+          results.forEach((r) => {
+            if (!r) return;
+            r.orders.forEach((o) => {
+              const idx = updated.findIndex((u) => u.orderId === o.orderId);
+              if (idx >= 0) {
+                updated[idx] = {
+                  ...updated[idx],
+                  operatorId: r.op.id,
+                  operatorName: `${r.op.firstName} ${r.op.lastName}`,
+                };
+              }
+            });
+          });
+        }
+      };
+
+      await batch(operators);
+      setAllOrders(updated);
+    })();
+    // intentionally only depend on operators (and initial allOrders snapshot)
+  }, [operators, API_BASE]); // API_BASE stable
+
+  // --- pagination helpers
+  useEffect(() => setPageInput(String(page)), [page]);
+  useEffect(() => setPageSizeInput(String(pageSize)), [pageSize]);
+
   const paginatedOrders = useMemo(() => {
     const start = (page - 1) * pageSize;
     return allOrders.slice(start, start + pageSize);
@@ -146,46 +258,115 @@ export default function FriendlyOrdersPanel() {
     Math.ceil(allOrders.length / Math.max(1, pageSize)),
   );
 
-  const updateOrderStatusApi = async (orderId: number, statusValue: string) => {
-    try {
-      setUpdatingId(orderId);
-      // optimistic UI update on client-side list
-      setAllOrders((prev) =>
-        prev.map((o) =>
-          o.orderId === orderId ? { ...o, status: statusValue } : o,
-        ),
-      );
-      const res = await authFetch(`${API_BASE}/api/orders_status/${orderId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: statusValue }),
-      });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(`Ошибка изменения статуса: ${res.status} ${txt}`);
-      }
-      const updated = await res.json().catch(() => null);
-      if (updated) {
+  // --- status update
+  const updateOrderStatusApi = useCallback(
+    async (orderId: number, statusValue: string) => {
+      try {
+        setUpdatingId(orderId);
         setAllOrders((prev) =>
-          prev.map((o) => (o.orderId === orderId ? { ...o, ...updated } : o)),
+          prev.map((o) =>
+            o.orderId === orderId ? { ...o, status: statusValue } : o,
+          ),
         );
-      } else {
-        // if no body returned, refetch all to be safe
+        const res = await authFetch(
+          `${API_BASE}/api/orders_status/${orderId}`,
+          {
+            method: 'PUT',
+            body: JSON.stringify({ status: statusValue }),
+          },
+        );
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(`Ошибка изменения статуса: ${res.status} ${txt}`);
+        }
+        const updated = await res.json().catch(() => null);
+        if (updated) {
+          setAllOrders((prev) =>
+            prev.map((o) => (o.orderId === orderId ? { ...o, ...updated } : o)),
+          );
+        } else {
+          await fetchOrders();
+        }
+        setSelected((s) =>
+          s && s.orderId === orderId
+            ? { ...(s ?? {}), status: statusValue, ...(updated ?? {}) }
+            : s,
+        );
+      } catch (err: any) {
+        console.error(err);
+        setError(String(err?.message ?? err));
         await fetchOrders();
+      } finally {
+        setUpdatingId(null);
       }
-      setSelected((s) =>
-        s && s.orderId === orderId
-          ? { ...(s ?? {}), status: statusValue, ...(updated ?? {}) }
-          : s,
-      );
-    } catch (err: any) {
-      console.error(err);
-      setError(String(err?.message ?? err));
-      await fetchOrders();
-    } finally {
-      setUpdatingId(null);
-    }
-  };
+    },
+    [API_BASE, fetchOrders],
+  );
 
+  // --- assign operator
+  const assignOperatorToOrder = useCallback(
+    async (orderId: number, operatorId: number | null) => {
+      if (operatorId === null) {
+        console.warn('OperatorId пустой, запрос не выполняется');
+        return false;
+      }
+      const operator = operators.find((o) => o.id === Number(operatorId));
+      if (!operator) {
+        console.warn('Оператор не найден в списке');
+        return false;
+      }
+      try {
+        setUpdatingId(orderId);
+        setError(null);
+        setAllOrders((prev) =>
+          prev.map((o) =>
+            o.orderId === orderId
+              ? {
+                  ...o,
+                  operatorId: operator.id,
+                  operatorName: `${operator.firstName} ${operator.lastName}`,
+                }
+              : o,
+          ),
+        );
+
+        const res = await authFetch(
+          `${API_BASE}/api/orders/${orderId}/take?operatorId=${operatorId}`,
+          { method: 'GET' },
+        );
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(`Ошибка назначения оператора: ${res.status} ${txt}`);
+        }
+        const updated = await res.json().catch(() => null);
+        if (updated) {
+          setAllOrders((prev) =>
+            prev.map((o) => (o.orderId === orderId ? { ...o, ...updated } : o)),
+          );
+        }
+        setSelected((s) =>
+          s && s.orderId === orderId
+            ? {
+                ...s,
+                operatorId: operator.id,
+                operatorName: `${operator.firstName} ${operator.lastName}`,
+              }
+            : s,
+        );
+        console.log('ASSIGN SUCCESS', orderId, operatorId);
+        return true;
+      } catch (err: any) {
+        console.error(err);
+        await fetchOrders();
+        return false;
+      } finally {
+        setUpdatingId(null);
+      }
+    },
+    [API_BASE, operators, fetchOrders],
+  );
+
+  // --- utils
   const statusBadgeClass = (status?: string) => {
     const s = (status ?? '').toLowerCase();
     if (s === 'new') return 'bg-amber-100 text-amber-800';
@@ -196,72 +377,6 @@ export default function FriendlyOrdersPanel() {
     if (s === 'cancelled' || s === 'rejected')
       return 'bg-rose-100 text-rose-800';
     return 'bg-gray-100 text-gray-700';
-  };
-
-  const SummaryCard = () => {
-    const total = allOrders.length;
-    const newCount = allOrders.filter(
-      (o) => (o.status ?? '').toLowerCase() === 'new',
-    ).length;
-    const inProgress = allOrders.filter((o) => {
-      const st = (o.status ?? '').toLowerCase();
-      return st === 'in_progress' || st === 'in progress' || st === 'processed';
-    }).length;
-    const nextDate = allOrders.length
-      ? (allOrders[0].dataStart ?? allOrders[0].createdAt)
-      : null;
-    const phone =
-      allOrders.find((o) => o.contractorPhone)?.contractorPhone ?? '—';
-
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg">
-          <div className="text-xs text-slate-500 uppercase tracking-wide">
-            Всего заказов
-          </div>
-          <div className="text-3xl font-semibold mt-3 text-slate-900">
-            {total}
-          </div>
-          <div className="text-xs text-slate-400 mt-2">
-            Обновляется при загрузке
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg">
-          <div className="text-xs text-slate-500 uppercase tracking-wide">
-            Новые
-          </div>
-          <div className="text-3xl font-semibold mt-3 text-amber-600">
-            {newCount}
-          </div>
-          <div className="text-xs text-slate-400 mt-2">К работе</div>
-        </div>
-
-        <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg">
-          <div className="text-xs text-slate-500 uppercase tracking-wide">
-            В работе
-          </div>
-          <div className="text-3xl font-semibold mt-3 text-sky-600">
-            {inProgress}
-          </div>
-          <div className="text-xs text-slate-400 mt-2">Заказы в процессе</div>
-        </div>
-
-        <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="text-xs text-slate-500 flex items-center gap-2">
-              <Phone size={14} /> Контакты
-            </div>
-            <div className="text-lg font-medium mt-2 text-slate-800">
-              {phone}
-            </div>
-          </div>
-          <div className="text-xs text-slate-400 mt-3">
-            Ближайшая дата: {humanDate(nextDate)}
-          </div>
-        </div>
-      </div>
-    );
   };
 
   const renderKeyValueRows = (
@@ -275,11 +390,10 @@ export default function FriendlyOrdersPanel() {
         v !== null &&
         String(v) !== '',
     );
-    if (entries.length === 0) {
+    if (entries.length === 0)
       return (
         <div className="text-sm text-slate-500">Нет дополнительных данных</div>
       );
-    }
     return (
       <div className="grid grid-cols-1 gap-3">
         {entries.map(([k, v]) => (
@@ -296,22 +410,90 @@ export default function FriendlyOrdersPanel() {
     );
   };
 
-  // open modal helper — reset pendingStatus each time we open
   const openModal = (o: ApiOrder) => {
     setSelected(o);
     setPendingStatus(null);
+    setSelectedOperatorId(o.operatorId ?? null);
+    setStatusOpen(false);
   };
 
-  // confirm handler — applies pendingStatus
-  const handleConfirm = async () => {
-    if (!selected || !pendingStatus || pendingStatus === selected.status)
-      return;
-    await updateOrderStatusApi(selected.orderId, pendingStatus);
-    setSelected(null);
-    setPendingStatus(null);
-  };
+  // --- combined confirm: assign operator + update status (if needed)
+  const handleConfirm = useCallback(async () => {
+    if (!selected) return;
+    const needAssign =
+      selectedOperatorId !== null && selectedOperatorId !== selected.operatorId;
+    const needStatus = pendingStatus && pendingStatus !== selected.status;
+    if (!needAssign && !needStatus) return;
 
-  // Close dropdown on outside click (works with portal)
+    try {
+      // If assign needed, do it first
+      if (needAssign) {
+        const ok = await assignOperatorToOrder(
+          selected.orderId,
+          selectedOperatorId,
+        );
+        if (!ok) {
+          // assign failed, abort
+          return;
+        }
+      }
+
+      if (needStatus) {
+        await updateOrderStatusApi(selected.orderId, pendingStatus as string);
+      }
+
+      // refresh list to be safe
+      await fetchOrders();
+
+      // close modal
+      setSelected(null);
+      setPendingStatus(null);
+      setStatusOpen(false);
+    } catch (e) {
+      console.error('Ошибка при подтверждении изменений', e);
+    }
+  }, [
+    selected,
+    selectedOperatorId,
+    pendingStatus,
+    assignOperatorToOrder,
+    updateOrderStatusApi,
+    fetchOrders,
+  ]);
+
+  // --- close modal on ESC
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelected(null);
+        setPendingStatus(null);
+        setOpenDropdownId(null);
+        setStatusOpen(false);
+      }
+    };
+    if (selected) document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [selected]);
+
+  // --- close status dropdown on outside click
+  useEffect(() => {
+    const onDoc = (e: MouseEvent | TouchEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (statusRef.current && statusRef.current.contains(t)) return;
+      setStatusOpen(false);
+    };
+    if (statusOpen) {
+      document.addEventListener('mousedown', onDoc);
+      document.addEventListener('touchstart', onDoc);
+    }
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('touchstart', onDoc);
+    };
+  }, [statusOpen]);
+
+  // --- dropdown close on outside click for action menu (kept from original)
   useEffect(() => {
     const handler = (e: MouseEvent | TouchEvent) => {
       const target = e.target as Node | null;
@@ -321,10 +503,8 @@ export default function FriendlyOrdersPanel() {
         return;
       }
       if (dropdownRef.current && dropdownRef.current.contains(target)) return;
-      // if click is inside an actions button container (we mark with data-actions-id), do nothing
       const actionsContainer = (target as Element).closest('[data-actions-id]');
       if (actionsContainer) {
-        // keep it open only if same id (toggling handled elsewhere)
         const idAttr = actionsContainer.getAttribute('data-actions-id');
         if (idAttr && Number(idAttr) === openDropdownId) return;
       }
@@ -353,18 +533,6 @@ export default function FriendlyOrdersPanel() {
     };
   }, []);
 
-  // ensure page stays in range if pageSize or allOrders change
-  useEffect(() => {
-    const maxPage = Math.max(
-      1,
-      Math.ceil(allOrders.length / Math.max(1, pageSize)),
-    );
-    if (page > maxPage) {
-      setPage(maxPage);
-      setPageInput(String(maxPage));
-    }
-  }, [allOrders.length, pageSize, page]);
-
   // helper to open dropdown via event target and compute portal position
   const openDropdownFor = (orderId: number, buttonEl: HTMLElement | null) => {
     if (!buttonEl) {
@@ -373,20 +541,17 @@ export default function FriendlyOrdersPanel() {
       return;
     }
     const rect = buttonEl.getBoundingClientRect();
-    // estimate dropdown height: items * 40 + padding, items = STATUS_OPTIONS.length, plus some safety
-    const dropdownWidth = 208; // tailwind w-52 ≈ 208px
+    const dropdownWidth = 208;
     const itemHeight = 40;
     const dropdownHeight = STATUS_OPTIONS.length * itemHeight + 16;
     const margin = 8;
     let top = rect.bottom + margin;
     let up = false;
     if (rect.bottom + dropdownHeight + margin > window.innerHeight) {
-      // place above
       top = rect.top - dropdownHeight - margin;
       up = true;
-      if (top < 8) top = 8; // clamp
+      if (top < 8) top = 8;
     }
-    // align right edge of dropdown to right edge of button
     let left = rect.right - dropdownWidth;
     if (left < 8) left = 8;
     if (left + dropdownWidth > window.innerWidth - 8)
@@ -400,11 +565,10 @@ export default function FriendlyOrdersPanel() {
     });
   };
 
-  // Input commit helpers: parse and apply, but allow clearing while typing
+  // input commit helpers
   const commitPageInput = () => {
     const v = pageInput.trim();
     if (v === '') {
-      // restore to current page
       setPageInput(String(page));
       return;
     }
@@ -435,6 +599,15 @@ export default function FriendlyOrdersPanel() {
     setPageSizeInput(String(sz));
   };
 
+  const hasChanges = useMemo(() => {
+    if (!selected) return false;
+    const opChanged =
+      selectedOperatorId !== null && selectedOperatorId !== selected.operatorId;
+    const stChanged = pendingStatus && pendingStatus !== selected.status;
+    return opChanged || stChanged;
+  }, [selected, selectedOperatorId, pendingStatus]);
+
+  // --- UI render
   return (
     <div className="p-4 sm:p-6 space-y-6 bg-gradient-to-b from-slate-50 to-white min-h-screen">
       <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -444,8 +617,7 @@ export default function FriendlyOrdersPanel() {
           </h1>
           <p className="text-sm text-slate-600 mt-1 max-w-xl">
             Обновлённый минималистичный интерфейс: карточки, мягкие тени и
-            понятные действия. Пагинация и закладка действий теперь полностью на
-            стороне клиента.
+            понятные действия.
           </p>
         </div>
 
@@ -472,7 +644,69 @@ export default function FriendlyOrdersPanel() {
       </header>
 
       <section aria-label="summary">
-        <SummaryCard />
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg">
+            <div className="text-xs text-slate-500 uppercase tracking-wide">
+              Всего заказов
+            </div>
+            <div className="text-3xl font-semibold mt-3 text-slate-900">
+              {allOrders.length}
+            </div>
+            <div className="text-xs text-slate-400 mt-2">
+              Обновляется при загрузке
+            </div>
+          </div>
+          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg">
+            <div className="text-xs text-slate-500 uppercase tracking-wide">
+              Новые
+            </div>
+            <div className="text-3xl font-semibold mt-3 text-amber-600">
+              {
+                allOrders.filter(
+                  (o) => (o.status ?? '').toLowerCase() === 'new',
+                ).length
+              }
+            </div>
+            <div className="text-xs text-slate-400 mt-2">К работе</div>
+          </div>
+          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg">
+            <div className="text-xs text-slate-500 uppercase tracking-wide">
+              В работе
+            </div>
+            <div className="text-3xl font-semibold mt-3 text-sky-600">
+              {
+                allOrders.filter((o) => {
+                  const st = (o.status ?? '').toLowerCase();
+                  return (
+                    st === 'in_progress' ||
+                    st === 'in progress' ||
+                    st === 'processed'
+                  );
+                }).length
+              }
+            </div>
+            <div className="text-xs text-slate-400 mt-2">Заказы в процессе</div>
+          </div>
+          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg flex flex-col justify-between">
+            <div>
+              <div className="text-xs text-slate-500 flex items-center gap-2">
+                <Phone size={14} /> Контакты
+              </div>
+              <div className="text-lg font-medium mt-2 text-slate-800">
+                {allOrders.find((o) => o.contractorPhone)?.contractorPhone ??
+                  '—'}
+              </div>
+            </div>
+            <div className="text-xs text-slate-400 mt-3">
+              Ближайшая дата:{' '}
+              {humanDate(
+                allOrders.length
+                  ? (allOrders[0].dataStart ?? allOrders[0].createdAt)
+                  : null,
+              )}
+            </div>
+          </div>
+        </div>
       </section>
 
       {error && (
@@ -481,7 +715,6 @@ export default function FriendlyOrdersPanel() {
 
       <section>
         <div className="rounded-2xl">
-          {/* header */}
           <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-white/30">
             <div className="text-sm text-slate-700 font-medium">
               Список заказов
@@ -492,7 +725,6 @@ export default function FriendlyOrdersPanel() {
             </div>
           </div>
 
-          {/* rows */}
           <div className="divide-y divide-slate-100 bg-transparent">
             {loading ? (
               <div className="p-6 text-center text-slate-500">
@@ -511,7 +743,6 @@ export default function FriendlyOrdersPanel() {
                       <div className="text-xs">Заказ</div>
                       <div className="text-base">#{o.orderId}</div>
                     </div>
-
                     <div>
                       <div className="text-sm font-semibold text-slate-900">
                         {TYPE_LABEL[Number(o.typeProcessId ?? -1)] ??
@@ -537,11 +768,9 @@ export default function FriendlyOrdersPanel() {
                         o.status ??
                         '—'}
                     </div>
-
                     <div className="text-xs text-slate-500 hidden md:block">
                       {humanDate(o.dataStart)} — {humanDate(o.dataEnd)}
                     </div>
-
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => openModal(o)}
@@ -550,7 +779,6 @@ export default function FriendlyOrdersPanel() {
                         <Eye size={14} /> Просмотр
                       </button>
 
-                      {/* actions button container marked with data-actions-id */}
                       <div
                         data-actions-id={String(o.orderId)}
                         className="relative"
@@ -568,7 +796,7 @@ export default function FriendlyOrdersPanel() {
                           className="flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-600 text-white"
                           aria-expanded={openDropdownId === o.orderId}
                         >
-                          Действия <ChevronDown size={14} />
+                          Изменить статус <ChevronDown size={14} />
                         </button>
                       </div>
                     </div>
@@ -578,12 +806,10 @@ export default function FriendlyOrdersPanel() {
             )}
           </div>
 
-          {/* footer with client-side pagination controls */}
           <div className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white/30">
             <div className="text-sm text-slate-600">
               Показано {paginatedOrders.length} из {allOrders.length} заказ(ов)
             </div>
-
             <div className="flex items-center gap-2 flex-wrap">
               <label className="text-sm text-slate-500">Страница</label>
               <button
@@ -599,7 +825,6 @@ export default function FriendlyOrdersPanel() {
               >
                 ←
               </button>
-
               <input
                 type="text"
                 inputMode="numeric"
@@ -609,15 +834,12 @@ export default function FriendlyOrdersPanel() {
                 onBlur={() => commitPageInput()}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') commitPageInput();
-                  if (e.key === 'Escape') {
-                    setPageInput(String(page));
-                  }
+                  if (e.key === 'Escape') setPageInput(String(page));
                 }}
                 className="w-20 px-2 py-1 rounded-md border"
                 aria-label="page"
                 placeholder="1"
               />
-
               <button
                 onClick={() => {
                   setPage((p) => {
@@ -642,15 +864,12 @@ export default function FriendlyOrdersPanel() {
                 onBlur={() => commitPageSizeInput()}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') commitPageSizeInput();
-                  if (e.key === 'Escape') {
-                    setPageSizeInput(String(pageSize));
-                  }
+                  if (e.key === 'Escape') setPageSizeInput(String(pageSize));
                 }}
                 className="w-20 px-2 py-1 rounded-md border"
                 aria-label="pageSize"
                 placeholder="30"
               />
-
               <button
                 onClick={() => fetchOrders()}
                 className="px-3 py-1 rounded-md bg-white/70"
@@ -664,27 +883,27 @@ export default function FriendlyOrdersPanel() {
 
       {/* modal */}
       {selected && (
-        // Anchor modal to top (items-start) so content stays pinned near top instead of centering.
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 pt-12 bg-black/40"
+          className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 pt-12 bg-slate-900/40 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-white rounded-3xl w-full max-w-4xl overflow-auto shadow-2xl p-4 sm:p-6 max-h-[90vh]">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center text-2xl font-semibold text-emerald-700">
+          <div className="relative w-full max-w-5xl mx-auto flex flex-col bg-white/90 backdrop-blur-xl rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.18)] max-h-[90vh]">
+            {/* header */}
+            <div className="flex items-center justify-between gap-4 px-6 py-4 bg-gradient-to-r rounded-3xl from-emerald-50/60 to-white/40 shadow-sm flex-shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center text-2xl font-semibold text-emerald-800 shadow">
                   {String(selected.orderId).slice(-2)}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="text-xs text-slate-500">
                     Заказ #{selected.orderId}
                   </div>
-                  <div className="text-xl font-semibold mt-1">
+                  <div className="text-lg font-semibold text-slate-900 truncate">
                     {TYPE_LABEL[Number(selected.typeProcessId ?? -1)] ??
                       `Тип #${String(selected.typeProcessId ?? '—')}`}
                   </div>
-                  <div className="text-sm text-slate-500 mt-1 flex items-center gap-3">
+                  <div className="text-xs text-slate-500 mt-1 flex flex-wrap gap-3 items-center">
                     <span className="inline-flex items-center gap-1">
                       <Calendar size={14} /> {humanDate(selected.createdAt)}
                     </span>
@@ -704,12 +923,24 @@ export default function FriendlyOrdersPanel() {
                     selected.status ??
                     '—'}
                 </div>
+                <button
+                  onClick={() => {
+                    setSelected(null);
+                    setPendingStatus(null);
+                  }}
+                  aria-label="Close"
+                  className="h-9 w-9 rounded-full bg-white/70 hover:bg-white shadow-md hover:shadow-lg transition inline-flex items-center justify-center"
+                >
+                  ✕
+                </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 space-y-5">
-                <div className="rounded-2xl bg-white/70 p-4 shadow">
+            {/* body scrollable */}
+            <div className="overflow-auto p-5 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+              {/* main */}
+              <div className="lg:col-span-2 space-y-5">
+                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-xs text-slate-500">Контрактор</div>
@@ -720,7 +951,9 @@ export default function FriendlyOrdersPanel() {
                     <div className="text-right">
                       <div className="text-xs text-slate-500">Телефон</div>
                       <div className="text-sm font-medium mt-1 flex items-center gap-2">
-                        <span>{selected.contractorPhone ?? '—'}</span>
+                        <span className="truncate max-w-xs">
+                          {selected.contractorPhone ?? '—'}
+                        </span>
                         {selected.contractorPhone && (
                           <button
                             onClick={() => {
@@ -729,7 +962,7 @@ export default function FriendlyOrdersPanel() {
                               );
                               alert('Телефон скопирован');
                             }}
-                            className="text-xs text-emerald-600 inline-flex items-center gap-1"
+                            className="text-xs text-emerald-600 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50"
                           >
                             <Copy size={14} /> Копировать
                           </button>
@@ -747,7 +980,6 @@ export default function FriendlyOrdersPanel() {
                         {selected.materialsProvided ? 'Да' : 'Нет'}
                       </div>
                     </div>
-
                     <div>
                       <div className="text-xs text-slate-500">
                         Временные рамки
@@ -760,11 +992,11 @@ export default function FriendlyOrdersPanel() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-white/60 p-4 shadow">
-                  <div className="text-sm text-slate-600">
+                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="text-sm text-slate-600 mb-3">
                     Подробности заказа
                   </div>
-                  <div className="mt-3 text-sm text-slate-700">
+                  <div className="text-sm text-slate-700">
                     {renderKeyValueRows(selected, [
                       'orderId',
                       'contractorId',
@@ -781,8 +1013,49 @@ export default function FriendlyOrdersPanel() {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div className="rounded-2xl bg-white/60 p-4 shadow">
+              {/* right */}
+              <aside className="space-y-4">
+                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs text-slate-500">
+                      Назначение оператора
+                    </div>
+                    {selected.operatorId !== null && (
+                      <div className="text-xs text-emerald-600 font-semibold truncate">
+                        Текущий: {selected.operatorName ?? selected.firstName}
+                      </div>
+                    )}
+                  </div>
+
+                  <select
+                    value={selectedOperatorId ?? ''}
+                    onChange={(e) =>
+                      setSelectedOperatorId(
+                        e.target.value === '' ? null : Number(e.target.value),
+                      )
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-white shadow-inner text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                    disabled={
+                      operatorLoading || updatingId === selected.orderId
+                    }
+                  >
+                    <option value="">
+                      {operatorLoading ? 'Загрузка...' : 'Не назначен'}
+                    </option>
+                    {operators.map((op) => (
+                      <option
+                        key={op.id}
+                        value={String(op.id)}
+                      >{`${op.firstName} ${op.lastName} (${op.email})`}</option>
+                    ))}
+                  </select>
+
+                  <div className="text-xs text-slate-400 mt-2">
+                    Изменение оператора применится после нажатия «Подтвердить».
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
                   <div className="text-xs text-slate-500">Текущий статус</div>
                   <div className="mt-3">
                     <div
@@ -798,78 +1071,105 @@ export default function FriendlyOrdersPanel() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl bg-white p-4 shadow">
+                <div
+                  ref={statusRef}
+                  className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow relative"
+                >
                   <div className="text-xs text-slate-500 mb-2">
                     Выберите новый статус
                   </div>
-                  <div className="flex flex-col gap-2">
-                    {STATUS_OPTIONS.map((opt) => {
-                      const isSelected =
-                        (pendingStatus ?? selected.status) === opt.value;
-                      return (
-                        <button
-                          key={opt.value}
-                          onClick={() =>
-                            setPendingStatus((prev) =>
-                              prev === opt.value ? null : opt.value,
-                            )
-                          }
-                          className={`w-full text-left px-3 py-2 rounded-md text-sm ${isSelected ? 'bg-emerald-600 text-white' : 'bg-white/80 hover:bg-slate-50'}`}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setStatusOpen((s) => !s)}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white shadow-inner text-sm"
+                  >
+                    <span>
+                      {(pendingStatus ?? selected.status)
+                        ? (STATUS_OPTIONS.find(
+                            (x) =>
+                              x.value === (pendingStatus ?? selected.status),
+                          )?.label ??
+                          pendingStatus ??
+                          selected.status)
+                        : 'Не выбрано'}
+                    </span>
+                    <ChevronDown
+                      size={16}
+                      className={statusOpen ? 'transform rotate-180' : ''}
+                    />
+                  </button>
+
+                  {statusOpen && (
+                    <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg z-30 max-h-52 overflow-auto">
+                      <button
+                        onClick={() => {
+                          setPendingStatus(null);
+                          setStatusOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
+                      >
+                        Не выбрано
+                      </button>
+                      {STATUS_OPTIONS.map((opt) => {
+                        const isSelected =
+                          (pendingStatus ?? selected.status) === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            onClick={() => {
+                              setPendingStatus((prev) =>
+                                prev === opt.value ? null : opt.value,
+                              );
+                              setStatusOpen(false);
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm ${isSelected ? 'bg-emerald-600 text-white' : 'hover:bg-slate-50'}`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                <div className="rounded-2xl bg-white p-4 shadow">
+                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
                   <div className="text-xs text-slate-500 mb-2">Действия</div>
                   <div className="text-sm text-slate-700">
-                    Подтвердите изменение статуса внизу справа.
+                    Все выбранные изменения (назначение оператора и/или
+                    изменение статуса) будут применены при нажатии кнопки
+                    «Подтвердить».
                   </div>
                 </div>
-              </div>
+              </aside>
             </div>
 
-            {/* footer with Confirm + Close only (Confirm disabled until change) */}
-            <div className="mt-6 flex justify-end items-center gap-3">
+            {/* footer */}
+            <div className="bg-white/80 backdrop-blur px-6 py-4 flex items-center justify-end gap-3 shadow-[0_-10px_30px_rgba(0,0,0,0.06)]">
               <button
                 onClick={() => {
                   setSelected(null);
                   setPendingStatus(null);
                 }}
-                className="px-4 py-2 rounded-md bg-white/80"
+                className="px-4 py-2 rounded-xl bg-white/70 hover:bg-white shadow-md hover:shadow-lg transition"
               >
-                Закрыть
+                Отмена
               </button>
 
               <button
-                onClick={async () => {
-                  if (!pendingStatus || !selected) return;
-                  await handleConfirm();
-                }}
-                disabled={
-                  !pendingStatus ||
-                  pendingStatus === selected.status ||
-                  updatingId === selected.orderId
-                }
-                className={`px-4 py-2 rounded-md font-medium transition ${
-                  !pendingStatus ||
-                  pendingStatus === selected.status ||
-                  updatingId === selected.orderId
-                    ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                    : 'bg-emerald-600 text-white hover:brightness-95'
-                }`}
+                onClick={handleConfirm}
+                disabled={!hasChanges || updatingId === selected.orderId}
+                className={`px-5 py-2.5 rounded-xl font-medium transition-all ${!hasChanges || updatingId === selected.orderId ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 text-white shadow-md hover:shadow-lg hover:-translate-y-[1px]'}`}
               >
-                Подтвердить
+                {updatingId === selected.orderId
+                  ? 'Сохранение…'
+                  : 'Подтвердить'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Dropdown portal: rendered into body so it is always on top and not clipped */}
+      {/* actions dropdown portal */}
       {openDropdownId !== null && dropdownPos && typeof document !== 'undefined'
         ? createPortal(
             <div

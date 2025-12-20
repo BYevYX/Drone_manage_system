@@ -14,7 +14,7 @@ import {
 } from './steps';
 
 // Константа с адресом бэкенда
-const API_URL = 'https://droneagro.duckdns.org/v1/auth/register';
+const API_URL = 'https://droneagro.duckdns.org/api/auth/register';
 
 export default function MultiStepSignup() {
   const [step, setStep] = useState(1);
@@ -350,8 +350,8 @@ export default function MultiStepSignup() {
     setVerificationError('');
     setIsVerifying(true);
     try {
-      // GET /v1/auth/verify?code=123
-      const url = `https://droneagro.duckdns.org/v1/verification?code=${verificationCode}`;
+      // GET /api/auth/verify?code=123
+      const url = `https://droneagro.duckdns.org/api/verification?code=${verificationCode}`;
       const res = await axios.get(url);
       alert(res.data?.message || 'Почта подтверждена!');
       window.location.href = '/login';
@@ -367,7 +367,7 @@ export default function MultiStepSignup() {
   const handleResend = async () => {
     setIsResending(true);
     try {
-      // POST /v1/auth/resend with email
+      // POST /api/auth/resend with email
       const url = `${AUTH_BASE}/resend`;
       const res = await axios.post(url, { email });
       setServerMessage(res.data?.message || 'Код повторно отправлен');
