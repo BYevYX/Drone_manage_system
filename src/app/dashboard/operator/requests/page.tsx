@@ -243,8 +243,8 @@ function renderTableCard(name: string, rows: any[] | null): JSX.Element {
   );
 }
 
-/* DroneMock and getOrderedTables are unchanged (omitted here for brevity in comment) */
-interface DroneMock {
+/* Drone interface (based on API response) */
+interface Drone {
   droneId: number;
   droneName: string;
   batteryChargeTime: number;
@@ -264,68 +264,6 @@ interface DroneMock {
   imageKey: string;
   quantity: number;
 }
-const droneMocks: DroneMock[] = [
-  {
-    droneId: 1,
-    droneName: 'DJI Agras T50',
-    batteryChargeTime: 20,
-    flightTime: 25,
-    maxWindSpeed: 8,
-    maxFlightSpeed: 20,
-    maxWorkingSpeed: 8,
-    spraying: { id: 1, flowRate: 100, capacity: 8, width: 10 },
-    spreading: { id: 2, flowRate: 50, capacity: 6, width: 8 },
-    weight: 30,
-    liftCapacity: 10,
-    width: 1,
-    height: 0.8,
-    operatingTemperature: -10,
-    maxFlightHeight: 120,
-    rotationSpeed: 2000,
-    imageKey: '',
-    quantity: 2,
-  },
-  {
-    droneId: 2,
-    droneName: 'JOYANCE JT30L-606',
-    batteryChargeTime: 18,
-    flightTime: 22,
-    maxWindSpeed: 7,
-    maxFlightSpeed: 18,
-    maxWorkingSpeed: 7,
-    spraying: { id: 3, flowRate: 90, capacity: 6, width: 9 },
-    spreading: { id: 4, flowRate: 40, capacity: 5, width: 7 },
-    weight: 28,
-    liftCapacity: 8,
-    width: 0.9,
-    height: 0.7,
-    operatingTemperature: -10,
-    maxFlightHeight: 100,
-    rotationSpeed: 1900,
-    imageKey: '',
-    quantity: 1,
-  },
-  {
-    droneId: 3,
-    droneName: 'Topxgun FP600',
-    batteryChargeTime: 22,
-    flightTime: 28,
-    maxWindSpeed: 9,
-    maxFlightSpeed: 22,
-    maxWorkingSpeed: 9,
-    spraying: { id: 5, flowRate: 120, capacity: 10, width: 12 },
-    spreading: { id: 6, flowRate: 60, capacity: 8, width: 9 },
-    weight: 35,
-    liftCapacity: 12,
-    width: 1.1,
-    height: 0.9,
-    operatingTemperature: -10,
-    maxFlightHeight: 130,
-    rotationSpeed: 2100,
-    imageKey: '',
-    quantity: 3,
-  },
-];
 
 function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
   if (!tables) return [] as [string, any[] | null][];
@@ -395,7 +333,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
   const [calcInProgress, setCalcInProgress] = useState(false);
   const [calcProgress, setCalcProgress] = useState(0);
   const [modalImage, setModalImage] = useState<string | null>(null);
-  const [availableDrones] = useState<DroneMock[]>(droneMocks);
+  const [availableDrones, setAvailableDrones] = useState<Drone[]>([]);
+  const [loadingDrones, setLoadingDrones] = useState(false);
   const [selectedDroneIds, setSelectedDroneIds] = useState<number[]>([]);
   const [processingMode, setProcessingMode] = useState<
     'spraying' | 'spreading'
@@ -405,7 +344,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
   const [mergePlot2, setMergePlot2] = useState('');
 
   useEffect(() => {
-    loadOrders(); /* eslint-disable-next-line react-hooks/exhaustive-deps */
+    loadOrders();
+    loadDrones(); /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, []);
 
   useEffect(() => {
@@ -431,6 +371,27 @@ export default function OperatorOrdersWizard(): JSX.Element {
     if (body && !isFormData) headers['Content-Type'] = 'application/json';
     const merged = { ...(options.headers as any), ...headers };
     return fetch(url, { ...options, headers: merged });
+  };
+
+  const loadDrones = async () => {
+    setLoadingDrones(true);
+    try {
+      // Использование limit=100 и page=1 в качестве параметров по умолчанию
+      const res = await authFetch(`${API_BASE}/api/drones?limit=100&page=1`);
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const arr = Array.isArray(data.drones) ? data.drones : [];
+        setAvailableDrones(arr as Drone[]);
+      } else {
+        console.error('Failed to load drones', res.status);
+        setAvailableDrones([]);
+      }
+    } catch (e) {
+      console.error('loadDrones error', e);
+      setAvailableDrones([]);
+    } finally {
+      setLoadingDrones(false);
+    }
   };
 
   // load orders and then check inputs for each order
