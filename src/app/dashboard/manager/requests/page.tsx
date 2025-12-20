@@ -1049,10 +1049,6 @@ export default function FriendlyOrdersPanel() {
                       >{`${op.firstName} ${op.lastName} (${op.email})`}</option>
                     ))}
                   </select>
-
-                  <div className="text-xs text-slate-400 mt-2">
-                    Изменение оператора применится после нажатия «Подтвердить».
-                  </div>
                 </div>
 
                 <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
@@ -1068,76 +1064,6 @@ export default function FriendlyOrdersPanel() {
                         selected.status ??
                         '—'}
                     </div>
-                  </div>
-                </div>
-
-                <div
-                  ref={statusRef}
-                  className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow relative"
-                >
-                  <div className="text-xs text-slate-500 mb-2">
-                    Выберите новый статус
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setStatusOpen((s) => !s)}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white shadow-inner text-sm"
-                  >
-                    <span>
-                      {(pendingStatus ?? selected.status)
-                        ? (STATUS_OPTIONS.find(
-                            (x) =>
-                              x.value === (pendingStatus ?? selected.status),
-                          )?.label ??
-                          pendingStatus ??
-                          selected.status)
-                        : 'Не выбрано'}
-                    </span>
-                    <ChevronDown
-                      size={16}
-                      className={statusOpen ? 'transform rotate-180' : ''}
-                    />
-                  </button>
-
-                  {statusOpen && (
-                    <div className="absolute left-0 right-0 mt-2 bg-white rounded-xl shadow-lg z-30 max-h-52 overflow-auto">
-                      <button
-                        onClick={() => {
-                          setPendingStatus(null);
-                          setStatusOpen(false);
-                        }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50"
-                      >
-                        Не выбрано
-                      </button>
-                      {STATUS_OPTIONS.map((opt) => {
-                        const isSelected =
-                          (pendingStatus ?? selected.status) === opt.value;
-                        return (
-                          <button
-                            key={opt.value}
-                            onClick={() => {
-                              setPendingStatus((prev) =>
-                                prev === opt.value ? null : opt.value,
-                              );
-                              setStatusOpen(false);
-                            }}
-                            className={`w-full text-left px-3 py-2 text-sm ${isSelected ? 'bg-emerald-600 text-white' : 'hover:bg-slate-50'}`}
-                          >
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-xs text-slate-500 mb-2">Действия</div>
-                  <div className="text-sm text-slate-700">
-                    Все выбранные изменения (назначение оператора и/или
-                    изменение статуса) будут применены при нажатии кнопки
-                    «Подтвердить».
                   </div>
                 </div>
               </aside>

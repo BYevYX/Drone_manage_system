@@ -32,6 +32,7 @@ export interface Drone {
   maxFlightHeight: number;
   rotationSpeed: number;
   imageKey: string | null;
+  quantity: number;
 }
 
 export interface DroneListResponse {
@@ -63,6 +64,7 @@ export interface CreateDroneRequest {
   maxFlightHeight: number;
   rotationSpeed: number;
   imageKey?: string | null;
+  quantity: number;
 }
 
 export interface UpdateDroneRequest extends CreateDroneRequest {

@@ -75,6 +75,31 @@ const RoleConfig = {
       },
     ],
   },
+  operator: {
+    menu: [
+      {
+        id: 'operator/requests',
+        icon: <ClipboardList size={20} />,
+        label: 'Мои заявки',
+      },
+    ],
+    stats: [
+      { title: 'Активные заявки', value: 3, color: 'bg-blue-100', trend: 'up' },
+      {
+        title: 'Обработано (га)',
+        value: 45,
+        color: 'bg-green-100',
+        trend: 'up',
+      },
+      { title: 'Поля', value: 7, color: 'bg-emerald-100', trend: 'stable' },
+      {
+        title: 'Внесено удобрений (т)',
+        value: 12,
+        color: 'bg-yellow-100',
+        trend: 'down',
+      },
+    ],
+  },
 
   manager: {
     menu: [
@@ -314,10 +339,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     SUPPLIER: 'material_supplier',
     DRONE_SUPPLIER: 'drone_supplier',
     MATERIAL_SUPPLIER: 'material_supplier',
+    OPERATOR: 'operator',
     // Поддержка старых значений в нижнем регистре
     customer: 'contractor',
     contractor: 'contractor',
     manager: 'manager',
+    operator: 'operator',
     supplier: 'material_supplier',
     drone_supplier: 'drone_supplier',
     material_supplier: 'material_supplier',
@@ -445,7 +472,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </motion.aside>
 
           {/* Main */}
-          <main className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 flex flex-col overflow-hidden z-1000 pb-[130px]">
             <header className="flex items-center justify-between h-16 px-6 bg-white border-b border-gray-100 shadow-sm py-[15px]">
               <h2 className="text-xl font-semibold capitalize">
                 {roleData.menu.find((m) => m.id === activeMenu)?.label ??

@@ -560,6 +560,7 @@ function AddDroneModal({
   );
   const [maxFlightHeight, setMaxFlightHeight] = useState<number | ''>('');
   const [rotationSpeed, setRotationSpeed] = useState<number | ''>('');
+  const [quantity, setQuantity] = useState<number | ''>('');
 
   // Spraying system
   const [sprayingFlowRate, setSprayingFlowRate] = useState<number | ''>('');
@@ -586,6 +587,7 @@ function AddDroneModal({
       setOperatingTemperature('');
       setMaxFlightHeight('');
       setRotationSpeed('');
+      setQuantity('');
       setSprayingFlowRate('');
       setSprayingCapacity('');
       setSprayingWidth('');
@@ -595,7 +597,11 @@ function AddDroneModal({
     }
   }, [open]);
 
-  const canSend = droneName.trim() && flightTime !== '';
+  const canSend =
+    droneName.trim() &&
+    flightTime !== '' &&
+    quantity !== '' &&
+    Number(quantity) > 0;
 
   return (
     <motion.div
@@ -963,6 +969,22 @@ function AddDroneModal({
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-100 text-black"
                 />
               </div>
+              {/* Quantity Field */}
+              <div>
+                <label className="text-sm text-gray-600 block mb-1">
+                  Количество (шт.) *
+                </label>
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) =>
+                    setQuantity(
+                      e.target.value === '' ? '' : Number(e.target.value),
+                    )
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-100 text-black"
+                />
+              </div>
             </div>
           </div>
 
@@ -1002,6 +1024,7 @@ function AddDroneModal({
                 maxFlightHeight:
                   maxFlightHeight === '' ? 0 : Number(maxFlightHeight),
                 rotationSpeed: rotationSpeed === '' ? 0 : Number(rotationSpeed),
+                quantity: quantity === '' ? 0 : Number(quantity), // Новое поле
                 spraying: {
                   flowRate:
                     sprayingFlowRate === '' ? 0 : Number(sprayingFlowRate),
@@ -1073,6 +1096,7 @@ function EditDroneModal({
   const [rotationSpeed, setRotationSpeed] = useState<number | ''>(
     drone.rotationSpeed,
   );
+  const [quantity, setQuantity] = useState<number | ''>(drone.quantity);
 
   // Spraying system
   const [sprayingFlowRate, setSprayingFlowRate] = useState<number | ''>(
@@ -1102,7 +1126,11 @@ function EditDroneModal({
     drone.imageKey,
   );
 
-  const canSend = droneName.trim() && flightTime !== '';
+  const canSend =
+    droneName.trim() &&
+    flightTime !== '' &&
+    quantity !== '' &&
+    Number(quantity) > 0;
 
   // Image upload functions
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1772,6 +1800,22 @@ function EditDroneModal({
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-100 text-black"
                 />
               </div>
+              {/* Quantity Field */}
+              <div>
+                <label className="text-sm text-gray-600 block mb-1">
+                  Количество (шт.) *
+                </label>
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) =>
+                    setQuantity(
+                      e.target.value === '' ? '' : Number(e.target.value),
+                    )
+                  }
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-100 text-black"
+                />
+              </div>
             </div>
           </div>
 
@@ -1864,6 +1908,7 @@ function EditDroneModal({
                 maxFlightHeight:
                   maxFlightHeight === '' ? 0 : Number(maxFlightHeight),
                 rotationSpeed: rotationSpeed === '' ? 0 : Number(rotationSpeed),
+                quantity: quantity === '' ? 0 : Number(quantity),
                 spraying:
                   sprayingFlowRate !== '' &&
                   sprayingCapacity !== '' &&

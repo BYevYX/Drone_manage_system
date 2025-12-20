@@ -81,7 +81,7 @@ export default function ProfileModernPage() {
     setError(null);
     try {
       const token = getToken();
-      const res = await client.get<MeResponse>('/v1/me', {
+      const res = await client.get<MeResponse>('/api/me', {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       setMe(res.data);

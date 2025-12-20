@@ -47,9 +47,9 @@ export default function SettingsPage() {
     setLoadingProfile(true);
     try {
       const token = getToken();
-      // try /v1/me first (safer) then fallback to localStorage values
+      // try /api/me first (safer) then fallback to localStorage values
       if (token) {
-        const res = await client.get('/v1/me', {
+        const res = await client.get('/api/me', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setForm(res.data || {});
@@ -166,15 +166,15 @@ export default function SettingsPage() {
 
       let res;
       if (token) {
-        // prefer PUT to /v1/users/{id} if id known
+        // prefer PUT to /api/users/{id} if id known
         const id = form.id || getIdFromLS();
         if (id) {
-          res = await client.put(`/v1/users/${id}`, payload, {
+          res = await client.put(`/api/users/${id}`, payload, {
             headers: { Authorization: `Bearer ${token}` },
           });
         } else {
-          // fallback to /v1/me if server supports it
-          res = await client.put('/v1/me', payload, {
+          // fallback to /api/me if server supports it
+          res = await client.put('/api/me', payload, {
             headers: { Authorization: `Bearer ${token}` },
           });
         }
@@ -218,7 +218,7 @@ export default function SettingsPage() {
     try {
       const email = getEmailFromLS();
       if (!email) throw new Error('Email не найден в localStorage');
-      const res = await client.post('/v1/auth/forgot-password', { email });
+      const res = await client.post('/api/auth/forgot-password', { email });
       setMessage('Код отправлен на почту');
       setStep('reset');
     } catch (err: any) {
@@ -246,7 +246,7 @@ export default function SettingsPage() {
     try {
       const email = getEmailFromLS();
       if (!email) throw new Error('Email не найден в localStorage');
-      await client.post('/v1/auth/reset-password', {
+      await client.post('/api/auth/reset-password', {
         email,
         code,
         newPassword,
