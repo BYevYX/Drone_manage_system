@@ -617,10 +617,6 @@ export default function FriendlyOrdersPanel() {
           <h1 className="text-2xl font-nekstmedium text-slate-900">
             Панель заказов — Менеджер
           </h1>
-          <p className="text-sm text-slate-600 mt-1 max-w-xl">
-            Обновлённый минималистичный интерфейс: карточки, мягкие тени и
-            понятные действия.
-          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -655,7 +651,7 @@ export default function FriendlyOrdersPanel() {
               {allOrders.length}
             </div>
             <div className="text-xs text-slate-400 mt-2">
-              Обновляется при загрузке
+              Общее кол-во заказов
             </div>
           </div>
           <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg">

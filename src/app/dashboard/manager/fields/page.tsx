@@ -607,9 +607,7 @@ export default function FieldsManager() {
                         <div className="font-nekstmedium text-gray-700">
                           Загрузить изображение
                         </div>
-                        <div className="text-xs text-gray-400">
-                          JPG / PNG · отправка в base64
-                        </div>
+                        <div className="text-xs text-gray-400">JPG / PNG</div>
                       </button>
                     ) : (
                       <div className="relative">

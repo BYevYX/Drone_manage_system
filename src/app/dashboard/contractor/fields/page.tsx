@@ -28,8 +28,7 @@ import {
  * - ESC closes modals (add / detail / edit / delete) unless an update is in progress
  * - clicking on a card opens a styled detail modal (like manager)
  * - edit icon is Edit2 (same as manager)
- *
- * Other visual styles preserved.
+ * - AUTOFILL / AUTOFORMAT for cadastral number: 2:2:7:4 parts -> XX:XX:XXXXXXX:XXXX
  */
 
 const API_BASE = 'https://droneagro.duckdns.org';
@@ -40,6 +39,27 @@ type FieldItem = {
   cadastralNumber: string;
   mapFile?: string | null;
 };
+
+// cadastral mask parts: 2:2:7:4 (example 12:34:1234567:8901)
+const CAD_PARTS = [2, 2, 7, 4];
+const CAD_MAX_DIGITS = CAD_PARTS.reduce((a, b) => a + b, 0);
+
+function formatCadastralDigits(digits: string) {
+  const parts: string[] = [];
+  let idx = 0;
+  for (const len of CAD_PARTS) {
+    if (idx >= digits.length) break;
+    parts.push(digits.slice(idx, idx + len));
+    idx += len;
+  }
+  return parts.join(':');
+}
+
+function sanitizeAndFormat(input = '') {
+  // remove non-digits, limit length, then format into parts with colons
+  const digits = input.replace(/\D/g, '').slice(0, CAD_MAX_DIGITS);
+  return formatCadastralDigits(digits);
+}
 
 export default function FieldsManager() {
   const [allFields, setAllFields] = useState<FieldItem[]>([]);
@@ -309,7 +329,8 @@ export default function FieldsManager() {
 
   const handleEditOpen = (field: FieldItem) => {
     setEditingField(field);
-    setEditCadastral(field.cadastralNumber);
+    // pre-format when opening editor
+    setEditCadastral(sanitizeAndFormat(field.cadastralNumber || ''));
     setEditMapFileDataUrl(field.mapFile || null);
     setEditMapFileBase64(null);
   };
@@ -420,8 +441,26 @@ export default function FieldsManager() {
     }
   };
 
+  // uniform icon button class (small icon buttons)
   const iconBtn =
     'w-10 h-10 flex items-center justify-center rounded-full bg-white shadow-md hover:bg-gray-50';
+
+  // ---------- cadastral input handlers ----------
+  const onCadastralChange = (val: string) =>
+    setCadastral(sanitizeAndFormat(val));
+  const onEditCadastralChange = (val: string) =>
+    setEditCadastral(sanitizeAndFormat(val));
+
+  const onPasteDigitsOnly = (
+    e: React.ClipboardEvent<HTMLInputElement>,
+    setter: (v: string) => void,
+  ) => {
+    const text = e.clipboardData.getData('text');
+    const sanitized = sanitizeAndFormat(text);
+    e.preventDefault();
+    setter(sanitized);
+  };
+  // ------------------------------------------------
 
   return (
     <div className="max-w-7xl mx-auto p-6 font-nekstregular">
@@ -469,7 +508,7 @@ export default function FieldsManager() {
           ? Array.from({ length: limit }).map((_, i) => (
               <div
                 key={i}
-                className="animate-pulse rounded-3xl bg-white/60 p-4 h-72"
+                className="animate-pulse rounded-3xl bg-white/60 p-6 h-72"
               />
             ))
           : fields.map((f) => (
@@ -622,7 +661,10 @@ export default function FieldsManager() {
                   <div className="relative">
                     <input
                       value={cadastral}
-                      onChange={(e) => setCadastral(e.target.value)}
+                      onChange={(e) => onCadastralChange(e.target.value)}
+                      onPaste={(e) =>
+                        onPasteDigitsOnly(e, (v) => setCadastral(v))
+                      }
                       placeholder="12:34:1234567:8901"
                       className="w-full px-5 py-4 rounded-2xl bg-white font-nekstmedium text-gray-900 placeholder:text-gray-400 shadow-[0_10px_28px_rgba(0,0,0,0.08)] focus:shadow-[0_16px_40px_rgba(16,185,129,0.18)] focus:outline-none transition-all duration-300"
                     />
@@ -656,9 +698,7 @@ export default function FieldsManager() {
                         <div className="font-nekstmedium text-gray-700">
                           Загрузить изображение
                         </div>
-                        <div className="text-xs text-gray-400">
-                          JPG / PNG · отправка в base64
-                        </div>
+                        <div className="text-xs text-gray-400">JPG / PNG</div>
                       </button>
                     ) : (
                       <div className="relative">
@@ -852,7 +892,10 @@ export default function FieldsManager() {
                   </label>
                   <input
                     value={editCadastral}
-                    onChange={(e) => setEditCadastral(e.target.value)}
+                    onChange={(e) => onEditCadastralChange(e.target.value)}
+                    onPaste={(e) =>
+                      onPasteDigitsOnly(e, (v) => setEditCadastral(v))
+                    }
                     placeholder="12:34:1234567:8901"
                     className="w-full px-4 py-3 rounded-2xl font-nekstmedium bg-gray-50 outline-none focus:bg-white focus:shadow-[0_0_0_3px_rgba(16,185,129,0.12)] transition"
                   />
