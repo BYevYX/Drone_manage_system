@@ -7,6 +7,9 @@ import {
   useState,
 } from 'react';
 
+// Типы для фильтрации ввода
+export type InputFilter = 'digits' | 'letters' | 'none';
+
 export interface Step2Data {
   type: 'company' | 'individual' | 'person';
   inn: string;
@@ -118,7 +121,7 @@ export function RoleSelect({ value, onChange, error }: any) {
 }
 
 interface InputProps {
-  label: string;
+  label: string | ReactNode;
   id: string;
   placeholder?: string;
   type?: string;
@@ -127,6 +130,9 @@ interface InputProps {
   onChange: ChangeEventHandler<HTMLInputElement>;
   error: boolean;
   rightIcon?: ReactNode;
+  filter?: InputFilter; // Фильтр ввода: 'digits' | 'letters' | 'none'
+  maxLength?: number; // Максимальная длина
+  errorMessage?: string; // Кастомное сообщение об ошибке
 }
 
 export function Input({
@@ -139,7 +145,38 @@ export function Input({
   onChange,
   error,
   rightIcon,
+  filter = 'none',
+  maxLength,
+  errorMessage,
 }: InputProps) {
+  // Обработчик с фильтрацией
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let newValue = e.target.value;
+
+    // Применяем фильтр
+    if (filter === 'digits') {
+      newValue = newValue.replace(/\D/g, '');
+    } else if (filter === 'letters') {
+      newValue = newValue.replace(/[^а-яА-ЯёЁa-zA-Z\s\-]/g, '');
+    }
+
+    // Применяем ограничение длины
+    if (maxLength && newValue.length > maxLength) {
+      newValue = newValue.slice(0, maxLength);
+    }
+
+    // Создаём новое событие с отфильтрованным значением
+    const syntheticEvent = {
+      ...e,
+      target: {
+        ...e.target,
+        value: newValue,
+      },
+    } as React.ChangeEvent<HTMLInputElement>;
+
+    onChange(syntheticEvent);
+  };
+
   return (
     <div>
       <label htmlFor={id} className="block font-nekstlight text-black mb-1">
@@ -154,17 +191,17 @@ export function Input({
           id={id}
           placeholder={placeholder}
           value={value}
-          onChange={onChange}
+          onChange={handleChange}
+          maxLength={maxLength}
           className="flex-1 bg-transparent outline-none text-[18px] text-black font-nekstmedium"
-          required
           aria-invalid={error ? 'true' : 'false'}
           aria-describedby={error ? `${id}-error` : undefined}
         />
         {rightIcon && <span className="ml-2 text-black">{rightIcon}</span>}
       </div>
-      {error && (
+      {error && errorMessage && (
         <div id={`${id}-error`} className="text-red-500 text-xs mt-1">
-          Некорректное значение
+          {errorMessage}
         </div>
       )}
     </div>

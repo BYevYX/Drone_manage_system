@@ -14,12 +14,20 @@ import {
   Save,
   X,
 } from 'lucide-react';
+import {
+  syncFieldMappings,
+  getLocalId,
+  getDisplayId,
+} from '../utils/fieldIdMapper';
 
 /** Types */
 interface Request {
   id: number;
   date: string;
+  dateFrom?: string;
+  dateTo?: string;
   field: string;
+  fieldLocalId?: number;
   crop?: string;
   type: string;
   area?: number;
@@ -49,7 +57,8 @@ interface Request {
 }
 
 interface FieldModel {
-  fieldId: number;
+  fieldId: number; // глобальный ID из БД
+  localId?: number; // локальный ID для отображения
   cadastralNumber?: string | null;
   mapFile?: string | null;
 }
@@ -294,10 +303,15 @@ export default function RequestsWithEditor({
   const [contractor, setContractor] = useState<UserModel | null>(null);
   const [dropdownFieldOpen, setDropdownFieldOpen] = useState(false);
   const [dropdownTypeOpen, setDropdownTypeOpen] = useState(false);
+  const [loadingFieldNames, setLoadingFieldNames] = useState<Set<number>>(
+    new Set(),
+  );
 
   const [form, setForm] = useState({
     id: 0,
     date: '',
+    dateFrom: '',
+    dateTo: '',
     field: 'Выберите поле',
     selectedFieldId: -1 as number,
     type: 'Выберите тип обработки',
@@ -357,7 +371,19 @@ export default function RequestsWithEditor({
       );
       if (!res.ok) throw new Error(`Ошибка получения полей (${res.status})`);
       const data = await res.json();
-      setFieldsList(Array.isArray(data.fields) ? data.fields : []);
+      const fields = Array.isArray(data.fields) ? data.fields : [];
+
+      // Синхронизируем маппинги с полученными полями
+      const globalIds = fields.map((f: any) => f.fieldId);
+      syncFieldMappings(globalIds);
+
+      // Добавляем локальные ID к полям
+      const fieldsWithLocalIds = fields.map((f: any) => ({
+        ...f,
+        localId: getLocalId(f.fieldId) ?? undefined,
+      }));
+
+      setFieldsList(fieldsWithLocalIds);
     } catch (e) {
       console.error(e);
     }
@@ -395,6 +421,31 @@ export default function RequestsWithEditor({
   const fetchOrders = async (page = 1, limit = 100) => {
     try {
       const userId = localStorage.getItem('userId');
+
+      // Сначала получаем актуальный список полей
+      const fieldsRes = await authFetch(
+        `${API_BASE}/api/fields-by-user?userId=${userId}`,
+      );
+      let currentFieldsList: FieldModel[] = [];
+      if (fieldsRes.ok) {
+        const fieldsData = await fieldsRes.json();
+        const fields = Array.isArray(fieldsData.fields)
+          ? fieldsData.fields
+          : [];
+        const globalIds = fields.map((f: any) => f.fieldId);
+        syncFieldMappings(globalIds);
+        currentFieldsList = fields.map((f: any) => ({
+          ...f,
+          localId: getLocalId(f.fieldId) ?? undefined,
+        }));
+        setFieldsList(currentFieldsList);
+        console.log(
+          '[fetchOrders] Загружено полей:',
+          currentFieldsList.length,
+          currentFieldsList,
+        );
+      }
+
       const res = await authFetch(`${API_BASE}/api/orders/${userId}`);
       if (!res.ok) {
         console.warn(`Ошибка получения заявок (${res.status})`);
@@ -405,10 +456,15 @@ export default function RequestsWithEditor({
       const arr = Array.isArray(data.orders) ? data.orders : [];
       const baseRequests: Request[] = arr.map((o: any) => {
         const id = Number(o.orderId ?? o.id ?? Math.floor(Math.random() * 1e6));
-        const rawDate = o.dataStart ?? o.dataEnd ?? o.createdAt;
-        const dateIso = rawDate
-          ? new Date(rawDate).toISOString().slice(0, 10)
+        const rawDateStart = o.dataStart ?? o.createdAt;
+        const rawDateEnd = o.dataEnd ?? o.dataStart ?? o.createdAt;
+        const dateFromIso = rawDateStart
+          ? new Date(rawDateStart).toISOString().slice(0, 10)
           : new Date().toISOString().slice(0, 10);
+        const dateToIso = rawDateEnd
+          ? new Date(rawDateEnd).toISOString().slice(0, 10)
+          : dateFromIso;
+        const dateIso = dateFromIso; // для обратной совместимости
         const typeLabel = o.typeProcessId
           ? typeProcessIdToLabel(Number(o.typeProcessId))
           : (o.type ?? 'Неизвестно');
@@ -424,15 +480,15 @@ export default function RequestsWithEditor({
         const metadataObj =
           o.metadata ?? (o.extraMetadata ? o.extraMetadata : undefined);
         const coords = Array.isArray(o.coords) ? o.coords : [];
-        const initialFieldName =
-          o.fieldName ??
-          o.field ??
-          (o.metadata && o.metadata.name) ??
-          `ID:${o.fieldId ?? id}`;
+        // Изначально ставим прочерк, пока не загрузим имя поля
+        const initialFieldName = '—';
         return {
           id,
           date: dateIso,
+          dateFrom: dateFromIso,
+          dateTo: dateToIso,
           field: initialFieldName,
+          fieldLocalId: undefined,
           type: typeLabel,
           status: stat,
           coords,
@@ -446,29 +502,59 @@ export default function RequestsWithEditor({
       });
       setRequests(baseRequests);
 
+      // Отмечаем, что загружаем имена полей
+      const orderIds = baseRequests.map((r) => r.id);
+      setLoadingFieldNames(new Set(orderIds));
+
+      // Асинхронно загружаем имена полей
       const updates = await Promise.all(
         baseRequests.map(async (r) => {
           const fids = await fetchOrderFields(r.id);
-          if (!fids.length) return null;
+          if (!fids.length) {
+            console.log(`[fetchOrders] Заявка #${r.id}: поля не найдены`);
+            return { orderId: r.id, fieldId: null, name: '—' };
+          }
           const fid = fids[0];
-          const f = fieldsList.find((x) => x.fieldId === fid);
-          const name = f
-            ? (f.cadastralNumber ?? `ID: #${f.fieldId}`)
-            : `ID: #${fid}`;
-          return { orderId: r.id, fieldId: fid, name };
+          const f = currentFieldsList.find((x) => x.fieldId === fid);
+
+          console.log(
+            `[fetchOrders] Заявка #${r.id}: fieldId=${fid}, найдено поле:`,
+            f,
+          );
+
+          // Формируем имя в формате: "Кадастровый номер (ID: локальный_id)"
+          // Если кадастрового номера нет - показываем прочерк
+          let name: string;
+          let localId: number | null = null;
+          if (f && f.cadastralNumber) {
+            localId = f.localId ?? getLocalId(fid);
+            const displayId = localId !== null ? localId : fid;
+            name = `${f.cadastralNumber} (ID: ${displayId})`;
+            console.log(`[fetchOrders] Заявка #${r.id}: имя="${name}"`);
+          } else {
+            name = '—';
+            console.log(
+              `[fetchOrders] Заявка #${r.id}: кадастровый номер отсутствует, показываем прочерк`,
+            );
+          }
+
+          return { orderId: r.id, fieldId: fid, name, localId };
         }),
       );
 
+      // Обновляем имена полей
       const updated = baseRequests.map((r) => {
         const u = updates.find((x) => x && x.orderId === r.id) as any;
-        if (!u) return r;
+        if (!u) return { ...r, field: '—', fieldLocalId: undefined };
         return {
           ...r,
           field: u.name,
+          fieldLocalId: u.localId ?? undefined,
           metadata: { ...(r.metadata ?? {}), name: u.name },
         };
       });
       setRequests(updated);
+      setLoadingFieldNames(new Set());
     } catch (e) {
       console.error(e);
       setRequests([]);
@@ -566,8 +652,11 @@ export default function RequestsWithEditor({
 
   useEffect(() => {
     (async () => {
+      // Сначала загружаем поля, потом заявки (чтобы fieldsList был заполнен)
       await fetchFields();
       await fetchContractorFromLocalStorage();
+      // Небольшая задержка, чтобы state успел обновиться
+      await new Promise((resolve) => setTimeout(resolve, 100));
       await fetchOrders();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -578,6 +667,8 @@ export default function RequestsWithEditor({
       setForm({
         id: editingRequest.id,
         date: editingRequest.date,
+        dateFrom: editingRequest.dateFrom || editingRequest.date,
+        dateTo: editingRequest.dateTo || editingRequest.date,
         field: editingRequest.field,
         selectedFieldId: -1,
         type: editingRequest.type,
@@ -587,10 +678,13 @@ export default function RequestsWithEditor({
       setPreview(editingRequest.preview ?? null);
       setMetadata(editingRequest.metadata ?? null);
     } else {
+      const today = new Date().toISOString().slice(0, 10);
       setForm((s) => ({
         ...s,
         id: 0,
-        date: new Date().toISOString().slice(0, 10),
+        date: today,
+        dateFrom: today,
+        dateTo: today,
         field: 'Выберите поле',
         selectedFieldId: -1,
         type: 'Выберите тип обработки',
@@ -666,7 +760,7 @@ export default function RequestsWithEditor({
       !form.type ||
       form.type === 'Выберите тип обработки'
     ) {
-      alert('Выберите поле и тип обработки');
+      alert('Выберите поле и тип обработения');
       return;
     }
 
@@ -693,22 +787,6 @@ export default function RequestsWithEditor({
       return;
     }
 
-    // proceed to create order
-    const payloadRequest: Request = {
-      id: tempOrderId,
-      date: form.date,
-      field: form.field,
-      type: form.type,
-      status: form.status,
-      metadata: metadata ?? undefined,
-      preview: preview ?? undefined,
-    };
-    setRequests((prev) =>
-      isNew
-        ? [payloadRequest, ...prev]
-        : prev.map((p) => (p.id === payloadRequest.id ? payloadRequest : p)),
-    );
-
     let createdOrderId: number | null = null;
     const errors: string[] = [];
 
@@ -716,8 +794,8 @@ export default function RequestsWithEditor({
       const body: any = {
         typeProcessId: typeToId(form.type),
         status: 'In progress',
-        dataStart: new Date(form.date).toISOString(),
-        dataEnd: new Date(form.date).toISOString(),
+        dataStart: new Date(form.dateFrom || form.date).toISOString(),
+        dataEnd: new Date(form.dateTo || form.date).toISOString(),
         materialsProvided: Boolean(form.materialsProvided),
       };
       if (contractor?.id) body.contractorId = contractor.id;
@@ -740,16 +818,6 @@ export default function RequestsWithEditor({
         if (latest) createdOrderId = latest;
         else
           console.warn('Не удалось определить orderId после создания заказа');
-      }
-
-      if (createdOrderId) {
-        setRequests((prev) =>
-          prev.map((r) =>
-            r.id === payloadRequest.id
-              ? { ...r, id: createdOrderId as number }
-              : r,
-          ),
-        );
       }
 
       const selFieldId = (form as any).selectedFieldId;
@@ -775,6 +843,7 @@ export default function RequestsWithEditor({
       } else {
         console.warn('saveForm completed with errors', errors);
         alert('Частично успешно: ' + errors.join('; '));
+        await fetchOrders();
       }
     } catch (e: any) {
       console.error('saveForm error', e);
@@ -929,41 +998,43 @@ export default function RequestsWithEditor({
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-3xl shadow-lg overflow-hidden border border-gray-100">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    №
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Дата
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Поле
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Тип
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Статус
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Действия
-                  </th>
+                  {[
+                    '№',
+                    'Период выполнения',
+                    'Поле (ID)',
+                    'Тип',
+                    'Статус',
+                    'Действия',
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-6 py-3 text-left text-xs font-nekstmedium text-gray-500 uppercase tracking-wider"
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filtered.map((request) => {
                   const badge = renderStatusBadge(request.status);
                   return (
-                    <tr key={request.id} className="hover:bg-gray-50">
+                    <tr
+                      key={request.id}
+                      className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         #{request.id}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(request.date).toLocaleDateString()}
+                        {request.dateFrom && request.dateTo
+                          ? `${new Date(request.dateFrom).toLocaleDateString()} - ${new Date(request.dateTo).toLocaleDateString()}`
+                          : new Date(request.date).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {request.field}
@@ -973,10 +1044,7 @@ export default function RequestsWithEditor({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span
-                          className={cn(
-                            'px-2 py-1 text-xs rounded-full',
-                            badge.cls,
-                          )}
+                          className={`px-2 py-1 text-xs rounded-full font-nekstmedium ${badge.cls}`}
                         >
                           {badge.text}
                         </span>
@@ -984,14 +1052,14 @@ export default function RequestsWithEditor({
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
                           <button
-                            className="text-emerald-600 hover:text-emerald-900"
+                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white shadow hover:shadow-lg transition focus:outline-none focus:ring-2 focus:ring-emerald-400"
                             onClick={() => setViewRequest(request)}
                             title="Просмотр"
                           >
                             <Eye size={18} />
                           </button>
                           <button
-                            className="text-blue-600 hover:text-blue-900"
+                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white shadow hover:shadow-lg transition focus:outline-none focus:ring-2 focus:ring-blue-400"
                             onClick={() => openEdit(request)}
                             title="Редактировать"
                           >
@@ -1000,11 +1068,11 @@ export default function RequestsWithEditor({
                           {(request.status === 'new' ||
                             request.status === 'in_progress') && (
                             <button
-                              className="text-red-600 hover:text-red-900"
+                              className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white shadow hover:shadow-lg transition focus:outline-none focus:ring-2 focus:ring-red-400"
                               onClick={() => deleteRequest(request.id)}
                               title="Удалить"
                             >
-                              <Trash2 size={18} />
+                              <Trash2 size={18} className="text-red-600" />
                             </button>
                           )}
                         </div>
@@ -1023,10 +1091,10 @@ export default function RequestsWithEditor({
               <span className="font-medium">{requests.length}</span>
             </div>
             <div className="flex space-x-2">
-              <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+              <button className="px-3 py-1 rounded-2xl bg-white border border-gray-200 shadow hover:shadow-lg text-sm font-medium text-gray-700 transition focus:outline-none focus:ring-2 focus:ring-gray-300">
                 Назад
               </button>
-              <button className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+              <button className="px-3 py-1 rounded-2xl bg-white border border-gray-200 shadow hover:shadow-lg text-sm font-medium text-gray-700 transition focus:outline-none focus:ring-2 focus:ring-gray-300">
                 Вперед
               </button>
             </div>
@@ -1294,11 +1362,15 @@ export default function RequestsWithEditor({
                                 key={f.fieldId}
                                 className="px-4 py-3 hover:bg-emerald-100 cursor-pointer transition-colors"
                                 onClick={() => {
+                                  const displayName =
+                                    f.cadastralNumber ??
+                                    (f.localId
+                                      ? `Поле #${f.localId}`
+                                      : getDisplayId(f.fieldId));
                                   setForm((s) => ({
                                     ...s,
                                     selectedFieldId: f.fieldId,
-                                    field:
-                                      f.cadastralNumber ?? `Поле ${f.fieldId}`,
+                                    field: displayName,
                                   }));
                                   setMetadata((m) => ({
                                     ...(m ?? {}),
@@ -1307,7 +1379,10 @@ export default function RequestsWithEditor({
                                   setDropdownFieldOpen(false);
                                 }}
                               >
-                                {f.cadastralNumber ?? `Поле #${f.fieldId}`}
+                                {f.cadastralNumber ??
+                                  (f.localId
+                                    ? `Поле #${f.localId}`
+                                    : getDisplayId(f.fieldId))}
                               </li>
                             ))}
                           </ul>
@@ -1361,19 +1436,39 @@ export default function RequestsWithEditor({
                         )}
                       </div>
 
-                      {/* Желаемая дата */}
+                      {/* Желаемый период выполнения */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
-                          Желаемая дата выполнения
+                          Желаемая дата начала
                         </label>
                         <input
                           type="date"
-                          value={form.date}
+                          value={form.dateFrom}
                           onChange={(e) =>
-                            setForm((s) => ({ ...s, date: e.target.value }))
+                            setForm((s) => ({
+                              ...s,
+                              dateFrom: e.target.value,
+                              date: e.target.value,
+                            }))
                           }
                           className="w-full px-4 py-3.5 bg-white rounded-xl border border-gray-300 shadow-sm
-        focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 
+        focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200
+        outline-none transition-all"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                          Желаемая дата окончания
+                        </label>
+                        <input
+                          type="date"
+                          value={form.dateTo}
+                          onChange={(e) =>
+                            setForm((s) => ({ ...s, dateTo: e.target.value }))
+                          }
+                          className="w-full px-4 py-3.5 bg-white rounded-xl border border-gray-300 shadow-sm
+        focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200
         outline-none transition-all"
                         />
                       </div>

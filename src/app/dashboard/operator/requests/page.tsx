@@ -887,10 +887,12 @@ export default function OperatorOrdersWizard(): JSX.Element {
           }
         },
       );
+      // --- Обновление selectedOrder и orders — теперь помечаем как processed и ставим статус completed ---
       setSelectedOrder((so) =>
         so
           ? ({
               ...so,
+              status: 'completed',
               metadata: {
                 ...(so.metadata ?? {}),
                 finalOutput: out,
@@ -899,6 +901,10 @@ export default function OperatorOrdersWizard(): JSX.Element {
                   ...images,
                 },
                 analyticsTables: newTables,
+                // отмечаем, что обработано
+                processed: true,
+                // обновляем latestInput на тот inputId, который использовался
+                latestInput: { id: inputId },
               },
             } as Order)
           : so,
@@ -908,6 +914,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
           p.id === selectedOrder.id
             ? ({
                 ...p,
+                status: 'completed',
                 metadata: {
                   ...(p.metadata ?? {}),
                   finalOutput: out,
@@ -916,11 +923,14 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     ...images,
                   },
                   analyticsTables: newTables,
+                  processed: true,
+                  latestInput: { id: inputId },
                 },
               } as Order)
             : p,
         ),
       );
+      // -----------------------------------------------------------------------------------------------
       setCalcProgress(100);
       setStep(4);
     } catch (e) {
@@ -1157,30 +1167,32 @@ export default function OperatorOrdersWizard(): JSX.Element {
       <div className="bg-white p-6 rounded-2xl shadow border border-gray-100">
         {!selectedOrder ? (
           <div>
-            <div className="text-sm text-gray-600 mb-3">Выберите заявку</div>
-            <div className="overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-100">
+            <div className="text-sm text-gray-600 mb-3 font-nekstmedium">
+              Выберите заявку
+            </div>
+            <div className="overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-gray-100">
               {loadingOrders ? (
                 <div className="p-6 text-sm text-gray-500">Загрузка...</div>
               ) : orders.length === 0 ? (
                 <div className="p-6 text-sm text-gray-500">Нет заявок</div>
               ) : (
-                <div className="max-h-[300px] overflow-y-auto">
+                <div className="max-h-[350px] overflow-y-auto">
                   <table className="w-full border-collapse text-sm">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">
+                        <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
                           ID
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">
+                        <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
                           Поле
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">
+                        <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
                           Дата
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500">
+                        <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
                           Статус
                         </th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-gray-500">
+                        <th className="px-5 py-4 text-right text-xs font-medium text-gray-500 tracking-wide">
                           Действие
                         </th>
                       </tr>
@@ -1189,34 +1201,34 @@ export default function OperatorOrdersWizard(): JSX.Element {
                       {orders.map((o, i) => (
                         <tr
                           key={o.id}
-                          className={` transition ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-emerald-50`}
+                          className={`transition-all duration-200 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-emerald-50 hover:shadow-sm cursor-pointer`}
                         >
-                          <td className="px-4 py-3 font-medium text-gray-900">
+                          <td className="px-5 py-4 font-medium text-gray-900">
                             #{o.id}
                           </td>
-                          <td className="px-4 py-3 text-gray-700">
+                          <td className="px-5 py-4 text-gray-700">
                             {o.fieldName}
                           </td>
-                          <td className="px-4 py-3 text-gray-500">{o.date}</td>
-                          <td className="px-4 py-3 text-sm">
+                          <td className="px-5 py-4 text-gray-500">{o.date}</td>
+                          <td className="px-5 py-4">
                             {o.metadata?.processed ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-emerald-100 text-emerald-700">
+                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
                                 Обработана
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700">
+                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
                                 Не обработана
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-5 py-4 text-right">
                             <div className="inline-flex items-center gap-2">
                               {o.metadata?.processed ? (
                                 <>
                                   <button
                                     onClick={(e) => handleView(e, o)}
                                     title="Просмотреть"
-                                    className="p-2 rounded-md bg-white hover:bg-gray-50 shadow-sm"
+                                    className="p-2 rounded-xl bg-white hover:bg-gray-50 shadow transition"
                                     onMouseDown={(e) => e.stopPropagation()}
                                   >
                                     <Eye size={16} />
@@ -1224,7 +1236,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                   <button
                                     onClick={(e) => handleEdit(e, o)}
                                     title="Изменить"
-                                    className="p-2 rounded-md bg-white hover:bg-gray-50 shadow-sm"
+                                    className="p-2 rounded-xl bg-white hover:bg-gray-50 shadow transition"
                                     onMouseDown={(e) => e.stopPropagation()}
                                   >
                                     <Edit2 size={16} />
@@ -1238,7 +1250,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                     setIsViewOnly(false);
                                     setStep(1);
                                   }}
-                                  className="inline-flex items-center gap-2 px-3 py-1 rounded-md bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs"
+                                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-medium shadow hover:shadow-lg transition-all"
                                 >
                                   Обработать
                                 </button>
@@ -1348,7 +1360,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
             {step === 2 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                   {[
                     'originalImage',
                     'indexImage',
@@ -1382,7 +1394,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                             </button>
                           )}
                         </div>
-                        <div className="h-64 rounded overflow-hidden flex items-center justify-center">
+                        <div className="rounded overflow-hidden flex items-center justify-center h-60 sm:h-72 md:h-80 lg:h-96 xl:h-[40rem]">
                           {img ? (
                             <div className="relative w-full h-full group">
                               <img
@@ -1393,7 +1405,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                               />
                             </div>
                           ) : (
-                            <div className="text-xs text-gray-400">
+                            <div className="text-xs text-gray-400 flex items-center justify-center w-full h-full">
                               Нет изображения
                             </div>
                           )}
@@ -1461,15 +1473,17 @@ export default function OperatorOrdersWizard(): JSX.Element {
                 <div className="flex items-center justify-between">
                   <div />
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        setStep(1);
-                        setIsViewOnly(false);
-                      }}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
-                    >
-                      Назад
-                    </button>
+                    {!isViewOnly && (
+                      <button
+                        onClick={() => {
+                          setStep(1);
+                          setIsViewOnly(false);
+                        }}
+                        className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                      >
+                        Назад
+                      </button>
+                    )}
                     {!isViewOnly && (
                       <button
                         onClick={() => setStep(3)}
@@ -1485,21 +1499,24 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
             {step === 3 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                   <div className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm">
                     <div className="text-sm font-medium mb-2">
                       Области (Areas with Full IDs)
                     </div>
-                    <div className="h-56 rounded overflow-hidden flex items-center justify-center">
+                    <div
+                      className="rounded overflow-hidden flex items-center justify-center 
+                h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130"
+                    >
                       {areasImg ? (
                         <img
                           src={areasImg}
                           alt="areas"
-                          className="object-contain w-full h-full rounded-md"
+                          className="object-contain w-full h-full rounded-md cursor-zoom-in transform transition-transform duration-300 hover:scale-105"
                           onClick={() => setModalImage(areasImg)}
                         />
                       ) : (
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-gray-400 flex items-center justify-center w-full h-full">
                           Нет изображения
                         </div>
                       )}
@@ -1510,7 +1527,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     <div className="text-sm font-medium mb-2">
                       Индексы (Index with Bounds)
                     </div>
-                    <div className="h-56 rounded overflow-hidden flex items-center justify-center">
+                    <div className=" rounded overflow-hidden flex items-center justify-center h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130">
                       {indexBoundsImg ? (
                         <img
                           src={indexBoundsImg}
@@ -1782,12 +1799,14 @@ export default function OperatorOrdersWizard(): JSX.Element {
                   </pre> */}
 
                   <div className="mt-3 flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => setStep(2)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
-                    >
-                      Назад
-                    </button>
+                    {!isViewOnly && (
+                      <button
+                        onClick={() => setStep(2)}
+                        className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                      >
+                        Назад
+                      </button>
+                    )}
                     <button
                       onClick={applyFinal}
                       disabled={calcInProgress || !allClustersAssigned}
@@ -1804,7 +1823,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
             {step === 4 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                   {[
                     'originalImage',
                     'indexImage',
@@ -1828,10 +1847,10 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     return (
                       <div
                         key={k}
-                        className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm"
+                        className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm "
                       >
                         <div className="text-sm font-medium mb-2">{label}</div>
-                        <div className="h-72 bg-gray-50 rounded overflow-hidden flex items-center justify-center">
+                        <div className="h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130 bg-gray-50 rounded overflow-hidden flex items-center justify-center">
                           {img ? (
                             <img
                               src={img}
@@ -1865,12 +1884,14 @@ export default function OperatorOrdersWizard(): JSX.Element {
                 </div>
 
                 <div className="flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => setStep(3)}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
-                  >
-                    Назад
-                  </button>
+                  {!isViewOnly && (
+                    <button
+                      onClick={() => setStep(3)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                    >
+                      Назад
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       setSelectedOrder(null);

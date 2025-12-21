@@ -297,7 +297,7 @@ export default function HeaderProfile({
       {!isMobile && (
         <div
           role="menu"
-          className={`absolute right-0 top-[115%] w-[420px] max-w-[96vw] rounded-2xl border border-gray-200 bg-white  shadow-2xl transition-all duration-200 ease-out origin-top-right ${
+          className={`absolute right-0 z-1000 top-[115%] w-[420px] max-w-[96vw] rounded-2xl border border-gray-200 bg-white  shadow-2xl transition-all duration-200 ease-out origin-top-right ${
             isOpen
               ? 'opacity-100 scale-100 translate-y-0'
               : 'opacity-0 scale-95 -translate-y-3 pointer-events-none'

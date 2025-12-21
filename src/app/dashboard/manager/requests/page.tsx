@@ -146,7 +146,9 @@ export default function FriendlyOrdersPanel() {
       }
       const data = await res.json();
       const list: ApiOrder[] = Array.isArray(data.orders) ? data.orders : [];
-      setAllOrders(list);
+      // Сортируем заявки по ID в порядке убывания
+      const sortedList = list.sort((a, b) => b.orderId - a.orderId);
+      setAllOrders(sortedList);
       setPage(1);
       setPageInput('1');
       assignedOperatorsRef.current = false; // allow re-run operator assignment after fresh fetch
@@ -612,7 +614,7 @@ export default function FriendlyOrdersPanel() {
     <div className="p-4 sm:p-6 space-y-6 bg-gradient-to-b from-slate-50 to-white min-h-screen">
       <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">
+          <h1 className="text-2xl font-nekstmedium text-slate-900">
             Панель заказов — Менеджер
           </h1>
           <p className="text-sm text-slate-600 mt-1 max-w-xl">
@@ -624,7 +626,7 @@ export default function FriendlyOrdersPanel() {
         <div className="flex items-center gap-3">
           <div className="text-sm text-slate-600 bg-white/60 px-3 py-2 rounded-lg shadow-sm backdrop-blur">
             Новых:{' '}
-            <span className="font-semibold ml-2">
+            <span className="font-nekstmedium ml-2">
               {
                 allOrders.filter(
                   (o) => (o.status ?? '').toLowerCase() === 'new',
@@ -649,7 +651,7 @@ export default function FriendlyOrdersPanel() {
             <div className="text-xs text-slate-500 uppercase tracking-wide">
               Всего заказов
             </div>
-            <div className="text-3xl font-semibold mt-3 text-slate-900">
+            <div className="text-3xl font-nekstmedium mt-3 text-slate-900">
               {allOrders.length}
             </div>
             <div className="text-xs text-slate-400 mt-2">
@@ -660,7 +662,7 @@ export default function FriendlyOrdersPanel() {
             <div className="text-xs text-slate-500 uppercase tracking-wide">
               Новые
             </div>
-            <div className="text-3xl font-semibold mt-3 text-amber-600">
+            <div className="text-3xl font-nekstmedium mt-3 text-amber-600">
               {
                 allOrders.filter(
                   (o) => (o.status ?? '').toLowerCase() === 'new',
@@ -673,7 +675,7 @@ export default function FriendlyOrdersPanel() {
             <div className="text-xs text-slate-500 uppercase tracking-wide">
               В работе
             </div>
-            <div className="text-3xl font-semibold mt-3 text-sky-600">
+            <div className="text-3xl font-nekstmedium mt-3 text-sky-600">
               {
                 allOrders.filter((o) => {
                   const st = (o.status ?? '').toLowerCase();
@@ -692,7 +694,7 @@ export default function FriendlyOrdersPanel() {
               <div className="text-xs text-slate-500 flex items-center gap-2">
                 <Phone size={14} /> Контакты
               </div>
-              <div className="text-lg font-medium mt-2 text-slate-800">
+              <div className="text-lg font-nekstregular mt-2 text-slate-800">
                 {allOrders.find((o) => o.contractorPhone)?.contractorPhone ??
                   '—'}
               </div>
@@ -713,10 +715,11 @@ export default function FriendlyOrdersPanel() {
         <div className="rounded-lg p-3 bg-rose-50 text-rose-700">{error}</div>
       )}
 
-      <section>
-        <div className="rounded-2xl">
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3 bg-white/30">
-            <div className="text-sm text-slate-700 font-medium">
+      <section className="relative">
+        <div className="rounded-3xl bg-white/40 backdrop-blur-xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.25)] overflow-hidden">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-5 sm:px-6 py-4 bg-gradient-to-r from-white/60 to-white/30">
+            <div className="text-sm font-nekstmedium text-slate-800">
               Список заказов
             </div>
             <div className="text-xs text-slate-500 hidden sm:block">
@@ -725,58 +728,78 @@ export default function FriendlyOrdersPanel() {
             </div>
           </div>
 
-          <div className="divide-y divide-slate-100 bg-transparent">
+          {/* List */}
+          <div className="px-2 sm:px-3 py-3 space-y-3">
             {loading ? (
-              <div className="p-6 text-center text-slate-500">
+              <div className="py-10 text-center text-slate-500">
                 Загрузка заказов…
               </div>
             ) : allOrders.length === 0 ? (
-              <div className="p-6 text-center text-slate-500">Заказов нет</div>
+              <div className="py-10 text-center text-slate-500">
+                Заказов нет
+              </div>
             ) : (
               paginatedOrders.map((o) => (
                 <div
                   key={o.orderId}
-                  className="p-4 hover:bg-white/40 transition-colors rounded-xl mx-2 my-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white/60 shadow-sm"
+                  className="group relative rounded-2xl bg-white/70 backdrop-blur-md shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-[1px]"
                 >
-                  <div className="flex items-start gap-4">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-50 to-emerald-100 flex flex-col items-center justify-center text-slate-800 font-semibold">
-                      <div className="text-xs">Заказ</div>
-                      <div className="text-base">#{o.orderId}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900">
-                        {TYPE_LABEL[Number(o.typeProcessId ?? -1)] ??
-                          `Тип #${String(o.typeProcessId ?? '—')}`}
+                  <div className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    {/* Left */}
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-900 flex flex-col items-center justify-center shadow-inner">
+                        <div className="text-[10px] uppercase tracking-wide">
+                          Заказ
+                        </div>
+                        <div className="text-base font-nekstmedium">
+                          #{o.orderId}
+                        </div>
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        Создано: {humanDate(o.createdAt)}
-                      </div>
-                      <div className="text-xs text-slate-400 mt-1 flex items-center gap-3">
-                        <span>Контрактор #{String(o.contractorId ?? '—')}</span>
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-                          <Phone size={12} /> {o.contractorPhone ?? '—'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="flex items-center gap-4">
-                    <div
-                      className={`px-3 py-1 rounded-full text-xs ${statusBadgeClass(o.status)}`}
-                    >
-                      {STATUS_LABEL[(o.status ?? '').toLowerCase()] ??
-                        o.status ??
-                        '—'}
+                      <div>
+                        <div className="text-sm font-nekstmedium text-slate-900">
+                          {TYPE_LABEL[Number(o.typeProcessId ?? -1)] ??
+                            `Тип #${String(o.typeProcessId ?? '—')}`}
+                        </div>
+
+                        <div className="text-xs text-slate-500 mt-1">
+                          Создано: {humanDate(o.createdAt)}
+                        </div>
+
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+                          <span>
+                            Контрактор #{String(o.contractorId ?? '—')}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <Phone size={12} />
+                            {o.contractorPhone ?? '—'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500 hidden md:block">
-                      {humanDate(o.dataStart)} — {humanDate(o.dataEnd)}
-                    </div>
-                    <div className="flex items-center gap-2">
+
+                    {/* Right */}
+                    <div className="flex flex-wrap items-center gap-3 justify-end">
+                      <div
+                        className={`px-3 py-1 rounded-full text-xs font-medium backdrop-blur ${statusBadgeClass(
+                          o.status,
+                        )}`}
+                      >
+                        {STATUS_LABEL[(o.status ?? '').toLowerCase()] ??
+                          o.status ??
+                          '—'}
+                      </div>
+
+                      <div className="text-xs text-slate-500 hidden md:block">
+                        {humanDate(o.dataStart)} — {humanDate(o.dataEnd)}
+                      </div>
+
                       <button
                         onClick={() => openModal(o)}
-                        className="px-3 py-2 rounded-md bg-white shadow-sm inline-flex items-center gap-2"
+                        className="px-4 py-2 rounded-xl bg-white shadow-sm hover:shadow-md transition inline-flex items-center gap-2 font-nekstmedium"
                       >
-                        <Eye size={14} /> Просмотр
+                        <Eye size={14} />
+                        Просмотр
                       </button>
 
                       <div
@@ -793,10 +816,10 @@ export default function FriendlyOrdersPanel() {
                               openDropdownFor(o.orderId, btn);
                             }
                           }}
-                          className="flex items-center gap-2 px-3 py-2 rounded-md bg-emerald-600 text-white"
-                          aria-expanded={openDropdownId === o.orderId}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-nekstmedium shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/40 transition inline-flex items-center gap-2"
                         >
-                          Изменить статус <ChevronDown size={14} />
+                          Изменить статус
+                          <ChevronDown size={14} />
                         </button>
                       </div>
                     </div>
@@ -806,12 +829,15 @@ export default function FriendlyOrdersPanel() {
             )}
           </div>
 
-          <div className="px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white/30">
+          {/* Footer / Pagination */}
+          <div className="px-5 sm:px-6 py-4 bg-gradient-to-r from-white/50 to-white/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="text-sm text-slate-600">
-              Показано {paginatedOrders.length} из {allOrders.length} заказ(ов)
+              Показано {paginatedOrders.length} из {allOrders.length} заказов
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+
+            <div className="flex flex-wrap items-center gap-2">
               <label className="text-sm text-slate-500">Страница</label>
+
               <button
                 onClick={() => {
                   setPage((p) => {
@@ -820,26 +846,23 @@ export default function FriendlyOrdersPanel() {
                     return np;
                   });
                 }}
-                className="px-2 py-1 rounded-md bg-white/80"
+                className="px-2 py-1 rounded-lg bg-white shadow-sm"
                 disabled={page <= 1}
               >
                 ←
               </button>
+
               <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
                 value={pageInput}
                 onChange={(e) => setPageInput(e.target.value)}
-                onBlur={() => commitPageInput()}
+                onBlur={commitPageInput}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') commitPageInput();
                   if (e.key === 'Escape') setPageInput(String(page));
                 }}
-                className="w-20 px-2 py-1 rounded-md border"
-                aria-label="page"
-                placeholder="1"
+                className="w-20 px-3 py-1.5 rounded-xl bg-white shadow-inner outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
               />
+
               <button
                 onClick={() => {
                   setPage((p) => {
@@ -848,31 +871,28 @@ export default function FriendlyOrdersPanel() {
                     return np;
                   });
                 }}
-                className="px-2 py-1 rounded-md bg-white/80"
+                className="px-2 py-1 rounded-lg bg-white shadow-sm"
                 disabled={page >= totalPages}
               >
                 →
               </button>
 
-              <label className="text-sm text-slate-500">На странице</label>
+              <label className="text-sm text-slate-500 ml-2">На странице</label>
+
               <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
                 value={pageSizeInput}
                 onChange={(e) => setPageSizeInput(e.target.value)}
-                onBlur={() => commitPageSizeInput()}
+                onBlur={commitPageSizeInput}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') commitPageSizeInput();
                   if (e.key === 'Escape') setPageSizeInput(String(pageSize));
                 }}
-                className="w-20 px-2 py-1 rounded-md border"
-                aria-label="pageSize"
-                placeholder="30"
+                className="w-20 px-3 py-1.5 rounded-xl bg-white shadow-inner outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
               />
+
               <button
-                onClick={() => fetchOrders()}
-                className="px-3 py-1 rounded-md bg-white/70"
+                onClick={fetchOrders}
+                className="ml-2 px-4 py-1.5 rounded-xl bg-white shadow-sm hover:shadow-md transition font-nekstmedium"
               >
                 Загрузить
               </button>
@@ -892,14 +912,14 @@ export default function FriendlyOrdersPanel() {
             {/* header */}
             <div className="flex items-center justify-between gap-4 px-6 py-4 bg-gradient-to-r rounded-3xl from-emerald-50/60 to-white/40 shadow-sm flex-shrink-0">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center text-2xl font-semibold text-emerald-800 shadow">
+                <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center text-2xl font-nekstmedium text-emerald-800 shadow">
                   {String(selected.orderId).slice(-2)}
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs text-slate-500">
                     Заказ #{selected.orderId}
                   </div>
-                  <div className="text-lg font-semibold text-slate-900 truncate">
+                  <div className="text-lg font-nekstmedium text-slate-900 truncate">
                     {TYPE_LABEL[Number(selected.typeProcessId ?? -1)] ??
                       `Тип #${String(selected.typeProcessId ?? '—')}`}
                   </div>
@@ -917,7 +937,7 @@ export default function FriendlyOrdersPanel() {
 
               <div className="flex items-center gap-3">
                 <div
-                  className={`px-3 py-2 rounded-full text-sm ${statusBadgeClass(selected.status)}`}
+                  className={`px-3 py-2 rounded-full font-nekstregular text-sm ${statusBadgeClass(selected.status)}`}
                 >
                   {STATUS_LABEL[(selected.status ?? '').toLowerCase()] ??
                     selected.status ??
@@ -944,13 +964,13 @@ export default function FriendlyOrdersPanel() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-xs text-slate-500">Контрактор</div>
-                      <div className="text-lg font-medium mt-1">
+                      <div className="text-lg font-nekstregular mt-1">
                         #{String(selected.contractorId ?? '—')}
                       </div>
                     </div>
                     <div className="text-right">
                       <div className="text-xs text-slate-500">Телефон</div>
-                      <div className="text-sm font-medium mt-1 flex items-center gap-2">
+                      <div className="text-sm font-nekstregular mt-1 flex items-center gap-2">
                         <span className="truncate max-w-xs">
                           {selected.contractorPhone ?? '—'}
                         </span>
@@ -976,7 +996,7 @@ export default function FriendlyOrdersPanel() {
                       <div className="text-xs text-slate-500">
                         Материалы предоставлены
                       </div>
-                      <div className="text-sm font-medium mt-1">
+                      <div className="text-sm font-nekstregular mt-1">
                         {selected.materialsProvided ? 'Да' : 'Нет'}
                       </div>
                     </div>
@@ -993,22 +1013,148 @@ export default function FriendlyOrdersPanel() {
                 </div>
 
                 <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-sm text-slate-600 mb-3">
+                  <div className="text-sm font-nekstmedium text-slate-700 mb-4">
                     Подробности заказа
                   </div>
-                  <div className="text-sm text-slate-700">
-                    {renderKeyValueRows(selected, [
-                      'orderId',
-                      'contractorId',
-                      'contractorPhone',
-                      'typeProcessId',
-                      'status',
-                      'createdAt',
-                      'dataStart',
-                      'dataEnd',
-                      'materialsProvided',
-                      'preview',
-                    ])}
+                  <div className="space-y-3">
+                    {/* ID заказа */}
+                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                        ID заказа
+                      </div>
+                      <div className="text-sm font-nekstregular text-slate-900">
+                        #{selected.orderId}
+                      </div>
+                    </div>
+
+                    {/* Тип обработки */}
+                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                        Тип обработки
+                      </div>
+                      <div className="text-sm text-slate-700">
+                        {TYPE_LABEL[Number(selected.typeProcessId ?? -1)] ??
+                          `Тип #${String(selected.typeProcessId ?? '—')}`}
+                      </div>
+                    </div>
+
+                    {/* Статус */}
+                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                        Статус
+                      </div>
+                      <div className="text-sm text-slate-700">
+                        {STATUS_LABEL[(selected.status ?? '').toLowerCase()] ??
+                          selected.status ??
+                          '—'}
+                      </div>
+                    </div>
+
+                    {/* Дата создания */}
+                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                        Дата создания
+                      </div>
+                      <div className="text-sm text-slate-700">
+                        {humanDate(selected.createdAt)}
+                      </div>
+                    </div>
+
+                    {/* Период выполнения */}
+                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                        Период выполнения
+                      </div>
+                      <div className="text-sm text-slate-700">
+                        {humanDate(selected.dataStart)} —{' '}
+                        {humanDate(selected.dataEnd)}
+                      </div>
+                    </div>
+
+                    {/* Контрактор */}
+                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                        Контрактор
+                      </div>
+                      <div className="text-sm text-slate-700">
+                        ID: {selected.contractorId ?? '—'}
+                        {selected.contractorPhone && (
+                          <div className="text-xs text-slate-500 mt-1">
+                            Телефон: {selected.contractorPhone}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Оператор */}
+                    {selected.operatorId && (
+                      <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                        <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                          Оператор
+                        </div>
+                        <div className="text-sm text-slate-700">
+                          {selected.operatorName ??
+                            `ID: ${selected.operatorId}`}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Материалы */}
+                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                        Материалы
+                      </div>
+                      <div className="text-sm text-slate-700">
+                        {selected.materialsProvided ? (
+                          <span className="text-emerald-600 font-nekstregular">
+                            ✓ Предоставлены
+                          </span>
+                        ) : (
+                          <span className="text-amber-600">
+                            ✗ Не предоставлены
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Дополнительные поля */}
+                    {Object.entries(selected)
+                      .filter(
+                        ([k, v]) =>
+                          ![
+                            'orderId',
+                            'contractorId',
+                            'contractorPhone',
+                            'operatorId',
+                            'operatorName',
+                            'typeProcessId',
+                            'status',
+                            'createdAt',
+                            'dataStart',
+                            'dataEnd',
+                            'materialsProvided',
+                            'preview',
+                            'firstName',
+                            'lastName',
+                          ].includes(k) &&
+                          v !== undefined &&
+                          v !== null &&
+                          String(v) !== '' &&
+                          typeof v !== 'object',
+                      )
+                      .map(([k, v]) => (
+                        <div
+                          key={k}
+                          className="flex items-start gap-3 pb-3 border-b border-slate-100"
+                        >
+                          <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
+                            {k.replace(/([A-Z])/g, ' $1')}
+                          </div>
+                          <div className="text-sm text-slate-700 break-words">
+                            {String(v)}
+                          </div>
+                        </div>
+                      ))}
                   </div>
                 </div>
               </div>
@@ -1021,41 +1167,65 @@ export default function FriendlyOrdersPanel() {
                       Назначение оператора
                     </div>
                     {selected.operatorId !== null && (
-                      <div className="text-xs text-emerald-600 font-semibold truncate">
-                        Текущий: {selected.operatorName ?? selected.firstName}
+                      <div className="text-xs text-emerald-600 font-nekstmedium truncate">
+                        Назначен
                       </div>
                     )}
                   </div>
 
-                  <select
-                    value={selectedOperatorId ?? ''}
-                    onChange={(e) =>
-                      setSelectedOperatorId(
-                        e.target.value === '' ? null : Number(e.target.value),
-                      )
-                    }
-                    className="w-full px-3 py-2 rounded-xl bg-white shadow-inner text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
-                    disabled={
-                      operatorLoading || updatingId === selected.orderId
-                    }
-                  >
-                    <option value="">
-                      {operatorLoading ? 'Загрузка...' : 'Не назначен'}
-                    </option>
-                    {operators.map((op) => (
-                      <option
-                        key={op.id}
-                        value={String(op.id)}
-                      >{`${op.firstName} ${op.lastName} (${op.email})`}</option>
-                    ))}
-                  </select>
+                  {selected.operatorId !== null &&
+                  selected.operatorId !== undefined ? (
+                    <div className="w-full px-3 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
+                      <div className="font-nekstregular flex gap-[0px] justify-between">
+                        {selected.operatorName ??
+                          `Оператор #${selected.operatorId}`}
+                        {(() => {
+                          const operator = operators.find(
+                            (op) => op.id === selected.operatorId,
+                          );
+                          return operator ? (
+                            <div className="text-xs text-slate-500 mt-1">
+                              {operator.email}
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
+
+                      <div className="text-xs text-slate-500 mt-1">
+                        Оператор уже назначен и не может быть изменен
+                      </div>
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedOperatorId ?? ''}
+                      onChange={(e) =>
+                        setSelectedOperatorId(
+                          e.target.value === '' ? null : Number(e.target.value),
+                        )
+                      }
+                      className="w-full px-3 py-2 rounded-xl bg-white shadow-inner text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                      disabled={
+                        operatorLoading || updatingId === selected.orderId
+                      }
+                    >
+                      <option value="">
+                        {operatorLoading ? 'Загрузка...' : 'Не назначен'}
+                      </option>
+                      {operators.map((op) => (
+                        <option
+                          key={op.id}
+                          value={String(op.id)}
+                        >{`${op.firstName} ${op.lastName} (${op.email})`}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
                   <div className="text-xs text-slate-500">Текущий статус</div>
                   <div className="mt-3">
                     <div
-                      className={`inline-block px-3 py-2 rounded-full font-semibold ${statusBadgeClass(pendingStatus ?? selected.status)}`}
+                      className={`inline-block px-3 py-2 rounded-full font-nekstmedium ${statusBadgeClass(pendingStatus ?? selected.status)}`}
                     >
                       {STATUS_LABEL[
                         (pendingStatus ?? selected.status ?? '').toLowerCase()
@@ -1084,7 +1254,7 @@ export default function FriendlyOrdersPanel() {
               <button
                 onClick={handleConfirm}
                 disabled={!hasChanges || updatingId === selected.orderId}
-                className={`px-5 py-2.5 rounded-xl font-medium transition-all ${!hasChanges || updatingId === selected.orderId ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 text-white shadow-md hover:shadow-lg hover:-translate-y-[1px]'}`}
+                className={`px-5 py-2.5 rounded-xl font-nekstregular transition-all ${!hasChanges || updatingId === selected.orderId ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 text-white shadow-md hover:shadow-lg hover:-translate-y-[1px]'}`}
               >
                 {updatingId === selected.orderId
                   ? 'Сохранение…'
@@ -1122,7 +1292,7 @@ export default function FriendlyOrdersPanel() {
                     setDropdownPos(null);
                     updateOrderStatusApi(openDropdownId as number, opt.value);
                   }}
-                  className="text-left px-2 py-2 rounded hover:bg-slate-50 text-sm"
+                  className="text-left font-nekstmedium text-black px-2 py-2 rounded hover:bg-slate-50 text-sm"
                 >
                   {opt.label}
                 </button>

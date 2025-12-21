@@ -12,6 +12,19 @@ import {
   Step2Data,
   StepFioData,
 } from './steps';
+import {
+  validatePhone,
+  validateEmail,
+  validateINN,
+  validateKPP,
+  validateOKPO,
+  validateName,
+  validateCompanyName,
+  validatePassword,
+  validatePasswordConfirm,
+  formatPhoneDisplay,
+  normalizePhone,
+} from '../utils/validation';
 
 // Константа с адресом бэкенда
 const API_URL = 'https://droneagro.duckdns.org/api/auth/register';
@@ -107,34 +120,9 @@ export default function MultiStepSignup() {
           : ({ ...prev, ...(cbOrObj as Partial<T>) } as T),
       );
 
-  // --- Helpers for phone formatting ---
-  const formatPhoneForDisplay = (raw: string) => {
-    let digits = raw.replace(/\D/g, '');
-    if (digits.startsWith('8')) digits = '7' + digits.slice(1);
-    if (!digits.startsWith('7')) digits = '7' + digits;
-    digits = digits.slice(0, 11);
-
-    if (digits.length === 0) return '';
-    const p = digits;
-    const cc = p.slice(0, 1); // 7
-    const code = p.slice(1, 4);
-    const a = p.slice(4, 7);
-    const b = p.slice(7, 9);
-    const c = p.slice(9, 11);
-    if (!code) return `+${cc}`;
-    if (!a) return `+${cc} (${code}`;
-    if (!b) return `+${cc} (${code}) ${a}`;
-    if (!c) return `+${cc} (${code}) ${a}-${b}`;
-    return `+${cc} (${code}) ${a}-${b}-${c}`;
-  };
-
-  const normalizePhoneForSend = (display: string) => {
-    return display.replace(/\D/g, ''); // returns 7495... (11 digits)
-  };
-
   const handlePhoneChange = (value: string, setState: (s: string) => void) => {
     const digits = value.replace(/\D/g, '');
-    const display = formatPhoneForDisplay(digits);
+    const display = formatPhoneDisplay(digits);
     setState(display);
   };
 
@@ -142,80 +130,174 @@ export default function MultiStepSignup() {
   const validateStep = (s: number) => {
     if (s === 1) {
       let ok = true;
-      if (!phone || normalizePhoneForSend(phone).length !== 11) {
-        setPhoneError('Заполните корректный номер телефона');
+
+      // Валидация телефона
+      const phoneValidation = validatePhone(phone);
+      if (!phoneValidation.isValid) {
+        setPhoneError(phoneValidation.error || 'Некорректный телефон');
         ok = false;
-      } else setPhoneError('');
-      if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-        setEmailError('Введите корректный email');
+      } else {
+        setPhoneError('');
+      }
+
+      // Валидация email
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.isValid) {
+        setEmailError(emailValidation.error || 'Некорректный email');
         ok = false;
-      } else setEmailError('');
+      } else {
+        setEmailError('');
+      }
+
       return ok;
     }
 
-    // Шаг 2: теперь одинаковая валидация для всех ролей (используем customerData)
+    // Шаг 2: валидация юридических данных
     if (s === 2) {
       const errs: Record<string, string> = {};
       let ok = true;
-      if (!customerData.nameCompany) {
-        errs.nameCompany = 'Обязательное поле';
+
+      // Валидация названия компании
+      const companyValidation = validateCompanyName(customerData.nameCompany);
+      if (!companyValidation.isValid) {
+        errs.nameCompany = companyValidation.error || 'Обязательное поле';
         ok = false;
       }
-      if (customerData.type === 'COMPANY' && !customerData.inn) {
-        errs.inn = 'Укажите ИНН';
+
+      // Валидация ИНН
+      const innValidation = validateINN(customerData.inn, customerData.type);
+      if (!innValidation.isValid) {
+        errs.inn = innValidation.error || 'Некорректный ИНН';
         ok = false;
       }
-      // опционально проверим телефон в contact (если указан)
-      if (
-        customerData.contact?.phone &&
-        normalizePhoneForSend(customerData.contact.phone).length !== 11
-      ) {
-        errs['contact.phone'] = 'Укажите корректный телефон';
-        ok = false;
+
+      // Валидация КПП (если заполнено)
+      if (customerData.kpp) {
+        const kppValidation = validateKPP(customerData.kpp);
+        if (!kppValidation.isValid) {
+          errs.kpp = kppValidation.error || 'Некорректный КПП';
+          ok = false;
+        }
       }
+
+      // Валидация ОКПО (если заполнено)
+      if (customerData.okpo) {
+        const okpoValidation = validateOKPO(customerData.okpo);
+        if (!okpoValidation.isValid) {
+          errs.okpo = okpoValidation.error || 'Некорректный ОКПО';
+          ok = false;
+        }
+      }
+
+      // Валидация контактного лица (если указан)
+      if (customerData.contactPerson) {
+        if (customerData.contact.phone) {
+          const contactPhoneValidation = validatePhone(
+            customerData.contact.phone,
+          );
+          if (!contactPhoneValidation.isValid) {
+            errs['contact.phone'] =
+              contactPhoneValidation.error || 'Некорректный телефон';
+            ok = false;
+          }
+        }
+
+        if (customerData.contact.email) {
+          const contactEmailValidation = validateEmail(
+            customerData.contact.email,
+          );
+          if (!contactEmailValidation.isValid) {
+            errs['contact.email'] =
+              contactEmailValidation.error || 'Некорректный email';
+            ok = false;
+          }
+        }
+
+        if (customerData.contact.lastName) {
+          const lastNameValidation = validateName(
+            customerData.contact.lastName,
+            'Фамилия',
+          );
+          if (!lastNameValidation.isValid) {
+            errs['contact.lastName'] =
+              lastNameValidation.error || 'Некорректная фамилия';
+            ok = false;
+          }
+        }
+
+        if (customerData.contact.firstName) {
+          const firstNameValidation = validateName(
+            customerData.contact.firstName,
+            'Имя',
+          );
+          if (!firstNameValidation.isValid) {
+            errs['contact.firstName'] =
+              firstNameValidation.error || 'Некорректное имя';
+            ok = false;
+          }
+        }
+      }
+
       setCustomerErrors(errs);
       return ok;
     }
 
-    // шаг 3: ФИО (одинаково для всех ролей)
+    // шаг 3: ФИО
     if (s === 3) {
       const errs = { lastName: '', firstName: '' };
       let ok = true;
-      if (!fioData.lastName) {
-        errs.lastName = 'Обязательное поле';
+
+      const lastNameValidation = validateName(fioData.lastName, 'Фамилия');
+      if (!lastNameValidation.isValid) {
+        errs.lastName = lastNameValidation.error || 'Обязательное поле';
         ok = false;
       }
-      if (!fioData.firstName) {
-        errs.firstName = 'Обязательное поле';
+
+      const firstNameValidation = validateName(fioData.firstName, 'Имя');
+      if (!firstNameValidation.isValid) {
+        errs.firstName = firstNameValidation.error || 'Обязательное поле';
         ok = false;
       }
+
       setFioErrors(errs);
       return ok;
     }
 
-    // шаг 4: пароль (одинаково)
+    // шаг 4: пароль
     if (s === 4) {
-      if (!password || password.length < 6) {
-        setPasswordError('Пароль минимум 6 символов');
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        setPasswordError(passwordValidation.error || 'Некорректный пароль');
         return false;
-      } else setPasswordError('');
-      if (password !== confirm) {
-        setConfirmError('Пароли не совпадают');
+      }
+      setPasswordError('');
+
+      const confirmValidation = validatePasswordConfirm(password, confirm);
+      if (!confirmValidation.isValid) {
+        setConfirmError(confirmValidation.error || 'Пароли не совпадают');
         return false;
-      } else setConfirmError('');
+      }
+      setConfirmError('');
+
       return true;
     }
 
-    // password step is second-to-last (we'll treat final step as verification)
+    // password step is second-to-last
     if (s === getTotalSteps() - 1) {
-      if (!password || password.length < 6) {
-        setPasswordError('Пароль минимум 6 символов');
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.isValid) {
+        setPasswordError(passwordValidation.error || 'Некорректный пароль');
         return false;
-      } else setPasswordError('');
-      if (password !== confirm) {
-        setConfirmError('Пароли не совпадают');
+      }
+      setPasswordError('');
+
+      const confirmValidation = validatePasswordConfirm(password, confirm);
+      if (!confirmValidation.isValid) {
+        setConfirmError(confirmValidation.error || 'Пароли не совпадают');
         return false;
-      } else setConfirmError('');
+      }
+      setConfirmError('');
+
       return true;
     }
 
@@ -247,7 +329,7 @@ export default function MultiStepSignup() {
   const collectData = () => {
     const base = {
       email,
-      phone: normalizePhoneForSend(phone),
+      phone: normalizePhone(phone),
       password,
       firstName: fioData.firstName,
       lastName: fioData.lastName,
@@ -280,7 +362,7 @@ export default function MultiStepSignup() {
         userRole: 'DRONE_SUPPLIER',
         company: droneSupplierData.company,
         supplyType: droneSupplierData.supplyType,
-        phoneSupplier: normalizePhoneForSend(droneSupplierData.phone || ''),
+        phoneSupplier: normalizePhone(droneSupplierData.phone || ''),
         region: droneSupplierData.region,
         fleetSize: droneSupplierData.fleetSize,
         experience: droneSupplierData.experience,
@@ -295,7 +377,7 @@ export default function MultiStepSignup() {
         userRole: 'MATERIAL_SUPPLIER',
         company: materialSupplierData.company,
         materialType: materialSupplierData.materialType,
-        phoneSupplier: normalizePhoneForSend(materialSupplierData.phone || ''),
+        phoneSupplier: normalizePhone(materialSupplierData.phone || ''),
         region: materialSupplierData.region,
         experience: materialSupplierData.experience,
         notes: materialSupplierData.notes,

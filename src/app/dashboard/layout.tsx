@@ -46,6 +46,7 @@ import Link from 'next/link';
 
 import Requests from './customer/layouts/Requests';
 import Footer from '@/src/shared/ui/Footer';
+import HeaderProfile from '@/src/shared/ui/headerProfile';
 
 // Новый набор ролей: contractor (бывший customer), manager, drone_supplier, material_supplier
 const RoleConfig = {
@@ -534,13 +535,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   </AnimatePresence>
                 </div> */}
 
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shadow-inner">
-                    <User size={20} className="text-emerald-600" />
-                  </div>
-                  <span className="hidden md:inline font-medium">
-                    {firstName} {lastName}
-                  </span>
+                <div className="flex items-center gap-2 font-nekstmedium">
+                  <HeaderProfile></HeaderProfile>
                 </div>
               </div>
             </header>

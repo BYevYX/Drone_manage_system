@@ -73,6 +73,17 @@ button {
   cursor: pointer;
 }
 
+div:focus,
+div:focus-visible,
+[role='button']:focus,
+[role='button']:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+button:focus {
+  outline: none;
+}
+
 /* Убираем стрелки для input[type="number"] */
 input[type='number']::-webkit-outer-spin-button,
 input[type='number']::-webkit-inner-spin-button {

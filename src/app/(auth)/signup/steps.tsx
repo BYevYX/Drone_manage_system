@@ -2,7 +2,6 @@
 'use client';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  ArrowLeft,
   CheckCircle,
   Eye,
   EyeOff,
@@ -59,6 +58,21 @@ export interface DroneSupplierData {
 }
 
 export interface MaterialSupplierData {
+  type: 'COMPANY' | 'INDIVIDUAL' | 'PERSON';
+  nameCompany: string;
+  inn: string;
+  kpp: string;
+  okpo: string;
+  urAddres: string;
+  factAddres: string;
+  contactPerson: boolean;
+  contact: {
+    lastName: string;
+    firstName: string;
+    middleName: string;
+    phone: string;
+    email: string;
+  };
   company: string;
   materialType: string;
   phone: string;
@@ -105,10 +119,8 @@ export function Step1({
           value={phone}
           onChange={(e: any) => setPhone(e.target.value)}
           error={Boolean(phoneError)}
+          errorMessage={phoneError}
         />
-        {phoneError && (
-          <p className="text-red-600 text-sm mt-1">{phoneError}</p>
-        )}
 
         <Input
           label={
@@ -123,10 +135,8 @@ export function Step1({
           value={email}
           onChange={(e: any) => setEmail(e.target.value)}
           error={Boolean(emailError)}
+          errorMessage={emailError}
         />
-        {emailError && (
-          <p className="text-red-600 text-sm mt-1">{emailError}</p>
-        )}
       </div>
 
       <RoleSelect value={role} onChange={setRole} />
@@ -199,10 +209,8 @@ export function CustomerForm({
           id="name_company"
           icon={<Building size={20} />}
           error={Boolean(errors.nameCompany)}
+          errorMessage={errors.nameCompany}
         />
-        {errors.nameCompany && (
-          <p className="text-red-600 text-sm mt-1">{errors.nameCompany}</p>
-        )}
 
         <Input
           label={
@@ -218,11 +226,11 @@ export function CustomerForm({
             setData((prev) => ({ ...prev, inn: e.target.value }))
           }
           id="inn"
+          filter="digits"
+          maxLength={12}
           error={Boolean(errors.inn)}
+          errorMessage={errors.inn}
         />
-        {errors.inn && (
-          <p className="text-red-600 text-sm mt-1">{errors.inn}</p>
-        )}
 
         <Input
           label="КПП"
@@ -231,7 +239,10 @@ export function CustomerForm({
             setData((prev) => ({ ...prev, kpp: e.target.value }))
           }
           id="kpp"
+          filter="digits"
+          maxLength={9}
           error={Boolean(errors.kpp)}
+          errorMessage={errors.kpp}
         />
         <Input
           label="Код по ОКПО"
@@ -240,7 +251,10 @@ export function CustomerForm({
             setData((prev) => ({ ...prev, okpo: e.target.value }))
           }
           id="okpo"
+          filter="digits"
+          maxLength={10}
           error={Boolean(errors.okpo)}
+          errorMessage={errors.okpo}
         />
         <Input
           label="Юридический адрес"
@@ -298,7 +312,9 @@ export function CustomerForm({
                   }
                   id="surname_agent"
                   icon={<User size={18} />}
+                  filter="letters"
                   error={Boolean(errors['contact.lastName'])}
+                  errorMessage={errors['contact.lastName']}
                 />
                 <Input
                   label="Телефон"
@@ -311,7 +327,9 @@ export function CustomerForm({
                   }
                   id="telephone_agent"
                   icon={<Phone size={18} />}
+                  type="tel"
                   error={Boolean(errors['contact.phone'])}
+                  errorMessage={errors['contact.phone']}
                 />
                 <Input
                   label="Имя"
@@ -324,7 +342,9 @@ export function CustomerForm({
                   }
                   id="name_agent"
                   icon={<User size={18} />}
+                  filter="letters"
                   error={Boolean(errors['contact.firstName'])}
+                  errorMessage={errors['contact.firstName']}
                 />
                 <Input
                   label="E-mail"
@@ -337,7 +357,9 @@ export function CustomerForm({
                   }
                   id="email_agent"
                   icon={<Mail size={18} />}
+                  type="email"
                   error={Boolean(errors['contact.email'])}
+                  errorMessage={errors['contact.email']}
                 />
                 <Input
                   label="Отчество"
@@ -350,7 +372,9 @@ export function CustomerForm({
                   }
                   id="patronumic_agent"
                   icon={<User size={18} />}
+                  filter="letters"
                   error={Boolean(errors['contact.middleName'])}
+                  errorMessage={errors['contact.middleName']}
                 />
               </div>
             </motion.div>
@@ -533,7 +557,12 @@ export function MaterialSupplierForm({
           <button
             key={value}
             type="button"
-            onClick={() => setData((prev) => ({ ...prev, type: value as any }))}
+            onClick={() =>
+              setData((prev) => ({
+                ...prev,
+                type: value as MaterialSupplierData['type'],
+              }))
+            }
             className={`px-4 py-2 rounded-full font-nekstmedium ${
               data.type === value
                 ? 'bg-gradient-to-r from-green-500 to-green-700 text-white'
@@ -560,6 +589,7 @@ export function MaterialSupplierForm({
           id="ms_name_company"
           icon={<Building size={20} />}
           error={Boolean(errors.nameCompany)}
+          errorMessage={errors.nameCompany}
         />
         <Input
           label={`ИНН ${data.type === 'COMPANY' ? '*' : ''}`}
@@ -568,11 +598,14 @@ export function MaterialSupplierForm({
             setData((prev) => ({ ...prev, inn: e.target.value }))
           }
           id="ms_inn"
+          filter="digits"
+          maxLength={12}
           error={
             data.type === 'COMPANY' && !required(data.inn)
               ? true
               : Boolean(errors.inn)
           }
+          errorMessage={errors.inn}
         />
         <Input
           label="КПП"
@@ -581,7 +614,10 @@ export function MaterialSupplierForm({
             setData((prev) => ({ ...prev, kpp: e.target.value }))
           }
           id="ms_kpp"
+          filter="digits"
+          maxLength={9}
           error={Boolean(errors.kpp)}
+          errorMessage={errors.kpp}
         />
         <Input
           label="Код по ОКПО"
@@ -590,7 +626,10 @@ export function MaterialSupplierForm({
             setData((prev) => ({ ...prev, okpo: e.target.value }))
           }
           id="ms_okpo"
+          filter="digits"
+          maxLength={10}
           error={Boolean(errors.okpo)}
+          errorMessage={errors.okpo}
         />
         <Input
           label="Юридический адрес"
@@ -635,40 +674,46 @@ export function MaterialSupplierForm({
             <Input
               label="Фамилия"
               value={data.contact.lastName}
-              onChange={(e: any) =>
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setData((prev) => ({
                   ...prev,
                   contact: { ...prev.contact, lastName: e.target.value },
                 }))
               }
               id="ms_contact_lastname"
+              filter="letters"
+              error={false}
             />
             <Input
               label="Имя"
               value={data.contact.firstName}
-              onChange={(e: any) =>
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setData((prev) => ({
                   ...prev,
                   contact: { ...prev.contact, firstName: e.target.value },
                 }))
               }
               id="ms_contact_firstname"
+              filter="letters"
+              error={false}
             />
             <Input
               label="Отчество"
               value={data.contact.middleName}
-              onChange={(e: any) =>
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setData((prev) => ({
                   ...prev,
                   contact: { ...prev.contact, middleName: e.target.value },
                 }))
               }
               id="ms_contact_middlename"
+              filter="letters"
+              error={false}
             />
             <Input
               label="Телефон"
               value={data.contact.phone}
-              onChange={(e: any) =>
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setData((prev) => ({
                   ...prev,
                   contact: { ...prev.contact, phone: e.target.value },
@@ -676,11 +721,13 @@ export function MaterialSupplierForm({
               }
               id="ms_contact_phone"
               icon={<Phone size={18} />}
+              type="tel"
+              error={false}
             />
             <Input
               label="E-mail"
               value={data.contact.email}
-              onChange={(e: any) =>
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setData((prev) => ({
                   ...prev,
                   contact: { ...prev.contact, email: e.target.value },
@@ -688,6 +735,8 @@ export function MaterialSupplierForm({
               }
               id="ms_contact_email"
               icon={<Info size={18} />}
+              type="email"
+              error={false}
             />
           </div>
         )}
@@ -711,14 +760,9 @@ export function StepFio({
       <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-4">
         <Input
           label={
-            <div className="relative">
+            <>
               Фамилия <span className="text-red-500">*</span>
-              {errors?.lastName && (
-                <span className="absolute right-0 top-0 text-red-600 text-sm">
-                  {errors.lastName}
-                </span>
-              )}
-            </div>
+            </>
           }
           id="lastName"
           value={data.lastName || ''}
@@ -726,19 +770,16 @@ export function StepFio({
             setData((prev) => ({ ...prev, lastName: e.target.value }))
           }
           icon={<User size={20} />}
+          filter="letters"
           error={Boolean(errors?.lastName)}
+          errorMessage={errors?.lastName}
         />
 
         <Input
           label={
-            <div className="relative">
+            <>
               Имя <span className="text-red-500">*</span>
-              {errors?.firstName && (
-                <span className="absolute right-0 top-0 text-red-600 text-sm">
-                  {errors.firstName}
-                </span>
-              )}
-            </div>
+            </>
           }
           id="firstName"
           value={data.firstName || ''}
@@ -746,7 +787,9 @@ export function StepFio({
             setData((prev) => ({ ...prev, firstName: e.target.value }))
           }
           icon={<User size={20} />}
+          filter="letters"
           error={Boolean(errors?.firstName)}
+          errorMessage={errors?.firstName}
         />
 
         <Input
@@ -757,6 +800,7 @@ export function StepFio({
             setData((prev) => ({ ...prev, middleName: e.target.value }))
           }
           icon={<User size={20} />}
+          filter="letters"
           error={Boolean(false)}
         />
       </div>
@@ -797,14 +841,9 @@ export function Step3({
 
       <Input
         label={
-          <div className="relative">
+          <>
             Пароль <span className="text-red-500">*</span>
-            {passwordError && (
-              <span className="absolute right-0 top-0 text-red-600 text-sm">
-                {passwordError}
-              </span>
-            )}
-          </div>
+          </>
         }
         id="password"
         placeholder="••••••••"
@@ -824,18 +863,14 @@ export function Step3({
           </button>
         }
         error={Boolean(passwordError)}
+        errorMessage={passwordError}
       />
 
       <Input
         label={
-          <div className="relative">
+          <>
             Подтвердите пароль <span className="text-red-500">*</span>
-            {confirmError && (
-              <span className="absolute right-0 top-0 text-red-600 text-sm">
-                {confirmError}
-              </span>
-            )}
-          </div>
+          </>
         }
         id="confirm"
         placeholder="••••••••"
@@ -855,6 +890,7 @@ export function Step3({
           </button>
         }
         error={Boolean(confirmError)}
+        errorMessage={confirmError}
       />
 
       <div className="flex items-center gap-2 text-sm text-gray-800 font-nekstregular mt-2">
@@ -922,12 +958,22 @@ export function EmailVerification({
         </label>
 
         <Input
+          label={
+            <>
+              Код подтверждения <span className="text-red-500">*</span>
+            </>
+          }
           id="email_code"
           placeholder="Введите код из письма"
           value={code}
-          onChange={(e: any) => setCode(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setCode(e.target.value)
+          }
           icon={<Mail size={18} />}
+          filter="digits"
+          maxLength={6}
           error={Boolean(codeError)}
+          errorMessage={codeError}
         />
       </div>
 
