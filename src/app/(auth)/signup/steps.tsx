@@ -275,112 +275,6 @@ export function CustomerForm({
           error={Boolean(errors.factAddres)}
         />
       </div>
-
-      <div className="mt-6 border border-gray-700 rounded-lg p-4">
-        <label className="flex items-center gap-2 font-nekstmedium text-sm mb-4">
-          <input
-            type="checkbox"
-            checked={data.contactPerson}
-            onChange={(e) =>
-              setData((prev) => ({ ...prev, contactPerson: e.target.checked }))
-            }
-            className="accent-purple-600 hover:cursor-pointer"
-          />
-          Указать данные контактного лица (будет создано контактное лицо
-          контрагента)
-        </label>
-
-        <AnimatePresence>
-          {data.contactPerson && (
-            <motion.div
-              key="contact-person"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-hidden"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Фамилия"
-                  value={data.contact.lastName}
-                  onChange={(e: any) =>
-                    setData((prev) => ({
-                      ...prev,
-                      contact: { ...prev.contact, lastName: e.target.value },
-                    }))
-                  }
-                  id="surname_agent"
-                  icon={<User size={18} />}
-                  filter="letters"
-                  error={Boolean(errors['contact.lastName'])}
-                  errorMessage={errors['contact.lastName']}
-                />
-                <Input
-                  label="Телефон"
-                  value={data.contact.phone}
-                  onChange={(e: any) =>
-                    setData((prev) => ({
-                      ...prev,
-                      contact: { ...prev.contact, phone: e.target.value },
-                    }))
-                  }
-                  id="telephone_agent"
-                  icon={<Phone size={18} />}
-                  type="tel"
-                  error={Boolean(errors['contact.phone'])}
-                  errorMessage={errors['contact.phone']}
-                />
-                <Input
-                  label="Имя"
-                  value={data.contact.firstName}
-                  onChange={(e: any) =>
-                    setData((prev) => ({
-                      ...prev,
-                      contact: { ...prev.contact, firstName: e.target.value },
-                    }))
-                  }
-                  id="name_agent"
-                  icon={<User size={18} />}
-                  filter="letters"
-                  error={Boolean(errors['contact.firstName'])}
-                  errorMessage={errors['contact.firstName']}
-                />
-                <Input
-                  label="E-mail"
-                  value={data.contact.email}
-                  onChange={(e: any) =>
-                    setData((prev) => ({
-                      ...prev,
-                      contact: { ...prev.contact, email: e.target.value },
-                    }))
-                  }
-                  id="email_agent"
-                  icon={<Mail size={18} />}
-                  type="email"
-                  error={Boolean(errors['contact.email'])}
-                  errorMessage={errors['contact.email']}
-                />
-                <Input
-                  label="Отчество"
-                  value={data.contact.middleName}
-                  onChange={(e: any) =>
-                    setData((prev) => ({
-                      ...prev,
-                      contact: { ...prev.contact, middleName: e.target.value },
-                    }))
-                  }
-                  id="patronumic_agent"
-                  icon={<User size={18} />}
-                  filter="letters"
-                  error={Boolean(errors['contact.middleName'])}
-                  errorMessage={errors['contact.middleName']}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
     </>
   );
 }
@@ -830,6 +724,26 @@ export function Step3({
 }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+
+  const passwordScore = (s: string) => {
+    let score = 0;
+    if (!s) return 0;
+    if (s.length >= 8) score++;
+    if (s.length >= 12) score++;
+    if (/[A-Z]/.test(s)) score++;
+    if (/[0-9]/.test(s)) score++;
+    if (/[^A-Za-z0-9]/.test(s)) score++;
+    return Math.min(score, 5);
+  };
+
+  const passwordLabel = (score: number) => {
+    if (score <= 1) return 'Слабый';
+    if (score <= 3) return 'Средний';
+    return 'Сильный';
+  };
+
+  const passwordStrength = passwordScore(password);
 
   return (
     <>
@@ -851,6 +765,8 @@ export function Step3({
         icon={<Lock size={20} />}
         value={password}
         onChange={(e: any) => setPassword(e.target.value)}
+        onFocus={() => setIsPasswordFocused(true)}
+        onBlur={() => setIsPasswordFocused(false)}
         rightIcon={
           <button
             type="button"
@@ -872,31 +788,44 @@ export function Step3({
             Подтвердите пароль <span className="text-red-500">*</span>
           </>
         }
-        id="confirm"
+        id="confirm-password"
         placeholder="••••••••"
         type={showConfirm ? 'text' : 'password'}
-        icon={<Lock size={20} />}
         value={confirm}
         onChange={(e: any) => setConfirm(e.target.value)}
-        rightIcon={
-          <button
-            type="button"
-            tabIndex={-1}
-            onClick={() => setShowConfirm((v) => !v)}
-            className="focus:outline-none"
-            aria-label={showConfirm ? 'Скрыть пароль' : 'Показать пароль'}
-          >
-            {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        }
+        onFocus={() => setIsPasswordFocused(true)}
+        onBlur={() => setIsPasswordFocused(false)}
         error={Boolean(confirmError)}
         errorMessage={confirmError}
       />
 
-      <div className="flex items-center gap-2 text-sm text-gray-800 font-nekstregular mt-2">
-        <CheckCircle className="text-gray-400" size={18} />
-        Минимум 8 символов
-      </div>
+      {isPasswordFocused && (
+        <div className="mt-2 transition-opacity duration-300 ease-in-out opacity-100">
+          <div className="flex gap-1">
+            {[0, 1, 2, 3, 4].map((i) => {
+              const active = i < passwordStrength;
+              const bg =
+                passwordStrength <= 1
+                  ? 'bg-red-500'
+                  : passwordStrength <= 3
+                    ? 'bg-yellow-400'
+                    : 'bg-emerald-500';
+              return (
+                <div
+                  key={i}
+                  className={`h-2 rounded-sm transition-all ${
+                    active ? bg : 'bg-slate-200'
+                  }`}
+                  style={{ flex: 1 }}
+                />
+              );
+            })}
+          </div>
+          <div className="text-sm mt-1 text-gray-600">
+            {passwordLabel(passwordStrength)}
+          </div>
+        </div>
+      )}
     </>
   );
 }

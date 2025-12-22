@@ -1,13 +1,7 @@
 'use client';
 import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Listbox,
-  ListboxOptions,
-  ListboxOption,
-  Transition,
-} from '@headlessui/react';
-import { Fragment } from 'react';
+
 import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/24/solid';
 import {
   Search,
@@ -19,6 +13,7 @@ import {
   Edit2,
 } from 'lucide-react';
 import { useGlobalContext } from '@/src/app/GlobalContext';
+import { Loader } from './spinner';
 
 /* --------------------------
    Helpers: ModernSelect, FieldJsonUploader, ensureDataUrl,
@@ -266,13 +261,20 @@ function renderTableCard(name: string, rows: any[] | null): JSX.Element {
       return acc;
     }, new Set<string>()),
   );
+  const isMainTable = name === 'Основная таблица';
   return (
     <div className="rounded-xl bg-white p-3 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm font-medium text-gray-700">{name}</div>
         <div className="text-xs text-gray-500">Строк: {rows.length}</div>
       </div>
-      <div className="min-w-full max-h-[300px] overflow-y-auto overflow-x-auto">
+      <div
+        className={
+          isMainTable
+            ? 'min-w-full' // Без ограничений и скроллов
+            : 'min-w-full max-h-[300px]  overflow-x-auto' // Остальные таблицы со скроллами
+        }
+      >
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-10 bg-white">
             <tr>
@@ -1046,6 +1048,33 @@ export default function OperatorOrdersWizard(): JSX.Element {
     '4. Финальные данные',
   ];
 
+  // Прогресс-бар шагов
+  function StepProgressBar({ step }: { step: number }) {
+    return (
+      <div className="flex items-center gap-2 mb-4">
+        {stepTitles.map((t, i) => {
+          const active = step === i + 1;
+          const done = step > i + 1;
+          return (
+            <div key={t} className="flex items-center gap-1">
+              <div
+                className={`w-8 h-8 flex items-center justify-center rounded-full border-2 transition-all duration-300
+                  ${done ? 'bg-emerald-500 border-emerald-500 text-white' : active ? 'bg-white border-emerald-400 text-emerald-600 font-bold' : 'bg-gray-100 border-gray-200 text-gray-400'}`}
+              >
+                {done ? '✓' : i + 1}
+              </div>
+              {i < stepTitles.length - 1 && (
+                <div
+                  className={`h-1 w-8 rounded transition-all duration-300 ${done ? 'bg-emerald-400' : 'bg-gray-200'}`}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
   const closeSelected = () => {
     setSelectedOrder(null);
     setStep(1);
@@ -1176,91 +1205,87 @@ export default function OperatorOrdersWizard(): JSX.Element {
               ) : orders.length === 0 ? (
                 <div className="p-6 text-sm text-gray-500">Нет заявок</div>
               ) : (
-                <div className="max-h-[350px] overflow-y-auto">
-                  <table className="w-full border-collapse text-sm">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
-                          ID
-                        </th>
-                        <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
-                          Поле
-                        </th>
-                        <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
-                          Дата
-                        </th>
-                        <th className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
-                          Статус
-                        </th>
-                        <th className="px-5 py-4 text-right text-xs font-medium text-gray-500 tracking-wide">
-                          Действие
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.map((o, i) => (
-                        <tr
-                          key={o.id}
-                          className={`transition-all duration-200 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-emerald-50 hover:shadow-sm cursor-pointer`}
-                        >
-                          <td className="px-5 py-4 font-medium text-gray-900">
-                            #{o.id}
-                          </td>
-                          <td className="px-5 py-4 text-gray-700">
-                            {o.fieldName}
-                          </td>
-                          <td className="px-5 py-4 text-gray-500">{o.date}</td>
-                          <td className="px-5 py-4">
+                <div className="">
+                  <div className="w-full text-sm">
+                    <div className="grid grid-cols-5 bg-gray-50 rounded-t-2xl">
+                      <div className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
+                        ID
+                      </div>
+                      <div className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
+                        Поле
+                      </div>
+                      <div className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
+                        Дата
+                      </div>
+                      <div className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
+                        Статус
+                      </div>
+                      <div className="px-5 py-4 text-right text-xs font-medium text-gray-500 tracking-wide">
+                        Действие
+                      </div>
+                    </div>
+                    {orders.map((o, i) => (
+                      <div
+                        key={o.id}
+                        className={`grid grid-cols-5 items-center transition-all duration-200 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-emerald-50 hover:shadow-sm cursor-pointer`}
+                      >
+                        <div className="px-5 py-4 font-medium text-gray-900">
+                          #{o.id}
+                        </div>
+                        <div className="px-5 py-4 text-gray-700">
+                          {o.fieldName}
+                        </div>
+                        <div className="px-5 py-4 text-gray-500">{o.date}</div>
+                        <div className="px-5 py-4">
+                          {o.metadata?.processed ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                              Обработана
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                              Не обработана
+                            </span>
+                          )}
+                        </div>
+                        <div className="px-5 py-4 text-right">
+                          <div className="inline-flex items-center gap-2">
                             {o.metadata?.processed ? (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                                Обработана
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                                Не обработана
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-5 py-4 text-right">
-                            <div className="inline-flex items-center gap-2">
-                              {o.metadata?.processed ? (
-                                <>
-                                  <button
-                                    onClick={(e) => handleView(e, o)}
-                                    title="Просмотреть"
-                                    className="p-2 rounded-xl bg-white hover:bg-gray-50 shadow transition"
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                  >
-                                    <Eye size={16} />
-                                  </button>
-                                  <button
-                                    onClick={(e) => handleEdit(e, o)}
-                                    title="Изменить"
-                                    className="p-2 rounded-xl bg-white hover:bg-gray-50 shadow transition"
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                  >
-                                    <Edit2 size={16} />
-                                  </button>
-                                </>
-                              ) : (
+                              <>
                                 <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedOrder(o);
-                                    setIsViewOnly(false);
-                                    setStep(1);
-                                  }}
-                                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-medium shadow hover:shadow-lg transition-all"
+                                  onClick={(e) => handleView(e, o)}
+                                  title="Просмотреть"
+                                  className="p-2 rounded-xl bg-white hover:bg-gray-50 shadow transition"
+                                  onMouseDown={(e) => e.stopPropagation()}
                                 >
-                                  Обработать
+                                  <Eye size={16} />
                                 </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                                <button
+                                  onClick={(e) => handleEdit(e, o)}
+                                  title="Изменить"
+                                  className="p-2 rounded-xl bg-white hover:bg-gray-50 shadow transition"
+                                  onMouseDown={(e) => e.stopPropagation()}
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOrder(o);
+                                  setIsViewOnly(false);
+                                  setStep(1);
+                                }}
+                                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-medium shadow hover:shadow-lg transition-all"
+                              >
+                                Обработать
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1347,11 +1372,22 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     <button
                       onClick={isAnalyzeDisabled ? undefined : runAnalyze}
                       disabled={isAnalyzeDisabled}
-                      className={`px-5 py-2 rounded-lg text-sm font-medium select-none transition ${isAnalyzeDisabled ? 'bg-gray-200 text-gray-400 border border-gray-200 shadow-none opacity-80 cursor-not-allowed' : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97] cursor-pointer'}`}
+                      className={`px-5 py-2 rounded-lg text-sm font-medium select-none transition
+    flex items-center justify-center gap-2
+    ${
+      isAnalyzeDisabled
+        ? 'bg-gray-200 text-gray-400 border border-gray-200 shadow-none opacity-80 cursor-not-allowed'
+        : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97] cursor-pointer'
+    }`}
                     >
-                      {calcInProgress
-                        ? `Running ${calcProgress}%`
-                        : 'Запустить анализ'}
+                      {calcInProgress ? (
+                        <>
+                          <Loader size={18} />
+                          <span>Загрузка…</span>
+                        </>
+                      ) : (
+                        'Запустить анализ'
+                      )}
                     </button>
                   </div>
                 </div>
@@ -1555,7 +1591,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     </button>
                   </div>
 
-                  <div className="max-h-[300px] overflow-y-auto">
+                  <div className="max-h-[1000px] overflow-y-auto">
                     <table className="w-full text-sm border-collapse">
                       <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr>
@@ -1731,73 +1767,6 @@ export default function OperatorOrdersWizard(): JSX.Element {
                 </div>
 
                 <div className="rounded-xl p-4 bg-white border-gray-100">
-                  {/* <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm font-medium">
-                      Предпросмотр тела запроса
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      Проверьте перед отправкой
-                    </div>
-                  </div>
-                  <pre className="max-h-48 overflow-auto text-xs bg-gray-50 p-2 rounded-md border border-gray-100">
-                    {(() => {
-                      const assignedIndices = Array.from(
-                        new Set(
-                          Object.values(clusterAssignments).filter(Boolean),
-                        ),
-                      ).sort((a, b) => a - b);
-                      const finalDroneIds = assignedIndices
-                        .map((index) => availableDrones[index - 1]?.droneId)
-                        .filter((id): id is number => id !== undefined);
-
-                      const indexMap: Record<number, number> =
-                        assignedIndices.reduce(
-                          (acc, oldIndex, newIndex) => {
-                            acc[oldIndex] = newIndex + 1; // oldIndex (1-based) -> newIndex (1-based) в finalDroneIds
-                            return acc;
-                          },
-                          {} as Record<number, number>,
-                        );
-
-                      const finalDroneTasks: Record<string, number> = {};
-                      Object.keys(clusterAssignments).forEach((k) => {
-                        const clusterId = Number(k);
-                        const assignedIdx = clusterAssignments[clusterId];
-                        if (!assignedIdx) return;
-                        const newIndex = indexMap[assignedIdx];
-                        if (newIndex) {
-                          finalDroneTasks[String(clusterId)] = newIndex;
-                        }
-                      });
-
-                      const finalNumType = Object.fromEntries(
-                        finalDroneIds.map((dbId, i) => {
-                          const quantityFromState = droneQuantities[dbId];
-                          const defaultQuantity =
-                            availableDrones.find((d) => d.droneId === dbId)
-                              ?.quantity ?? 1;
-                          return [
-                            String(i + 1),
-                            quantityFromState ?? Math.max(1, defaultQuantity),
-                          ];
-                        }),
-                      );
-
-                      return JSON.stringify(
-                        {
-                          inputId:
-                            selectedOrder?.metadata?.latestInput?.id ?? null,
-                          processingMode,
-                          droneIds: finalDroneIds,
-                          droneTasks: finalDroneTasks,
-                          numType: finalNumType,
-                        },
-                        null,
-                        2,
-                      );
-                    })()}
-                  </pre> */}
-
                   <div className="mt-3 flex items-center justify-end gap-2">
                     {!isViewOnly && (
                       <button
@@ -1807,15 +1776,40 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         Назад
                       </button>
                     )}
-                    <button
-                      onClick={applyFinal}
-                      disabled={calcInProgress || !allClustersAssigned}
-                      className={`px-4 py-2 rounded ${!allClustersAssigned || calcInProgress ? 'bg-gray-200 text-gray-500 cursor-not-allowed' : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white'}`}
+                    <div
+                      style={{
+                        transform: allClustersAssigned
+                          ? 'scaleY(1)'
+                          : 'scaleY(0)',
+                        transformOrigin: 'top',
+                        opacity: allClustersAssigned ? 1 : 0,
+                        maxHeight: allClustersAssigned ? '80px' : '0px',
+                        transition:
+                          'transform 220ms ease, opacity 220ms ease, max-height 220ms ease',
+                        overflow: 'hidden',
+                      }}
                     >
-                      {calcInProgress
-                        ? `Running ${calcProgress}%`
-                        : 'Запустить финальную обработку'}
-                    </button>
+                      <button
+                        onClick={applyFinal}
+                        disabled={calcInProgress}
+                        className={`px-4 py-2 rounded flex items-center justify-center gap-2
+    ${
+      calcInProgress
+        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
+        : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:scale-105 transition-transform'
+    }
+  `}
+                      >
+                        {calcInProgress ? (
+                          <>
+                            <Loader size={18} />
+                            <span>Загрузка...</span>
+                          </>
+                        ) : (
+                          'Запустить финальную обработку'
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

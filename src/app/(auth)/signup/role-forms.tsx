@@ -78,6 +78,7 @@ export function ManagerForm({
           id="inn_manager"
           value={data.inn}
           onChange={(e: any) => setData({ ...data, inn: e.target.value })}
+          maxLength={data.type === 'COMPANY' ? 10 : 12}
           error={isSubmitted && data.type === 'COMPANY' && !required(data.inn)}
         />
         <Input
@@ -282,6 +283,7 @@ export function CustomerForm({
           id="cust_inn"
           value={data.inn}
           onChange={(e: any) => setData({ ...data, inn: e.target.value })}
+          maxLength={data.type === 'COMPANY' ? 10 : 12}
           error={isSubmitted && data.type === 'COMPANY' && !required(data.inn)}
         />
         <Input
@@ -475,6 +477,7 @@ export function DroneSupplierForm({
           id="ds_inn"
           value={data.inn}
           onChange={(e: any) => setData({ ...data, inn: e.target.value })}
+          maxLength={data.type === 'COMPANY' ? 10 : 12}
           error={isSubmitted && data.type === 'COMPANY' && !required(data.inn)}
         />
         <Input
@@ -665,6 +668,7 @@ export function MaterialSupplierForm({
           id="ms_inn"
           value={data.inn}
           onChange={(e: any) => setData({ ...data, inn: e.target.value })}
+          maxLength={data.type === 'COMPANY' ? 10 : 12}
           error={isSubmitted && data.type === 'COMPANY' && !required(data.inn)}
         />
         <Input

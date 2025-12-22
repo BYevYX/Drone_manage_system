@@ -410,7 +410,12 @@ export default function MultiStepSignup() {
       setStep(totalSteps);
     } catch (err: any) {
       if (err.response?.data?.message) {
-        setServerMessage(err.response.data.message);
+        const errorMessage = err.response.data.message;
+        if (errorMessage === 'such phone or email is already registered') {
+          setServerMessage('Такой телефон или email уже зарегистрирован');
+        } else {
+          setServerMessage(errorMessage);
+        }
       } else {
         setServerMessage(
           'Ошибка при регистрации: ' + (err.message || 'unknown'),
@@ -618,7 +623,7 @@ export default function MultiStepSignup() {
             <button
               type="button"
               onClick={() => handleSubmit()}
-              className="flex items-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-nekstmedium hover:from-indigo-600 hover:to-blue-700 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
+              className="flex items-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-700 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
             >
               Зарегистрироваться
             </button>

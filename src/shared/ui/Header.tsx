@@ -242,7 +242,7 @@ export default function Header() {
 
   return (
     <header
-      className={`sticky top-0  z-50 ${headerStyles[pathname!] || headerStyles.default} bg-gradient-to-r`}
+      className={`sticky top-0  z-50 ${headerStyles[pathname!] || headerStyles.default} bg-gradient-to-r `}
     >
       <div className="container  mx-auto flex justify-between items-center font-nekstmedium z-10">
         <div className="flex items-center space-x-[20px]">
@@ -551,10 +551,19 @@ export default function Header() {
               <div className="flex items-center gap-3 ml-[15px]">
                 <Link
                   href="/login"
-                  className="flex items-center gap-2 px-8 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white hover:opacity-95 transition"
+                  className="
+    flex items-center gap-2 px-10 py-2 rounded-full
+    bg-gradient-to-br from-green-500 to-green-600
+    text-white font-medium
+    shadow-[0_6px_20px_rgba(16,185,129,0.35)]
+    transition-all duration-200
+    hover:bg-emerald-500
+    hover:shadow-[0_8px_30px_rgba(16,185,129,0.55)]
+    active:scale-95
+  "
                 >
                   <LogIn className="w-5 h-5" />
-                  <span className="font-medium">Вход</span>
+                  <span>Вход</span>
                 </Link>
               </div>
             ) : (
