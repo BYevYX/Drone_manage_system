@@ -80,6 +80,52 @@ const STATUS_OPTIONS = [
   { value: 'Cancelled', label: 'Отменена' },
 ];
 
+// Русифицируем поля
+const FIELD_LABELS: Record<string, string> = {
+  orderId: 'ID заказа',
+  contractorId: 'ID контрактора',
+  contractorPhone: 'Телефон контрактора',
+  operatorId: 'ID оператора',
+  operatorName: 'Имя оператора',
+  typeProcessId: 'Тип обработки',
+  status: 'Статус',
+  createdAt: 'Дата создания',
+  dataStart: 'Дата начала',
+  dataEnd: 'Дата окончания',
+  materialsProvided: 'Материалы предоставлены',
+  preview: 'Предпросмотр',
+  firstName: 'Имя',
+  lastName: 'Фамилия',
+};
+
+// Русифицируем поля для ответа API /api/users/{id}
+const USER_FIELD_LABELS: Record<string, string> = {
+  id: 'ID пользователя',
+
+  contractorEmail: 'Электронная почта',
+
+  phone: 'Телефон',
+  userRole: 'Роль пользователя',
+  contractorName: 'Имя',
+  contractorSurname: 'Отчество',
+  contractorLastName: 'Фамилия',
+  contractorPhone: 'Телефон',
+  surname: 'Отчество',
+  createdAt: 'Дата создания',
+  'contractorProfile.organization': 'Организация',
+  'contractorProfile.organizationName': 'Название организации',
+  'contractorProfile.organizationType': 'Тип организации',
+  'contractorProfile.inn': 'ИНН',
+  'contractorProfile.kpp': 'КПП',
+  'contractorProfile.okpoCode': 'ОКПО',
+  'contractorProfile.addressUr': 'Юридический адрес',
+  'contractorProfile.addressFact': 'Фактический адрес',
+  operatorName: 'Имя',
+  operatorLastName: 'Фамилия',
+  operatorEmail: 'Электронная почта',
+  operatorPhone: 'Телефон',
+};
+
 export default function FriendlyOrdersPanel() {
   const API_BASE = 'https://droneagro.duckdns.org';
 
@@ -144,6 +190,7 @@ export default function FriendlyOrdersPanel() {
         const txt = await res.text().catch(() => '');
         throw new Error(`Ошибка получения заказов: ${res.status} ${txt}`);
       }
+      console.log(res, 'dadada');
       const data = await res.json();
       const list: ApiOrder[] = Array.isArray(data.orders) ? data.orders : [];
       // Сортируем заявки по ID в порядке убывания
@@ -306,6 +353,40 @@ export default function FriendlyOrdersPanel() {
   );
 
   // --- assign operator
+  const fetchContractorDetails = async (contractorId: number) => {
+    try {
+      const res = await authFetch(`${API_BASE}/api/users/${contractorId}`);
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        throw new Error(
+          `Ошибка получения данных контрактора: ${res.status} ${txt}`,
+        );
+      }
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      console.error(err);
+      return null;
+    }
+  };
+
+  const fetchOperatorDetails = async (operatorId: number) => {
+    try {
+      const response = await authFetch(`${API_BASE}/api/users/${operatorId}`);
+      if (!response.ok) {
+        const txt = await response.text().catch(() => '');
+        throw new Error(
+          `Ошибка получения данных контрактора: ${response.status} ${txt}`,
+        );
+      }
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching operator details:', error);
+      return null;
+    }
+  };
+
   const assignOperatorToOrder = useCallback(
     async (orderId: number, operatorId: number | null) => {
       if (operatorId === null) {
@@ -320,18 +401,6 @@ export default function FriendlyOrdersPanel() {
       try {
         setUpdatingId(orderId);
         setError(null);
-        setAllOrders((prev) =>
-          prev.map((o) =>
-            o.orderId === orderId
-              ? {
-                  ...o,
-                  operatorId: operator.id,
-                  operatorName: `${operator.firstName} ${operator.lastName}`,
-                }
-              : o,
-          ),
-        );
-
         const res = await authFetch(
           `${API_BASE}/api/orders/${orderId}/take?operatorId=${operatorId}`,
           { method: 'GET' },
@@ -343,7 +412,16 @@ export default function FriendlyOrdersPanel() {
         const updated = await res.json().catch(() => null);
         if (updated) {
           setAllOrders((prev) =>
-            prev.map((o) => (o.orderId === orderId ? { ...o, ...updated } : o)),
+            prev.map((o) =>
+              o.orderId === orderId
+                ? {
+                    ...o,
+                    ...updated,
+                    operatorId: operator.id,
+                    operatorName: `${operator.firstName} ${operator.lastName}`,
+                  }
+                : o,
+            ),
           );
         }
         setSelected((s) =>
@@ -412,11 +490,37 @@ export default function FriendlyOrdersPanel() {
     );
   };
 
-  const openModal = (o: ApiOrder) => {
-    setSelected(o);
+  const openModal = async (o: ApiOrder) => {
     setPendingStatus(null);
     setSelectedOperatorId(o.operatorId ?? null);
     setStatusOpen(false);
+
+    let contractorDetails = null;
+    let operatorDetails = null;
+
+    if (o.contractorId) {
+      contractorDetails = await fetchContractorDetails(o.contractorId);
+    }
+
+    if (o.operatorId) {
+      operatorDetails = await fetchOperatorDetails(o.operatorId);
+    }
+
+    setSelected({
+      ...o,
+      ...(contractorDetails && {
+        contractorName: contractorDetails.firstName,
+        contractorLastName: contractorDetails.lastName,
+        contractorEmail: contractorDetails.email,
+        contractorPhone: contractorDetails.phone,
+      }),
+      ...(operatorDetails && {
+        operatorName: operatorDetails.firstName,
+        operatorLastName: operatorDetails.lastName,
+        operatorEmail: operatorDetails.email,
+        operatorPhone: operatorDetails.phone,
+      }),
+    });
   };
 
   // --- combined confirm: assign operator + update status (if needed)
@@ -959,9 +1063,9 @@ export default function FriendlyOrdersPanel() {
                 <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-xs text-slate-500">Контрактор</div>
+                      <div className="text-xs text-slate-500">Заказ</div>
                       <div className="text-lg font-nekstregular mt-1">
-                        #{String(selected.contractorId ?? '—')}
+                        #{selected.orderId}
                       </div>
                     </div>
                     <div className="text-right">
@@ -990,14 +1094,6 @@ export default function FriendlyOrdersPanel() {
                   <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <div className="text-xs text-slate-500">
-                        Материалы предоставлены
-                      </div>
-                      <div className="text-sm font-nekstregular mt-1">
-                        {selected.materialsProvided ? 'Да' : 'Нет'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-slate-500">
                         Временные рамки
                       </div>
                       <div className="text-sm mt-1">
@@ -1013,16 +1109,6 @@ export default function FriendlyOrdersPanel() {
                     Подробности заказа
                   </div>
                   <div className="space-y-3">
-                    {/* ID заказа */}
-                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
-                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
-                        ID заказа
-                      </div>
-                      <div className="text-sm font-nekstregular text-slate-900">
-                        #{selected.orderId}
-                      </div>
-                    </div>
-
                     {/* Тип обработки */}
                     <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
                       <div className="text-xs text-slate-400 w-32 flex-shrink-0">
@@ -1067,34 +1153,6 @@ export default function FriendlyOrdersPanel() {
                       </div>
                     </div>
 
-                    {/* Контрактор */}
-                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
-                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
-                        Контрактор
-                      </div>
-                      <div className="text-sm text-slate-700">
-                        ID: {selected.contractorId ?? '—'}
-                        {selected.contractorPhone && (
-                          <div className="text-xs text-slate-500 mt-1">
-                            Телефон: {selected.contractorPhone}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Оператор */}
-                    {selected.operatorId && (
-                      <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
-                        <div className="text-xs text-slate-400 w-32 flex-shrink-0">
-                          Оператор
-                        </div>
-                        <div className="text-sm text-slate-700">
-                          {selected.operatorName ??
-                            `ID: ${selected.operatorId}`}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Материалы */}
                     <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
                       <div className="text-xs text-slate-400 w-32 flex-shrink-0">
@@ -1113,26 +1171,63 @@ export default function FriendlyOrdersPanel() {
                       </div>
                     </div>
 
-                    {/* Дополнительные поля */}
-                    {Object.entries(selected)
+                    {/* Дополнительные поля пользователя */}
+                    {Object.entries(selected.contractorProfile || {})
                       .filter(
                         ([k, v]) =>
-                          ![
-                            'orderId',
-                            'contractorId',
-                            'contractorPhone',
-                            'operatorId',
-                            'operatorName',
-                            'typeProcessId',
-                            'status',
-                            'createdAt',
-                            'dataStart',
-                            'dataEnd',
-                            'materialsProvided',
-                            'preview',
-                            'firstName',
-                            'lastName',
-                          ].includes(k) &&
+                          v !== undefined && v !== null && String(v) !== '',
+                      )
+                      .map(([k, v]) => (
+                        <div
+                          key={k}
+                          className="flex items-start gap-3 pb-3 border-b border-slate-100"
+                        >
+                          <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
+                            {USER_FIELD_LABELS[`contractorProfile.${k}`] ||
+                              k.replace(/([A-Z])/g, ' $1')}
+                          </div>
+                          <div className="text-sm text-slate-700 break-words">
+                            {String(v)}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+
+                {/* Информация о контракторе */}
+                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="text-sm font-nekstmedium text-slate-700 mb-4">
+                    Информация о контракторе
+                  </div>
+                  <div className="space-y-3">
+                    {Object.entries(selected)
+                      .filter(([k]) =>
+                        [
+                          'contractorName',
+                          'contractorLastName',
+                          'contractorEmail',
+                          'contractorPhone',
+                        ].includes(k),
+                      )
+                      .map(([k, v]) => (
+                        <div
+                          key={k}
+                          className="flex items-start gap-3 pb-3 border-b border-slate-100"
+                        >
+                          <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
+                            {USER_FIELD_LABELS[k] ||
+                              k.replace(/([A-Z])/g, ' $1')}
+                          </div>
+                          <div className="text-sm text-slate-700 break-words">
+                            {String(v)}
+                          </div>
+                        </div>
+                      ))}
+
+                    {/* Профиль контрактора */}
+                    {Object.entries(selected.contractorProfile || {})
+                      .filter(
+                        ([k, v]) =>
                           v !== undefined &&
                           v !== null &&
                           String(v) !== '' &&
@@ -1144,7 +1239,8 @@ export default function FriendlyOrdersPanel() {
                           className="flex items-start gap-3 pb-3 border-b border-slate-100"
                         >
                           <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
-                            {k.replace(/([A-Z])/g, ' $1')}
+                            {USER_FIELD_LABELS[`contractorProfile.${k}`] ||
+                              k.replace(/([A-Z])/g, ' $1')}
                           </div>
                           <div className="text-sm text-slate-700 break-words">
                             {String(v)}
@@ -1153,6 +1249,40 @@ export default function FriendlyOrdersPanel() {
                       ))}
                   </div>
                 </div>
+
+                {/* Информация об операторе */}
+                {selected.operatorId && (
+                  <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="text-sm font-nekstmedium text-slate-700 mb-4">
+                      Информация об операторе
+                    </div>
+                    <div className="space-y-3">
+                      {Object.entries(selected)
+                        .filter(([k]) =>
+                          [
+                            'operatorName',
+                            'operatorLastName',
+                            'operatorEmail',
+                            'operatorPhone',
+                          ].includes(k),
+                        )
+                        .map(([k, v]) => (
+                          <div
+                            key={k}
+                            className="flex items-start gap-3 pb-3 border-b border-slate-100"
+                          >
+                            <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
+                              {USER_FIELD_LABELS[k] ||
+                                k.replace(/([A-Z])/g, ' $1')}
+                            </div>
+                            <div className="text-sm text-slate-700 break-words">
+                              {String(v)}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* right */}

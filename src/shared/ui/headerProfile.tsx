@@ -75,14 +75,15 @@ export default function HeaderProfile({
   const openTimer = useRef<any>(null);
   const closeTimer = useRef<any>(null);
 
-  const initials = user?.name
-    ? user.name
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : 'U';
+  const initials =
+    userInfo.firstName && userInfo.lastName
+      ? `${userInfo.firstName[0]}${userInfo.lastName[0]}`.toUpperCase()
+      : user?.name
+          ?.split(' ')
+          .map((n) => n[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase();
 
   // detect mobile viewport to change menu behaviour
   const [isMobile, setIsMobile] = useState(

@@ -390,7 +390,6 @@ input:focus {
   );
   background-clip: text;
 
-  font-size: 1rem;
   color: transparent;
 }
 
@@ -399,8 +398,7 @@ input:focus {
   z-index: 1;
 
   padding: 1rem 2.25rem; /* высота/ширина под гармонию с зелёной */
-  font-weight: 500; /* font-nekstmedium */
-  font-size: 1rem;
+
   border-radius: 9999px; /* такой же радиус, как у зелёной */
   border: 2px solid rgba(255, 255, 255, 0.3);
   background-color: transparent;
@@ -475,4 +473,297 @@ input:focus {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* From Uiverse.io by 3bdel3ziz-T */
+.uploadbtn {
+  --transition: 350ms;
+  --folder-W: 120px;
+  --folder-H: 80px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+
+  padding: 10px;
+  height: calc(var(--folder-H) * 1.7);
+  background: linear-gradient(135deg, #7ee8a6, #3cb371);
+
+  border-radius: 15px;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+
+  position: relative;
+}
+
+.folder {
+  position: absolute;
+  top: -20px;
+  left: calc(50% - 60px);
+
+  animation: float 2.5s infinite ease-in-out;
+  transition: transform var(--transition) ease;
+}
+
+.folder:hover {
+  transform: scale(1.05);
+}
+
+.folder .front-side,
+.folder .back-side {
+  position: absolute;
+  transform-origin: bottom center;
+  transition: transform var(--transition);
+}
+
+.folder .back-side::before,
+.folder .back-side::after {
+  content: '';
+  display: block;
+
+  width: var(--folder-W);
+  height: var(--folder-H);
+
+  background-color: white;
+  opacity: 0.5;
+
+  position: absolute;
+  transform-origin: bottom center;
+  border-radius: 15px;
+  transition: transform var(--transition);
+  z-index: 0;
+}
+
+.uploadbtn:hover .back-side::before {
+  transform: rotateX(-5deg) skewX(5deg);
+}
+
+.uploadbtn:hover .back-side::after {
+  transform: rotateX(-15deg) skewX(12deg);
+}
+
+.folder .front-side {
+  z-index: 1;
+}
+
+.uploadbtn:hover .front-side {
+  transform: rotateX(-40deg) skewX(15deg);
+}
+
+.folder .tip {
+  width: 80px;
+  height: 20px;
+
+  background: linear-gradient(135deg, #ff9a56, #ff6f56);
+  border-radius: 12px 12px 0 0;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+
+  position: absolute;
+  top: -10px;
+  z-index: 2;
+}
+
+.folder .cover {
+  width: var(--folder-W);
+  height: var(--folder-H);
+
+  background: linear-gradient(135deg, #ffe563, #ffc663);
+  border-radius: 10px;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+}
+
+.custom-file-upload {
+  width: 100%;
+  padding: 10px 35px;
+
+  font-size: 1.1em;
+  color: #ffffff;
+  text-align: center;
+
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+
+  cursor: pointer;
+  transition: background var(--transition) ease;
+  display: inline-block;
+}
+
+.custom-file-upload:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.custom-file-upload input[type='file'] {
+  display: none;
+}
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+/* From Uiverse.io by PriyanshuGupta28 */
+.spinner {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+}
+
+.spinner div {
+  position: absolute;
+  width: 50%;
+  height: 150%;
+  background: #000000;
+  transform: rotate(calc(var(--rotation) * 1deg))
+    translate(0, calc(var(--translation) * 1%));
+  animation: spinner-fzua35 1s calc(var(--delay) * 1s) infinite ease;
+}
+
+.spinner div:nth-child(1) {
+  --delay: 0.1;
+  --rotation: 36;
+  --translation: 150;
+}
+
+.spinner div:nth-child(2) {
+  --delay: 0.2;
+  --rotation: 72;
+  --translation: 150;
+}
+
+.spinner div:nth-child(3) {
+  --delay: 0.3;
+  --rotation: 108;
+  --translation: 150;
+}
+
+.spinner div:nth-child(4) {
+  --delay: 0.4;
+  --rotation: 144;
+  --translation: 150;
+}
+
+.spinner div:nth-child(5) {
+  --delay: 0.5;
+  --rotation: 180;
+  --translation: 150;
+}
+
+.spinner div:nth-child(6) {
+  --delay: 0.6;
+  --rotation: 216;
+  --translation: 150;
+}
+
+.spinner div:nth-child(7) {
+  --delay: 0.7;
+  --rotation: 252;
+  --translation: 150;
+}
+
+.spinner div:nth-child(8) {
+  --delay: 0.8;
+  --rotation: 288;
+  --translation: 150;
+}
+
+.spinner div:nth-child(9) {
+  --delay: 0.9;
+  --rotation: 324;
+  --translation: 150;
+}
+
+.spinner div:nth-child(10) {
+  --delay: 1;
+  --rotation: 360;
+  --translation: 150;
+}
+
+@keyframes spinner-fzua35 {
+  0%,
+  10%,
+  20%,
+  30%,
+  50%,
+  60%,
+  70%,
+  80%,
+  90%,
+  100% {
+    transform: rotate(calc(var(--rotation) * 1deg))
+      translate(0, calc(var(--translation) * 1%));
+  }
+
+  50% {
+    transform: rotate(calc(var(--rotation) * 1deg))
+      translate(0, calc(var(--translation) * 1.5%));
+  }
+} /* Зеленая версия кнопки с Uiverse.io стилем */
+.cssbuttons-io-button {
+  background: linear-gradient(to bottom right, #2ad569, #16a34a);
+  color: white;
+  font-family: inherit;
+  padding: 0.35em;
+  padding-left: 1.2em;
+  font-size: 17px;
+  font-weight: 500;
+  border-radius: 0.9em;
+  border: none;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  box-shadow: inset 0 0 1.6em -0.6em #16a34a; /* внутренняя тень */
+  overflow: hidden;
+  position: relative;
+  height: 2.5em;
+  padding-right: 3.3em;
+  cursor: pointer;
+  transition: all 0.3s ease-in-out;
+}
+
+.cssbuttons-io-button .icon {
+  background: #39cb6e;
+  margin-left: 1em;
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.2em;
+  width: 2.2em;
+  border-radius: 0.7em;
+  box-shadow: 0.1em 0.1em 0.6em 0.2em #22c55e8e; /* мягкая зеленая тень */
+  right: 0.3em;
+  transition: all 0.3s;
+}
+
+.cssbuttons-io-button:hover .icon {
+  width: calc(100% - 0.6em);
+}
+
+.cssbuttons-io-button .icon svg {
+  width: 1.1em;
+  transition: transform 0.3s;
+  color: #ffffff; /* иконка белая */
+}
+
+.cssbuttons-io-button:hover .icon svg {
+  transform: translateX(0.1em);
+}
+
+.cssbuttons-io-button:active .icon {
+  transform: scale(0.95);
+}
+
+/* Подсветка при hover */
+.cssbuttons-io-button:hover {
+  box-shadow:
+    inset 0 0 1.8em -0.6em #16a34a,
+    0 0 12px #22c55eaa;
 }

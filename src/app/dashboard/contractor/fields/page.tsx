@@ -29,6 +29,11 @@ import {
  * - clicking on a card opens a styled detail modal (like manager)
  * - edit icon is Edit2 (same as manager)
  * - AUTOFILL / AUTOFORMAT for cadastral number: 2:2:7:4 parts -> XX:XX:XXXXXXX:XXXX
+ *
+ * Fixes by assistant:
+ * - remove duplicate file input inside visual uploadbtn (prevents multiple dialogs)
+ * - reuse uploadbtn in edit modal
+ * - stopPropagation on uploadbtn clicks to avoid accidental modal close / card click
  */
 
 const API_BASE = 'https://droneagro.duckdns.org';
@@ -241,8 +246,10 @@ export default function FieldsManager() {
       r.readAsDataURL(f);
     });
 
+  // HANDLE FILES
   const handleFilePick = async (file?: File | null) => {
     if (!file) {
+      // open hidden input for add
       fileRef.current?.click();
       return;
     }
@@ -252,6 +259,24 @@ export default function FieldsManager() {
       const commaIndex = dataUrl.indexOf(',');
       const base64 = commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl;
       setMapFileBase64(base64);
+    } catch (err) {
+      console.error(err);
+      showNotice('err', 'Не удалось считать файл');
+    }
+  };
+
+  const handleEditFilePick = async (file?: File | null) => {
+    if (!file) {
+      // open hidden input for edit
+      editFileRef.current?.click();
+      return;
+    }
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      setEditMapFileDataUrl(dataUrl);
+      const commaIndex = dataUrl.indexOf(',');
+      const base64 = commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl;
+      setEditMapFileBase64(base64);
     } catch (err) {
       console.error(err);
       showNotice('err', 'Не удалось считать файл');
@@ -311,6 +336,7 @@ export default function FieldsManager() {
         setCadastral('');
         setMapFileDataUrl(null);
         setMapFileBase64(null);
+        if (fileRef.current) fileRef.current.value = '';
       } else {
         await fetchList();
         setAddOpen(false);
@@ -333,23 +359,6 @@ export default function FieldsManager() {
     setEditCadastral(sanitizeAndFormat(field.cadastralNumber || ''));
     setEditMapFileDataUrl(field.mapFile || null);
     setEditMapFileBase64(null);
-  };
-
-  const handleEditFilePick = async (file?: File | null) => {
-    if (!file) {
-      editFileRef.current?.click();
-      return;
-    }
-    try {
-      const dataUrl = await fileToDataUrl(file);
-      setEditMapFileDataUrl(dataUrl);
-      const commaIndex = dataUrl.indexOf(',');
-      const base64 = commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl;
-      setEditMapFileBase64(base64);
-    } catch (err) {
-      console.error(err);
-      showNotice('err', 'Не удалось считать файл');
-    }
   };
 
   const handleUpdate = async () => {
@@ -403,6 +412,7 @@ export default function FieldsManager() {
       setEditCadastral('');
       setEditMapFileDataUrl(null);
       setEditMapFileBase64(null);
+      if (editFileRef.current) editFileRef.current.value = '';
     } catch (e: any) {
       console.error('update field error', e);
       showNotice('err', e.message || 'Ошибка обновления поля');
@@ -503,80 +513,84 @@ export default function FieldsManager() {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading
-          ? Array.from({ length: limit }).map((_, i) => (
-              <div
-                key={i}
-                className="animate-pulse rounded-3xl bg-white/60 p-6 h-72"
-              />
-            ))
-          : fields.map((f) => (
-              <div
-                key={f.fieldId}
-                onClick={() => setSelectedField(f)}
-                role="button"
-                tabIndex={0}
-                className="relative rounded-3xl bg-white p-6 shadow-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl transition-all duration-300"
-              >
-                <div>
-                  <div className="text-xs text-gray-400">
-                    ID {f.localId ? `#${f.localId}` : getDisplayId(f.fieldId)}
-                  </div>
-                  <div className="text-xl font-nekstmedium mt-2">
-                    {f.cadastralNumber || '—'}
-                  </div>
-
-                  <div className="text-sm text-gray-600 mt-4">
-                    {f.mapFile ? (
-                      <img
-                        src={f.mapFile}
-                        alt={`map-${f.fieldId}`}
-                        className="w-full h-60 md:h-72 object-cover rounded-3xl shadow-sm"
-                      />
-                    ) : (
-                      <div className="w-full h-50 md:h-72 rounded-3xl bg-gray-50 flex flex-col items-center justify-center text-gray-400 gap-2">
-                        <XCircle size={48} />
-                        <div className="font-medium">
-                          Изображение не загружено
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          Нажмите "Редактировать", чтобы загрузить
-                        </div>
-                      </div>
-                    )}
-                  </div>
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: limit }).map((_, i) => (
+            <div
+              key={i}
+              className="animate-pulse rounded-3xl bg-white/60 p-6 h-72"
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {fields.map((f) => (
+            <div
+              key={f.fieldId}
+              onClick={() => setSelectedField(f)}
+              role="button"
+              tabIndex={0}
+              className="relative rounded-3xl bg-white p-6 shadow-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl transition-all duration-300"
+            >
+              <div>
+                <div className="text-xs text-gray-400">
+                  ID {f.localId ? `#${f.localId}` : getDisplayId(f.fieldId)}
+                </div>
+                <div className="text-xl font-nekstmedium mt-2">
+                  {f.cadastralNumber || '—'}
                 </div>
 
-                <div className="flex items-center justify-between mt-5">
-                  <div className="text-xs text-gray-500">&nbsp;</div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditOpen(f);
-                      }}
-                      className={`${iconBtn}`}
-                      title="Редактировать"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingId(f.fieldId);
-                      }}
-                      className={`${iconBtn}`}
-                      title="Удалить"
-                    >
-                      <Trash2 size={18} className="text-red-600" />
-                    </button>
-                  </div>
+                <div className="text-sm text-gray-600 mt-4">
+                  {f.mapFile ? (
+                    <img
+                      src={f.mapFile}
+                      alt={`map-${f.fieldId}`}
+                      className="w-full h-60 md:h-72 object-cover rounded-3xl shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-full h-50 md:h-72 rounded-3xl bg-gray-50 flex flex-col items-center justify-center text-gray-400 gap-2">
+                      <XCircle size={48} />
+                      <div className="font-medium">
+                        Изображение не загружено
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Нажмите "Редактировать", чтобы загрузить
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
-      </div>
+
+              <div className="flex items-center justify-between mt-5">
+                <div className="text-xs text-gray-500">&nbsp;</div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditOpen(f);
+                    }}
+                    className={`${iconBtn}`}
+                    title="Редактировать"
+                  >
+                    <Edit2 size={18} />
+                  </button>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingId(f.fieldId);
+                    }}
+                    className={`${iconBtn}`}
+                    title="Удалить"
+                  >
+                    <Trash2 size={18} className="text-red-600" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* footer pagination */}
       <div className="mt-6 flex items-center justify-between">
@@ -676,7 +690,8 @@ export default function FieldsManager() {
                   <label className="text-sm text-gray-500 font-nekstmedium">
                     Карта участка
                   </label>
-                  <div className="rounded-3xl bg-gradient-to-br from-gray-50 to-white shadow-[0_12px_34px_rgba(0,0,0,0.08)] p-4">
+                  <div className="rounded-3xl bg-gradient-to-br shadow-[0_12px_34px_rgba(0,0,0,0.00)] p-4">
+                    {/* SINGLE HIDDEN INPUT for ADD */}
                     <input
                       ref={fileRef}
                       type="file"
@@ -687,19 +702,30 @@ export default function FieldsManager() {
                         if (f) handleFilePick(f);
                       }}
                     />
+
                     {!mapFileDataUrl ? (
-                      <button
-                        onClick={() => fileRef.current?.click()}
-                        className="w-full h-56 rounded-2xl flex flex-col items-center justify-center gap-3 bg-white shadow-inner hover:shadow-[0_14px_36px_rgba(0,0,0,0.1)] transition"
+                      // visual uploadbtn (no nested file input)
+                      <div
+                        className="uploadbtn cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileRef.current?.click();
+                        }}
+                        role="button"
+                        aria-label="Выбрать файл"
                       >
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
-                          <ImagePlus size={26} className="text-emerald-600" />
+                        <div className="folder">
+                          <div className="front-side">
+                            <div className="tip"></div>
+                            <div className="cover"></div>
+                          </div>
+                          <div className="back-side cover"></div>
                         </div>
-                        <div className="font-nekstmedium text-gray-700">
-                          Загрузить изображение
+
+                        <div className="custom-file-upload">
+                          Выберите файл (PNG, JPG)
                         </div>
-                        <div className="text-xs text-gray-400">JPG / PNG</div>
-                      </button>
+                      </div>
                     ) : (
                       <div className="relative">
                         <img
@@ -714,6 +740,7 @@ export default function FieldsManager() {
                             if (fileRef.current) fileRef.current.value = '';
                           }}
                           className="absolute top-4 right-4 w-11 h-11 rounded-full bg-white shadow-lg flex items-center justify-center hover:scale-105 transition"
+                          aria-label="Удалить файл"
                         >
                           <X size={16} />
                         </button>
@@ -878,6 +905,7 @@ export default function FieldsManager() {
                     setEditCadastral('');
                     setEditMapFileDataUrl(null);
                     setEditMapFileBase64(null);
+                    if (editFileRef.current) editFileRef.current.value = '';
                   }}
                   className="w-10 h-10 flex items-center justify-center rounded-full bg-white shadow-md hover:shadow-lg transition"
                 >
@@ -906,6 +934,7 @@ export default function FieldsManager() {
                     Карта участка
                   </label>
                   <div className="rounded-2xl p-4 flex flex-col gap-3 bg-gray-50">
+                    {/* SINGLE HIDDEN INPUT for EDIT */}
                     <input
                       ref={editFileRef}
                       type="file"
@@ -918,15 +947,28 @@ export default function FieldsManager() {
                     />
 
                     {!editMapFileDataUrl ? (
-                      <button
-                        onClick={() => editFileRef.current?.click()}
-                        className="flex items-center gap-2 justify-center py-6 rounded-xl bg-white shadow-sm hover:shadow-md transition"
+                      // visual uploadbtn for edit (reuse same markup)
+                      <div
+                        className="uploadbtn cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          editFileRef.current?.click();
+                        }}
+                        role="button"
+                        aria-label="Загрузить новую карту"
                       >
-                        <ImagePlus size={18} />
-                        <span className="text-sm font-medium">
+                        <div className="folder">
+                          <div className="front-side">
+                            <div className="tip"></div>
+                            <div className="cover"></div>
+                          </div>
+                          <div className="back-side cover"></div>
+                        </div>
+
+                        <div className="custom-file-upload">
                           Загрузить новую карту
-                        </span>
-                      </button>
+                        </div>
+                      </div>
                     ) : (
                       <div className="relative">
                         <img
@@ -963,6 +1005,7 @@ export default function FieldsManager() {
                       setEditCadastral('');
                       setEditMapFileDataUrl(null);
                       setEditMapFileBase64(null);
+                      if (editFileRef.current) editFileRef.current.value = '';
                     }}
                     className="px-4 py-2 rounded-full bg-white shadow-sm hover:shadow-md transition"
                   >

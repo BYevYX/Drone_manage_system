@@ -119,6 +119,8 @@ export default function SettingsPage() {
   const INPUT_CLASS =
     'w-full h-12 rounded-lg border border-gray-200 px-3 text-sm placeholder-gray-400 focus:ring-2 focus:ring-emerald-400 focus:outline-none transition';
 
+  const [isChanged, setIsChanged] = useState(false);
+
   const handleChange = (path: string, value: any) => {
     if (!form) return;
     if (path.startsWith('contractor.')) {
@@ -129,6 +131,7 @@ export default function SettingsPage() {
       };
       const next = { ...form, contractorProfile: nextContractor };
       setForm(next);
+      setIsChanged(true);
       try {
         if (typeof window !== 'undefined')
           localStorage.setItem(
@@ -140,6 +143,7 @@ export default function SettingsPage() {
     }
     const next = { ...form, [path]: value };
     setForm(next);
+    setIsChanged(true);
     // persist some common fields locally for convenience
     if (['firstName', 'lastName', 'phone'].includes(path)) {
       try {
@@ -413,19 +417,15 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="md:col-span-2 flex items-center gap-3 mt-2">
-                  <button
-                    onClick={handleSaveProfile}
-                    disabled={savingProfile}
-                    className={`px-4 py-2 rounded-[20px]  bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-nekstmedium hover:from-indigo-600 hover:to-blue-700 transition ${savingProfile ? 'opacity-60 cursor-not-allowed' : ''}`}
-                  >
-                    {savingProfile ? 'Сохранение...' : 'Сохранить'}
-                  </button>
-                  <button
-                    onClick={loadProfile}
-                    className="px-4 py-2 rounded-[20px] bg-gray-50 text-gray-700 border border-gray-200"
-                  >
-                    Отменить
-                  </button>
+                  {isChanged && (
+                    <button
+                      onClick={handleSaveProfile}
+                      disabled={savingProfile}
+                      className={`px-4 py-2 rounded-[20px]  bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-nekstmedium hover:from-indigo-600 hover:to-blue-700 transition ${savingProfile ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    >
+                      {savingProfile ? 'Сохранение...' : 'Сохранить'}
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -519,9 +519,9 @@ export default function SettingsPage() {
                       disabled={
                         loading || !code || !newPassword || !!passwordError
                       }
-                      className={`px-4 py-2 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition ${loading || !code || !newPassword || !!passwordError ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      className={`px-4 flex items-center justify-center py-2 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-800 transition ${loading || !code || !newPassword || !!passwordError ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
-                      <Check size={16} />{' '}
+                      <Check size={20} className="pr-[5px]" />{' '}
                       {loading ? 'Сохраняем...' : 'Сменить пароль'}
                     </button>
                     <button

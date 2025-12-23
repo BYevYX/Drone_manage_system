@@ -35,12 +35,47 @@ function useDebounced<T>(value: T, delay = 300) {
   return v;
 }
 
+// Try several possible keys in localStorage to resolve userId
+function getUserIdFromLocalStorage(): number | null {
+  if (typeof window === 'undefined') return null;
+  const candidates = [
+    'userId',
+    'userID',
+    'user_id',
+    'id',
+    'uid',
+    'user', // could be JSON like { id: ... }
+  ];
+  for (const k of candidates) {
+    const raw = localStorage.getItem(k);
+    if (!raw) continue;
+    // try parse as number
+    const asNum = Number(raw);
+    if (!Number.isNaN(asNum) && Number.isFinite(asNum))
+      return Math.trunc(asNum);
+    // try parse JSON
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        if (typeof parsed.id === 'number') return Math.trunc(parsed.id);
+        if (typeof parsed.userId === 'number') return Math.trunc(parsed.userId);
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
 export default function DronesPage() {
   const [drones, setDrones] = useState<Drone[]>([]);
+  const [myDrones, setMyDrones] = useState<Drone[]>([]);
   const [page, setPage] = useState(1);
   const [limit] = useState(12);
   const [isLoading, setIsLoading] = useState(false);
+  const [myLoading, setMyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [myError, setMyError] = useState<string | null>(null);
 
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounced(query, 280);
@@ -57,10 +92,12 @@ export default function DronesPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'my'>('all');
 
   useEffect(() => {
-    if (typeof window !== 'undefined')
+    if (typeof window !== 'undefined') {
       setUserRole(localStorage.getItem('userRole'));
+    }
   }, []);
 
   const isSupplier = useMemo(
@@ -73,7 +110,7 @@ export default function DronesPage() {
     window.setTimeout(() => setToast(null), 4200);
   }, []);
 
-  // fetch list with AbortController to avoid race conditions
+  // fetch list (all drones) with AbortController to avoid race conditions
   useEffect(() => {
     let isMounted = true;
     const ctrl = new AbortController();
@@ -127,18 +164,68 @@ export default function DronesPage() {
     };
   }, [page, limit]);
 
-  const filtered = useMemo(() => {
-    const q = debouncedQuery.trim().toLowerCase();
-    if (!q) return drones;
-    return drones.filter((d) => {
-      return (
-        String(d.droneId).includes(q) ||
-        (d.droneName || '').toLowerCase().includes(q)
-      );
-    });
-  }, [drones, debouncedQuery]);
+  // fetch "my drones" when user is supplier
+  useEffect(() => {
+    if (!isSupplier) return;
+    let isMounted = true;
+    const ctrl = new AbortController();
 
-  const refresh = useCallback(() => setPage((p) => p), []); // trigger effect by setting same page (could be improved)
+    async function loadMy() {
+      setMyLoading(true);
+      setMyError(null);
+      try {
+        const token =
+          typeof window !== 'undefined'
+            ? localStorage.getItem('accessToken')
+            : null;
+
+        // try to resolve userId from localStorage (best-effort)
+        const uid = getUserIdFromLocalStorage();
+        let url = `${API_BASE}/api/drones-by-user`;
+        if (uid) url += `?userId=${uid}`;
+
+        const res = await fetch(url, {
+          method: 'GET',
+          signal: ctrl.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (!res.ok) {
+          if (res.status === 403)
+            throw new Error('403 — проверьте токен/права');
+          if (res.status === 404)
+            throw new Error('404 — /api/drones-by-user не найден');
+          const txt = await res.text();
+          throw new Error(`Ошибка ${res.status}: ${txt}`);
+        }
+
+        const json: DroneListResponse = await res.json();
+        if (!isMounted) return;
+        setMyDrones(Array.isArray(json.drones) ? json.drones : []);
+      } catch (err: unknown) {
+        if ((err as any)?.name === 'AbortError') return;
+        console.error('load my drones error', err);
+        if (isMounted)
+          setMyError(
+            err instanceof Error ? err.message : 'Ошибка получения моих дронов',
+          );
+      } finally {
+        if (isMounted) setMyLoading(false);
+      }
+    }
+
+    loadMy();
+
+    return () => {
+      isMounted = false;
+      ctrl.abort();
+    };
+  }, [isSupplier]); // run when role is determined
+
+  const refresh = useCallback(() => setPage((p) => p), []);
 
   async function createDrone(payload: CreateDroneRequest) {
     setSending(true);
@@ -200,6 +287,10 @@ export default function DronesPage() {
       setDrones((prev) =>
         prev.map((d) => (d.droneId === droneId ? updated : d)),
       );
+      // also update myDrones if present
+      setMyDrones((prev) =>
+        prev.map((d) => (d.droneId === droneId ? updated : d)),
+      );
       showToast('success', 'Данные дрона обновлены');
     } catch (e: unknown) {
       console.error('update', e);
@@ -233,6 +324,7 @@ export default function DronesPage() {
         throw new Error(body?.message || `Ошибка ${res.status}`);
       }
       setDrones((prev) => prev.filter((d) => d.droneId !== droneId));
+      setMyDrones((prev) => prev.filter((d) => d.droneId !== droneId));
       showToast('success', `Дрон #${droneId} удалён`);
     } catch (e: unknown) {
       console.error('delete', e);
@@ -241,6 +333,25 @@ export default function DronesPage() {
       setDeletingId(null);
     }
   }
+
+  // which list to filter based on active tab
+  const displayedBase = useMemo(() => {
+    return activeTab === 'my' ? myDrones : drones;
+  }, [activeTab, drones, myDrones]);
+
+  const filtered = useMemo(() => {
+    const q = debouncedQuery.trim().toLowerCase();
+    if (!q) return displayedBase;
+    return displayedBase.filter((d) => {
+      return (
+        String(d.droneId).includes(q) ||
+        (d.droneName || '').toLowerCase().includes(q)
+      );
+    });
+  }, [displayedBase, debouncedQuery]);
+
+  // hide pagination when on "my" tab (assume my list is small / full)
+  const showPagination = activeTab === 'all';
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-emerald-50">
@@ -309,12 +420,50 @@ export default function DronesPage() {
           </div>
         </div>
 
+        {/* Tabs */}
+        {isSupplier && (
+          <div className="mb-6 flex items-center gap-3">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-4 py-2 rounded-full text-sm font-nekstregular transition ${
+                activeTab === 'all'
+                  ? 'bg-white shadow-md text-slate-900'
+                  : 'bg-transparent text-slate-600'
+              }`}
+            >
+              Все дроны
+            </button>
+
+            <button
+              onClick={() => setActiveTab('my')}
+              className={`px-4 py-2 rounded-full text-sm font-nekstregular transition ${
+                activeTab === 'my'
+                  ? 'bg-white shadow-md text-slate-900'
+                  : 'bg-transparent text-slate-600'
+              }`}
+            >
+              Мои дроны
+              {myLoading ? (
+                <span className="ml-2 text-xs text-slate-400">…</span>
+              ) : (
+                <span className="ml-2 text-xs text-slate-400">
+                  ({myDrones.length})
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
         {toast && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className={`mb-4 px-4 py-2 rounded-lg text-sm ${toast.kind === 'success' ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-700'}`}
+            className={`mb-4 px-4 py-2 rounded-lg text-sm ${
+              toast.kind === 'success'
+                ? 'bg-emerald-50 text-emerald-800'
+                : 'bg-red-50 text-red-700'
+            }`}
           >
             {toast.text}
           </motion.div>
@@ -325,10 +474,15 @@ export default function DronesPage() {
             {error}
           </div>
         )}
+        {myError && activeTab === 'my' && (
+          <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-100 px-4 py-3 rounded-lg">
+            {myError}
+          </div>
+        )}
 
         <section>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-            {isLoading
+            {(activeTab === 'all' ? isLoading : myLoading)
               ? Array.from({ length: 6 }).map((_, i) => (
                   <div
                     key={i}
@@ -338,68 +492,91 @@ export default function DronesPage() {
               : filtered.map((d) => {
                   const id = d.droneId;
                   return (
-                    <Link href={`/drones/${id}`} key={id} className="group">
+                    <Link
+                      href={`/drones/${id}`}
+                      key={id}
+                      className="group block"
+                    >
                       <motion.article
-                        initial={{ opacity: 0, y: 6 }}
+                        initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        whileHover={{
-                          scale: 1.02,
-                          boxShadow: '0 20px 60px rgba(16,24,40,0.12)',
-                        }}
+                        whileHover={{ y: -4 }}
                         transition={{
                           type: 'spring',
                           stiffness: 260,
-                          damping: 22,
+                          damping: 24,
                         }}
-                        className="rounded-2xl bg-white border border-transparent shadow-md p-6 flex flex-col justify-between cursor-pointer overflow-hidden"
-                        aria-labelledby={`drone-${id}-title`}
+                        className="
+      relative
+      rounded-3xl
+      bg-white
+      border border-slate-200
+      overflow-hidden
+      transition-all duration-300
+      hover:shadow-[0_24px_60px_rgba(15,23,42,0.14)]
+    "
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <div className="text-xs text-slate-400">
-                              ID #{id}
-                            </div>
-                            <h3
-                              id={`drone-${id}-title`}
-                              className="text-lg font-nekstmedium text-slate-900 mt-1 truncate"
+                        {/* Top object zone */}
+                        <div className="relative p-6 pb-4 bg-gradient-to-b from-slate-50 to-white">
+                          <div className="flex items-start gap-5">
+                            {/* Image — LEFT */}
+                            <div
+                              className="
+        relative
+        w-28 h-28
+        rounded-2xl
+        bg-white
+        ring-1 ring-slate-200
+        shadow-sm
+        overflow-hidden
+        shrink-0
+        transition-transform
+        group-hover:scale-[1.03]
+      "
                             >
-                              {d.droneName || '—'}
-                            </h3>
-                            <div className="text-sm text-slate-600 mt-2 line-clamp-2">
-                              Вес: {d.weight ?? '—'}кг · Грузоподъёмность:{' '}
-                              {d.liftCapacity ?? '—'}кг
+                              {d.imageKey ? (
+                                <img
+                                  src={d.imageKey}
+                                  alt={d.droneName || 'drone'}
+                                  loading="lazy"
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Camera
+                                    size={28}
+                                    className="text-slate-300"
+                                  />
+                                </div>
+                              )}
                             </div>
-                          </div>
 
-                          <div className="w-20 h-20 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 flex items-center justify-center">
-                            {d.imageKey ? (
-                              // lazy load, graceful fallback
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={d.imageKey}
-                                alt={d.droneName || 'drone image'}
-                                loading="lazy"
-                                className="w-full h-full object-cover"
-                                onError={(e) =>
-                                  ((
-                                    e.target as HTMLImageElement
-                                  ).style.display = 'none')
-                                }
-                              />
-                            ) : (
-                              <Camera size={28} className="text-slate-300" />
-                            )}
+                            {/* Info — RIGHT */}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[11px] text-slate-400 font-nekstregular tracking-wide">
+                                DRONE #{id}
+                              </div>
+
+                              <h3 className="mt-1 text-lg text-slate-900 font-nekstmedium truncate">
+                                {d.droneName || '—'}
+                              </h3>
+
+                              <p className="mt-2 text-sm text-slate-600 font-nekstregular">
+                                Вес {d.weight ?? '—'} кг · Груз{' '}
+                                {d.liftCapacity ?? '—'} кг
+                              </p>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-slate-600">
-                          <StatCard
-                            label="Время полёта"
+                        {/* Specs */}
+                        <div className="px-6 pb-4 grid grid-cols-2 gap-3">
+                          <SpecPill
+                            label="Полёт"
                             value={d.flightTime ? `${d.flightTime} мин` : '—'}
-                            accent
                           />
-                          <StatCard
-                            label="Время зарядки"
+                          <SpecPill
+                            label="Зарядка"
                             value={
                               d.batteryChargeTime
                                 ? `${d.batteryChargeTime} мин`
@@ -407,59 +584,57 @@ export default function DronesPage() {
                             }
                           />
 
-                          <StatCard
-                            label="Ширина распыл."
+                          <SpecPill
+                            label="Распыл."
                             value={
-                              d.spraying?.width ? `${d.spraying?.width} м` : '—'
+                              d.spraying?.width ? `${d.spraying.width} м` : '—'
                             }
                           />
-                          <StatCard
-                            label="Макс ветер"
+                          <SpecPill
+                            label="Ветер"
                             value={
                               d.maxWindSpeed ? `${d.maxWindSpeed} м/с` : '—'
                             }
-                            accent
                           />
 
-                          <StatCard
-                            label="Макс скорость"
+                          <SpecPill
+                            label="Макс. скорость"
                             value={
                               d.maxFlightSpeed ? `${d.maxFlightSpeed} м/с` : '—'
                             }
                           />
-                          <StatCard
-                            label="Рабочая скорость"
+                          <SpecPill
+                            label="Рабочая"
                             value={
                               d.maxWorkingSpeed
                                 ? `${d.maxWorkingSpeed} м/с`
                                 : '—'
                             }
                           />
-
-                          <StatCard
-                            label="Ёмкость распыл."
-                            value={
-                              d.spraying?.capacity
-                                ? `${d.spraying?.capacity} кг`
-                                : '—'
-                            }
-                            green
-                          />
-                          <StatCard
-                            label="Ёмкость разбрас."
-                            value={
-                              d.spreading?.capacity
-                                ? `${d.spreading?.capacity} кг`
-                                : '—'
-                            }
-                            green
-                          />
                         </div>
 
-                        <div className="mt-5 flex items-center justify-end gap-3">
+                        {/* Footer */}
+                        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+                          {/* Capacities */}
+                          <div className="flex items-center gap-2 text-xs font-nekstregular text-slate-600">
+                            <span>
+                              Распыл:{' '}
+                              {d.spraying?.capacity
+                                ? `${d.spraying.capacity} кг`
+                                : '—'}
+                            </span>
+                            <span className="text-slate-300">•</span>
+                            <span>
+                              Разброс:{' '}
+                              {d.spreading?.capacity
+                                ? `${d.spreading.capacity} кг`
+                                : '—'}
+                            </span>
+                          </div>
+
+                          {/* Actions */}
                           {isSupplier ? (
-                            <>
-                              {/* Кнопка Редактировать */}
+                            <div className="flex items-center gap-2">
                               <button
                                 onClick={(e) => {
                                   e.preventDefault();
@@ -468,25 +643,20 @@ export default function DronesPage() {
                                   setEditOpen(true);
                                 }}
                                 className="
-      font-nekstregular
-      w-10 h-10
-      flex items-center justify-center
-      rounded-full
-      bg-emerald-50
-      text-emerald-700
-      shadow-sm
-      hover:shadow-md
-      hover:bg-emerald-100
-      transition-all duration-300
-      transform hover:-translate-y-0.5 hover:scale-105
-      focus:outline-none focus:ring-2 focus:ring-emerald-200
-    "
-                                title="Редактировать"
+          w-9 h-9
+          rounded-lg
+          border border-slate-200
+          text-slate-700
+          flex items-center justify-center
+          leading-none
+          hover:bg-slate-50
+          transition
+        "
+                                aria-label="Редактировать"
                               >
                                 <Edit size={16} />
                               </button>
 
-                              {/* Кнопка Удалить */}
                               <button
                                 onClick={(e) => {
                                   e.preventDefault();
@@ -494,32 +664,26 @@ export default function DronesPage() {
                                   deleteDrone(id);
                                 }}
                                 disabled={deletingId === id}
-                                className={`
-      font-nekstregular
-      w-10 h-10
-      flex items-center justify-center
-      rounded-full
-      bg-red-50
-      text-red-600
-      shadow-sm
-      hover:shadow-md
-      hover:bg-red-100
-      transition-all duration-300
-      transform hover:-translate-y-0.5 hover:scale-105
-      focus:outline-none focus:ring-2 focus:ring-red-200
-      ${deletingId === id ? 'cursor-not-allowed opacity-60' : ''}
-    `}
-                                title={
-                                  deletingId === id ? 'Удаление...' : 'Удалить'
-                                }
+                                className="
+          w-9 h-9
+          rounded-lg
+          border border-slate-200
+          text-red-600
+          flex items-center justify-center
+          leading-none
+          hover:bg-red-50
+          transition
+          disabled:opacity-60
+        "
+                                aria-label="Удалить"
                               >
                                 <Trash2 size={16} />
                               </button>
-                            </>
-                          ) : (
-                            <div className="text-xs text-slate-400 italic">
-                              Только просмотр
                             </div>
+                          ) : (
+                            <span className="text-xs italic text-slate-400 font-nekstregular">
+                              Только просмотр
+                            </span>
                           )}
                         </div>
                       </motion.article>
@@ -529,35 +693,17 @@ export default function DronesPage() {
           </div>
 
           {/* pagination */}
-          <div className="mt-8 flex items-center justify-between font-nekstregular">
-            <div className="text-sm text-slate-600">
-              Показано <span className="">{filtered.length}</span> /{' '}
-              <span className="font-medium">{drones.length}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                aria-label="Предыдущая"
-                className="
-      px-3 py-2 rounded-lg
-      bg-white shadow-md
-      hover:shadow-xl hover:bg-gradient-to-r hover:from-gray-100 hover:to-gray-200
-      focus:outline-none focus:ring-2 focus:ring-emerald-200
-      transition-all duration-300 transform active:scale-95
-      flex items-center justify-center
-    "
-              >
-                <ArrowLeft size={16} />
-              </button>
-
-              <div className="px-3 text-sm font-nekstregular select-none">
-                Стр. {page}
+          {showPagination && (
+            <div className="mt-8 flex items-center justify-between font-nekstregular">
+              <div className="text-sm text-slate-600">
+                Показано <span className="">{filtered.length}</span> /{' '}
+                <span className="font-medium">{drones.length}</span>
               </div>
-
-              <button
-                onClick={() => setPage((p) => p + 1)}
-                aria-label="Следующая"
-                className="
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  aria-label="Предыдущая"
+                  className="
       px-3 py-2 rounded-lg
       bg-white shadow-md
       hover:shadow-xl hover:bg-gradient-to-r hover:from-gray-100 hover:to-gray-200
@@ -565,11 +711,31 @@ export default function DronesPage() {
       transition-all duration-300 transform active:scale-95
       flex items-center justify-center
     "
-              >
-                <ArrowRight size={16} />
-              </button>
+                >
+                  <ArrowLeft size={16} />
+                </button>
+
+                <div className="px-3 text-sm font-nekstregular select-none">
+                  Стр. {page}
+                </div>
+
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  aria-label="Следующая"
+                  className="
+      px-3 py-2 rounded-lg
+      bg-white shadow-md
+      hover:shadow-xl hover:bg-gradient-to-r hover:from-gray-100 hover:to-gray-200
+      focus:outline-none focus:ring-2 focus:ring-emerald-200
+      transition-all duration-300 transform active:scale-95
+      flex items-center justify-center
+    "
+                >
+                  <ArrowRight size={16} />
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </section>
       </main>
 
@@ -622,3 +788,10 @@ function StatCard({
     </div>
   );
 }
+
+const SpecPill = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-xl bg-slate-50 px-3 py-2">
+    <div className="text-[11px] text-slate-400 font-nekstregular">{label}</div>
+    <div className="text-sm text-slate-900 font-nekstmedium">{value}</div>
+  </div>
+);

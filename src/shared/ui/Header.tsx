@@ -548,23 +548,29 @@ export default function Header() {
 
             {/* Profile avatar popover (for logged-in roles) */}
             {role === 'GUEST' ? (
-              <div className="flex items-center gap-3 ml-[15px]">
-                <Link
-                  href="/login"
-                  className="
-    flex items-center gap-2 px-10 py-2 rounded-full
-    bg-gradient-to-br from-green-500 to-green-600
-    text-white font-medium
-    shadow-[0_6px_20px_rgba(16,185,129,0.35)]
-    transition-all duration-200
-    hover:bg-emerald-500
-    hover:shadow-[0_8px_30px_rgba(16,185,129,0.55)]
-    active:scale-95
-  "
-                >
-                  <LogIn className="w-5 h-5" />
-                  <span>Вход</span>
-                </Link>
+              <div>
+                <div className="flex items-center gap-3 ml-[15px]">
+                  <Link href="/login">
+                    <button className="cssbuttons-io-button space-x-[10px]">
+                      <LogIn className="w-5 h-5" />
+                      <span className="font-nekstmedium">Вход</span>
+                      <div className="icon">
+                        <svg
+                          height="24"
+                          width="24"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M0 0h24v24H0z" fill="none"></path>
+                          <path
+                            d="M16.172 11l-5.364-5.364 1.414-1.414L20 12l-7.778 7.778-1.414-1.414L16.172 13H4v-2z"
+                            fill="currentColor"
+                          ></path>
+                        </svg>
+                      </div>
+                    </button>
+                  </Link>
+                </div>
               </div>
             ) : (
               <HeaderProfile></HeaderProfile>
