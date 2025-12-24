@@ -105,9 +105,16 @@ export default function ProfileModernPage() {
     return p;
   };
 
-  // unified input class (same height)
-  const INPUT_CLASS =
-    'w-full h-12 rounded-lg border border-gray-200 px-3 text-sm placeholder-gray-400 bg-white';
+  const InfoField = ({ label, value }: { label: string; value?: string }) => (
+    <div className="space-y-1.5">
+      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+        {label}
+      </div>
+      <div className="text-sm text-gray-900 font-medium">
+        {value || <span className="text-gray-400">Не указано</span>}
+      </div>
+    </div>
+  );
 
   return (
     <div className="wrapper bg-gradient-to-br from-[#eefaf5] to-[#e6f3ff] min-h-screen flex flex-col font-nekstregular text-black">
@@ -173,151 +180,99 @@ export default function ProfileModernPage() {
         </aside>
 
         {/* Right column: details / contractor */}
-        <section className="lg:flex-1 bg-white rounded-2xl p-6 shadow-md">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-nekstmedium">Данные профиля</h2>
+        <section className="lg:flex-1 space-y-6">
+          {/* Personal Information Card */}
+          <div className="bg-white rounded-2xl p-6 shadow-md">
+            <h2 className="text-xl font-nekstmedium mb-6 pb-3 border-b border-gray-100">
+              Личная информация
+            </h2>
+
+            {loading ? (
+              <div className="py-10 text-center text-gray-600">Загрузка...</div>
+            ) : error ? (
+              <div className="p-4 rounded-xl bg-red-50 text-red-700 mb-4">
+                {error}
+              </div>
+            ) : me ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <InfoField label="Имя" value={me.firstName} />
+                <InfoField label="Фамилия" value={me.lastName} />
+                <InfoField label="Отчество" value={me.surname} />
+                <InfoField label="Email" value={me.email} />
+                <InfoField label="Телефон" value={fmtPhone(me.phone)} />
+                <InfoField
+                  label="Дата регистрации"
+                  value={
+                    me.createdAt
+                      ? new Date(me.createdAt).toLocaleDateString('ru-RU', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })
+                      : undefined
+                  }
+                />
+              </div>
+            ) : (
+              <div className="text-gray-500">Профиль отсутствует</div>
+            )}
           </div>
 
-          {loading ? (
-            <div className="py-10 text-center text-gray-600">Загрузка...</div>
-          ) : error ? (
-            <div className="p-3 rounded-lg bg-red-50 text-red-700 mb-4">
-              {error}
-            </div>
-          ) : me ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Personal fields */}
-              <div>
-                <label className="block mb-2 text-xs text-gray-600">Имя</label>
-                <input
-                  value={form?.firstName ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="Имя"
-                />
+          {/* Contractor Information Card */}
+          {me?.contractorProfile && (
+            <div className="bg-white rounded-2xl p-6 shadow-md">
+              <h2 className="text-xl font-nekstmedium mb-6 pb-3 border-b border-gray-100">
+                Данные организации
+              </h2>
 
-                <label className="block mb-2 text-xs text-gray-600">
-                  Фамилия
-                </label>
-                <input
-                  value={form?.lastName ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="Фамилия"
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <InfoField
+                  label="Тип организации"
+                  value={
+                    me.contractorProfile.organization === 'COMPANY'
+                      ? 'Компания'
+                      : me.contractorProfile.organization === 'INDIVIDUAL'
+                        ? 'ИП'
+                        : me.contractorProfile.organization
+                  }
                 />
-
-                <label className="block mb-2 text-xs text-gray-600">
-                  Отчество
-                </label>
-                <input
-                  value={form?.surname ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="Отчество"
+                <InfoField
+                  label="Название организации"
+                  value={me.contractorProfile.organizationName}
                 />
-
-                <label className="block mb-2 text-xs text-gray-600">
-                  Email
-                </label>
-                <input
-                  value={form?.email ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="example@domain.com"
+                <InfoField
+                  label="Организационно-правовая форма"
+                  value={
+                    me.contractorProfile.organizationType === 'LEGAL_ENTITY'
+                      ? 'Юридическое лицо'
+                      : me.contractorProfile.organizationType ===
+                          'INDIVIDUAL_ENTITY'
+                        ? 'Индивидуальный предприниматель'
+                        : me.contractorProfile.organizationType
+                  }
                 />
-
-                <label className="block mb-2 text-xs text-gray-600">
-                  Телефон
-                </label>
-                <input
-                  value={form?.phone ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="+7 (___) ___-__-__"
-                />
-              </div>
-
-              {/* Contractor block */}
-              <div>
-                <label className="block mb-2 text-xs text-gray-600">
-                  Тип организации
-                </label>
-                <input
-                  value={form?.contractorProfile?.organization ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="COMPANY / INDIVIDUAL"
-                />
-
-                <label className="block mb-2 text-xs text-gray-600">
-                  Название организации
-                </label>
-                <input
-                  value={form?.contractorProfile?.organizationName ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="Название компании"
-                />
-
-                <label className="block mb-2 text-xs text-gray-600">Тип</label>
-                <input
-                  value={form?.contractorProfile?.organizationType ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="LEGAL_ENTITY / INDIVIDUAL_ENTITY"
-                />
-
-                <label className="block mb-2 text-xs text-gray-600">ИНН</label>
-                <input
-                  value={form?.contractorProfile?.inn ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="ИНН"
-                />
-
-                <label className="block mb-2 text-xs text-gray-600">КПП</label>
-                <input
-                  value={form?.contractorProfile?.kpp ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="КПП"
-                />
-
-                <label className="block mb-2 text-xs text-gray-600">
-                  Юридический адрес
-                </label>
-                <input
-                  value={form?.contractorProfile?.addressUr ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="Юридический адрес"
-                />
-
-                <label className="block mb-2 text-xs text-gray-600">
-                  Фактический адрес
-                </label>
-                <input
-                  value={form?.contractorProfile?.addressFact ?? ''}
-                  readOnly
-                  className={INPUT_CLASS + ' mb-3'}
-                  placeholder="Фактический адрес"
-                />
+                <InfoField label="ИНН" value={me.contractorProfile.inn} />
+                <InfoField label="КПП" value={me.contractorProfile.kpp} />
+                <InfoField label="ОКПО" value={me.contractorProfile.okpoCode} />
+                <div className="md:col-span-2">
+                  <InfoField
+                    label="Юридический адрес"
+                    value={me.contractorProfile.addressUr}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <InfoField
+                    label="Фактический адрес"
+                    value={me.contractorProfile.addressFact}
+                  />
+                </div>
               </div>
             </div>
-          ) : (
-            <div>Профиль отсутствует</div>
           )}
         </section>
       </main>
 
       <Footer />
-
-      {/* Small helpers / animations */}
-      <style jsx>{`
-        .placeholder-gray-400::placeholder {
-          color: #9ca3af; /* consistent placeholder color */
-        }
-      `}</style>
     </div>
   );
 }

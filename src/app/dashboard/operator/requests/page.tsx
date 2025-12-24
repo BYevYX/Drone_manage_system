@@ -1,5 +1,11 @@
 'use client';
-import React, { useEffect, useRef, useState, useLayoutEffect } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+  useLayoutEffect,
+} from 'react';
 import { motion } from 'framer-motion';
 
 import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/24/solid';
@@ -11,6 +17,8 @@ import {
   Check,
   ArrowRight,
   Edit2,
+  Clock,
+  GitMerge,
 } from 'lucide-react';
 import { useGlobalContext } from '@/src/app/GlobalContext';
 import { Loader } from './spinner';
@@ -93,6 +101,102 @@ function ModernSelect({
           </motion.ul>
         )}
       </div>
+    </div>
+  );
+}
+
+function FilterDropdown({
+  icon: Icon,
+  value,
+  options,
+  onChange,
+}: {
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
+    };
+    if (open) {
+      document.addEventListener('mousedown', onDoc);
+    }
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-transparent hover:bg-gray-50 transition-all group"
+      >
+        <Icon className="w-4 h-4 text-gray-400 group-hover:text-emerald-500 transition-colors" />
+        <span className="text-sm font-medium text-gray-700 group-hover:text-emerald-600 transition-colors">
+          {value}
+        </span>
+        <motion.div
+          animate={{ rotate: open ? 180 : 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <svg
+            className="w-4 h-4 text-gray-400 group-hover:text-emerald-500 transition-colors"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
+        </motion.div>
+      </button>
+
+      {open && (
+        <motion.div
+          initial={{ opacity: 0, y: -10, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -10, scale: 0.95 }}
+          transition={{ duration: 0.15 }}
+          className="absolute top-full mt-2 right-0 min-w-[180px] bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden z-50"
+        >
+          <div className="py-1">
+            {options.map((option, idx) => (
+              <button
+                key={option}
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
+                className={`w-full px-4 py-2.5 text-left text-sm font-medium transition-all flex items-center justify-between group ${
+                  value === option
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span>{option}</span>
+                {value === option && (
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  >
+                    <Check className="w-4 h-4 text-emerald-600" />
+                  </motion.div>
+                )}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
@@ -359,12 +463,15 @@ type OrderStatus =
   | 'calculating'
   | 'segmented'
   | 'routes_planned'
-  | 'completed';
+  | 'completed'
+  | 'processed'
+  | 'in_progress';
 
 interface Order {
   id: number;
   date: string;
   fieldName: string;
+  fieldId?: number;
   coords?: [number, number][];
   status: OrderStatus;
   preview?: { fieldPhoto?: string | null };
@@ -390,6 +497,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isViewOnly, setIsViewOnly] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState('NDVI');
@@ -409,14 +518,23 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
   const isAnalyzeDisabled = calcInProgress || !isJsonUploaded;
 
+  const [viewLoadingId, setViewLoadingId] = useState<number | null>(null);
   const [mergeOpen, setMergeOpen] = useState(false);
   const [mergePlot1, setMergePlot1] = useState('');
   const [mergePlot2, setMergePlot2] = useState('');
+  const [mergingInProgress, setMergingInProgress] = useState(false);
 
   // cluster assignments: cluster_id -> 1-based index in droneIds list
   const [clusterAssignments, setClusterAssignments] = useState<
     Record<number, number>
   >({});
+
+  // Toast уведомление
+  const [toast, setToast] = useState<string | null>(null);
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3500);
+  };
 
   useEffect(() => {
     loadOrders();
@@ -447,6 +565,16 @@ export default function OperatorOrdersWizard(): JSX.Element {
     if (body && !isFormData) headers['Content-Type'] = 'application/json';
     const merged = { ...(options.headers as any), ...headers };
     return fetch(url, { ...options, headers: merged });
+  };
+
+  // Функция для нормализации статуса из API
+  const normalizeStatus = (apiStatus: string): OrderStatus => {
+    const normalized = apiStatus.toLowerCase().replace(/\s+/g, '_');
+    if (normalized === 'in_progress') return 'in_progress';
+    if (normalized === 'processed') return 'processed';
+    if (normalized === 'completed') return 'completed';
+    if (normalized === 'cancelled') return 'completed';
+    return 'new';
   };
 
   const loadDrones = async () => {
@@ -488,16 +616,69 @@ export default function OperatorOrdersWizard(): JSX.Element {
       }
       const data = await res.json().catch(() => ({}));
       const arr = Array.isArray(data.orders) ? data.orders : [];
-      const local: Order[] = arr.map((o: any) => ({
-        id: Number(o.orderId ?? o.id ?? 0),
-        date: new Date(o.createdAt ?? Date.now()).toISOString().slice(0, 10),
-        fieldName: o.fieldName ?? `ID:${o.id ?? o.orderId}`,
-        status: 'new' as OrderStatus,
-        preview: { fieldPhoto: null },
-        metadata: { raw: o, processed: false, inputs: [], latestInput: null },
-      }));
-      setOrders(local);
-      await checkInputsForOrders(local);
+
+      // Fetch fields for each order
+      const ordersWithFields = await Promise.all(
+        arr.map(async (o: any) => {
+          let fieldId: number | undefined = undefined;
+
+          try {
+            const fieldsRes = await authFetch(
+              `${API_BASE}/api/fields-by-order?orderId=${o.orderId ?? o.id ?? 0}`,
+            );
+
+            if (fieldsRes.ok) {
+              const fieldsData = await fieldsRes.json().catch(() => ({}));
+              console.log(
+                'Fields API response for order',
+                o.orderId ?? o.id,
+                ':',
+                fieldsData,
+              );
+
+              const fields = Array.isArray(fieldsData.fields)
+                ? fieldsData.fields
+                : [];
+
+              console.log('Parsed fields array:', fields);
+
+              // Take first field's ID if exists
+              if (fields.length > 0) {
+                console.log('First field object:', fields[0]);
+                fieldId = Number(fields[0].fieldId);
+                console.log('Extracted fieldId:', fieldId);
+              }
+            }
+          } catch (e) {
+            console.warn(
+              'Failed to fetch fields for order',
+              o.orderId ?? o.id,
+              e,
+            );
+          }
+
+          return {
+            id: Number(o.orderId ?? o.id ?? 0),
+            date: new Date(o.createdAt ?? Date.now())
+              .toISOString()
+              .slice(0, 10),
+            fieldName: o.fieldName ?? `ID:${o.id ?? o.orderId}`,
+            fieldId,
+            status: normalizeStatus(o.status ?? 'new'),
+            preview: { fieldPhoto: null },
+            metadata: {
+              raw: o,
+              processed: false,
+              inputs: [],
+              latestInput: null,
+              fieldId,
+            },
+          };
+        }),
+      );
+
+      setOrders(ordersWithFields);
+      await checkInputsForOrders(ordersWithFields);
     } catch (e) {
       console.error(e);
       setOrders([]);
@@ -693,6 +874,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
       return alert('Не удалось обнаружить inputId в ответе analyze.');
     if (!mergePlot1 || !mergePlot2) return alert('Укажите оба plotId.');
     try {
+      setMergingInProgress(true);
       const body = {
         inputId,
         plotId1: String(mergePlot1),
@@ -705,7 +887,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
         console.error('merge failed', res.status, txt);
-        alert('Ошибка при объединении участков.');
+        showToast('Ошибка соединения с сервером');
         return;
       }
       const parsedRes = await res.json().catch(async () => {
@@ -749,10 +931,13 @@ export default function OperatorOrdersWizard(): JSX.Element {
             : p,
         ),
       );
-      setMergeOpen(false);
+      showToast('Участки успешно объединены!');
+      // Форма остается открытой для возможности повторного объединения
     } catch (e) {
       console.error('applyMerge error', e);
-      alert('Ошибка при вызове merge.');
+      showToast('Ошибка при объединении участков');
+    } finally {
+      setMergingInProgress(false);
     }
   };
 
@@ -889,12 +1074,12 @@ export default function OperatorOrdersWizard(): JSX.Element {
           }
         },
       );
-      // --- Обновление selectedOrder и orders — теперь помечаем как processed и ставим статус completed ---
+      // --- Обновление selectedOrder и orders — теперь помечаем как processed и ставим статус processed ---
       setSelectedOrder((so) =>
         so
           ? ({
               ...so,
-              status: 'completed',
+              status: 'processed',
               metadata: {
                 ...(so.metadata ?? {}),
                 finalOutput: out,
@@ -916,7 +1101,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
           p.id === selectedOrder.id
             ? ({
                 ...p,
-                status: 'completed',
+                status: 'processed',
                 metadata: {
                   ...(p.metadata ?? {}),
                   finalOutput: out,
@@ -935,6 +1120,25 @@ export default function OperatorOrdersWizard(): JSX.Element {
       // -----------------------------------------------------------------------------------------------
       setCalcProgress(100);
       setStep(4);
+      showToast('Обработка успешно завершена!');
+
+      // Обновляем статус заказа на бекенде
+      // try {
+      //   const statusRes = await authFetch(
+      //     `${API_BASE}/api/orders_status/${selectedOrder.id}`,
+      //     {
+      //       method: 'PUT',
+      //       body: JSON.stringify({ status: 'processed' }),
+      //     },
+      //   );
+      //   if (!statusRes.ok) {
+      //     console.error('Failed to update order status on backend');
+      //     alert('Заказ обработан, но не удалось обновить статус на сервере.');
+      //   }
+      // } catch (e) {
+      //   console.error('Error updating order status', e);
+      //   alert('Заказ обработан, но произошла ошибка при обновлении статуса.');
+      // }
     } catch (e) {
       console.error('applyFinal error', e);
       alert('Ошибка при вызове final.');
@@ -950,6 +1154,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
     e.stopPropagation();
     const latest = o.metadata?.latestInput?.id ?? null;
     if (!latest) return alert('Не найден latest inputId для этого ордера.');
+    setViewLoadingId(o.id);
     try {
       const res = await authFetch(
         `${API_BASE}/api/workflow/result?inputId=${latest}`,
@@ -1020,6 +1225,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
     } catch (e) {
       console.error('handleView error', e);
       alert('Ошибка при получении результата.');
+    } finally {
+      setViewLoadingId(null);
     }
   };
 
@@ -1100,6 +1307,39 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
   const clusterRows = getClusterRows();
 
+  // Фильтрация и сортировка заказов
+  const filteredOrders = useMemo(() => {
+    // Сначала сортируем все заказы по ID в порядке убывания
+    let sorted = [...orders].sort((a, b) => b.id - a.id);
+
+    // Затем фильтруем по статусу
+    if (statusFilter !== 'all') {
+      sorted = sorted.filter((o) => {
+        const st = (o.status ?? '').toLowerCase().replace(/\s+/g, '_');
+        return st === statusFilter;
+      });
+    }
+
+    // Затем сортируем по дате, если выбрана сортировка по времени
+    if (sortOrder === 'desc') {
+      sorted = sorted.sort((a, b) => {
+        return (
+          (b.date ? new Date(b.date).getTime() : 0) -
+          (a.date ? new Date(a.date).getTime() : 0)
+        );
+      });
+    } else if (sortOrder === 'asc') {
+      sorted = sorted.sort((a, b) => {
+        return (
+          (a.date ? new Date(a.date).getTime() : 0) -
+          (b.date ? new Date(b.date).getTime() : 0)
+        );
+      });
+    }
+
+    return sorted;
+  }, [orders, statusFilter, sortOrder]);
+
   // Проверяем, назначен ли дрон каждому кластеру.
   const allClustersAssigned =
     clusterRows.length > 0 &&
@@ -1113,7 +1353,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold">
+          <h2 className="text-2xl font-nekstmedium">
             Оперативная панель — Оператор процессов
           </h2>
           <div className="text-sm text-gray-500 mt-1">
@@ -1125,7 +1365,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
           {!selectedOrder ? (
             <button
               onClick={() => loadOrders()}
-              className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2"
+              className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2  font-nekstregular"
               title="Обновить"
             >
               <RefreshCw size={16} /> Обновить
@@ -1196,96 +1436,302 @@ export default function OperatorOrdersWizard(): JSX.Element {
       <div className="bg-white p-6 rounded-2xl shadow border border-gray-100">
         {!selectedOrder ? (
           <div>
-            <div className="text-sm text-gray-600 mb-3 font-nekstmedium">
-              Выберите заявку
-            </div>
-            <div className="overflow-hidden rounded-2xl bg-white shadow-lg ring-1 ring-gray-100">
-              {loadingOrders ? (
-                <div className="p-6 text-sm text-gray-500">Загрузка...</div>
-              ) : orders.length === 0 ? (
-                <div className="p-6 text-sm text-gray-500">Нет заявок</div>
-              ) : (
-                <div className="">
-                  <div className="w-full text-sm">
-                    <div className="grid grid-cols-5 bg-gray-50 rounded-t-2xl">
-                      <div className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
-                        ID
-                      </div>
-                      <div className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
-                        Поле
-                      </div>
-                      <div className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
-                        Дата
-                      </div>
-                      <div className="px-5 py-4 text-left text-xs font-medium text-gray-500 tracking-wide">
-                        Статус
-                      </div>
-                      <div className="px-5 py-4 text-right text-xs font-medium text-gray-500 tracking-wide">
-                        Действие
-                      </div>
-                    </div>
-                    {orders.map((o, i) => (
-                      <div
-                        key={o.id}
-                        className={`grid grid-cols-5 items-center transition-all duration-200 ${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-emerald-50 hover:shadow-sm cursor-pointer`}
-                      >
-                        <div className="px-5 py-4 font-medium text-gray-900">
-                          #{o.id}
-                        </div>
-                        <div className="px-5 py-4 text-gray-700">
-                          {o.fieldName}
-                        </div>
-                        <div className="px-5 py-4 text-gray-500">{o.date}</div>
-                        <div className="px-5 py-4">
-                          {o.metadata?.processed ? (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                              Обработана
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
-                              Не обработана
-                            </span>
-                          )}
-                        </div>
-                        <div className="px-5 py-4 text-right">
-                          <div className="inline-flex items-center gap-2">
-                            {o.metadata?.processed ? (
-                              <>
-                                <button
-                                  onClick={(e) => handleView(e, o)}
-                                  title="Просмотреть"
-                                  className="p-2 rounded-xl bg-white hover:bg-gray-50 shadow transition"
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                >
-                                  <Eye size={16} />
-                                </button>
-                                <button
-                                  onClick={(e) => handleEdit(e, o)}
-                                  title="Изменить"
-                                  className="p-2 rounded-xl bg-white hover:bg-gray-50 shadow transition"
-                                  onMouseDown={(e) => e.stopPropagation()}
-                                >
-                                  <Edit2 size={16} />
-                                </button>
-                              </>
-                            ) : (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedOrder(o);
-                                  setIsViewOnly(false);
-                                  setStep(1);
-                                }}
-                                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs font-medium shadow hover:shadow-lg transition-all"
-                              >
-                                Обработать
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+            <div className="mb-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-nekstmedium text-gray-800">
+                    Список заявок
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Выберите заявку для обработки
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center  gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/50 shadow-sm">
+                    <span className="text-xs font-nekstregular text-gray-600">
+                      Показано:
+                    </span>
+                    <span className="text-sm font-nekstmedium text-emerald-700">
+                      {filteredOrders.length}
+                    </span>
+                    <span className="text-xs text-gray-400">/</span>
+                    <span className="text-sm font-semibold text-gray-500">
+                      {orders.length}
+                    </span>
                   </div>
+
+                  <div className="flex items-center gap-0 bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div className="px-1 py-1 font-nekstmedium">
+                      <FilterDropdown
+                        icon={(props) => (
+                          <svg
+                            {...props}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+                            />
+                          </svg>
+                        )}
+                        value={
+                          statusFilter === 'all'
+                            ? 'Все'
+                            : statusFilter === 'in_progress'
+                              ? 'В работе'
+                              : 'Обработана'
+                        }
+                        options={['Все', 'В работе', 'Обработана']}
+                        onChange={(v) => {
+                          if (v === 'Все') setStatusFilter('all');
+                          else if (v === 'В работе')
+                            setStatusFilter('in_progress');
+                          else if (v === 'Обработана')
+                            setStatusFilter('processed');
+                        }}
+                      />
+                    </div>
+
+                    <div className="w-px h-6 bg-gray-200" />
+
+                    <div className="px-1 py-1 font-nekstmedium">
+                      <FilterDropdown
+                        icon={Clock}
+                        value={
+                          sortOrder === 'desc'
+                            ? 'Сначала новые'
+                            : 'Сначала старые'
+                        }
+                        options={['Сначала новые', 'Сначала старые']}
+                        onChange={(v) =>
+                          setSortOrder(v === 'Сначала новые' ? 'desc' : 'asc')
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-gray-50 to-white shadow-xl ring-1 ring-gray-200/50">
+              {loadingOrders ? (
+                <div className="p-12 text-center">
+                  <div className="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-white shadow-sm">
+                    <div className="w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-sm font-nekstregular text-gray-700">
+                      Загрузка заявок...
+                    </span>
+                  </div>
+                </div>
+              ) : filteredOrders.length === 0 ? (
+                <div className="p-12 text-center">
+                  <div className="inline-flex flex-col items-center gap-3 px-8 py-6 rounded-2xl bg-white shadow-sm">
+                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                      <svg
+                        className="w-6 h-6 text-gray-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+                        />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium text-gray-600">
+                      Нет доступных заявок
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 border-b border-gray-200">
+                        <th className="px-6 py-4 text-left">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                              ID заявки
+                            </span>
+                          </div>
+                        </th>
+                        <th className="px-6 py-4 text-left">
+                          <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                            Поле
+                          </span>
+                        </th>
+                        <th className="px-6 py-4 text-left">
+                          <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                            Дата создания
+                          </span>
+                        </th>
+                        <th className="px-6 py-4 text-left">
+                          <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                            Статус
+                          </span>
+                        </th>
+                        <th className="px-6 py-4 text-right">
+                          <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                            Действия
+                          </span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                      {filteredOrders.map((o, i) => (
+                        <tr
+                          key={o.id}
+                          onClick={() => {
+                            if (o.metadata?.processed) {
+                              handleView(
+                                {
+                                  stopPropagation: () => {},
+                                } as React.MouseEvent,
+                                o,
+                              );
+                            } else {
+                              setSelectedOrder(o);
+                              setIsViewOnly(false);
+                              setStep(1);
+                            }
+                          }}
+                          className="group transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-50/50 hover:via-teal-50/30 hover:to-transparent hover:shadow-md cursor-pointer"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shadow-sm group-hover:shadow transition-all">
+                                <span className="text-sm font-nekstmedium text-gray-700">
+                                  {o.id}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-sm font-nekstregular text-gray-900">
+                                {o.fieldId ? `Field ID: ${o.fieldId}` : '—'}
+                              </span>
+                              {o.fieldId && (
+                                <span className="text-xs text-gray-400 mt-0.5">
+                                  Идентификатор поля
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <svg
+                                className="w-4 h-4 text-gray-400"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                              <span className="text-sm text-gray-600 font-nekstregular">
+                                {o.date}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {o.metadata?.processed ? (
+                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-50 border border-emerald-200 shadow-sm">
+                                <Clock size={14} className="text-emerald-600" />
+                                <span className="text-xs font-nekstmedium text-emerald-700">
+                                  Обработана
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-200 shadow-sm">
+                                <Clock size={14} className="text-amber-600" />
+                                <span className="text-xs font-nekstmedium text-amber-700">
+                                  Ожидает
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="inline-flex items-center gap-2">
+                              {o.metadata?.processed ? (
+                                <>
+                                  <button
+                                    onClick={(e) => handleView(e, o)}
+                                    title="Просмотреть результаты"
+                                    disabled={viewLoadingId === o.id}
+                                    className="group/btn inline-flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border border-blue-200 shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                  >
+                                    {viewLoadingId === o.id ? (
+                                      <>
+                                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                        <span className="text-xs font-nekstregular text-blue-600">
+                                          Загрузка...
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <Eye
+                                        size={16}
+                                        className="text-blue-600 group-hover/btn:scale-110 transition-transform"
+                                      />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={(e) => handleEdit(e, o)}
+                                    title="Редактировать"
+                                    className="group/btn p-2.5 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border border-purple-200 shadow-sm hover:shadow-md transition-all duration-200"
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                  >
+                                    <Edit2
+                                      size={16}
+                                      className="text-purple-600 group-hover/btn:scale-110 transition-transform"
+                                    />
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedOrder(o);
+                                    setIsViewOnly(false);
+                                    setStep(1);
+                                  }}
+                                  className="group/btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 text-white text-xs font-nekstmedium shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                                >
+                                  <span>Обработать</span>
+                                  <svg
+                                    className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M13 7l5 5m0 0l-5 5m5-5H6"
+                                    />
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -1396,7 +1842,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
             {step === 2 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                <div className="space-y-4">
                   {[
                     'originalImage',
                     'indexImage',
@@ -1415,81 +1861,97 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         } as Record<string, string>
                       )[k] ?? k;
                     return (
-                      <div
-                        key={k}
-                        className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm"
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="text-sm font-medium">{label}</div>
-                          {k === 'areasWithFullIdsImage' && !isViewOnly && (
-                            <button
-                              onClick={() => setMergeOpen(true)}
-                              className="text-xs px-2 py-1 rounded bg-emerald-50 border border-emerald-100"
-                            >
-                              Объединить участки
-                            </button>
-                          )}
+                      <div key={k} className="space-y-3">
+                        <div className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-sm font-medium">{label}</div>
+                            {k === 'areasWithFullIdsImage' && !isViewOnly && (
+                              <button
+                                onClick={() => setMergeOpen((prev) => !prev)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200"
+                              >
+                                <GitMerge size={18} className="stroke-2" />
+                                {mergeOpen
+                                  ? 'Скрыть форму'
+                                  : 'Объединить участки'}
+                              </button>
+                            )}
+                          </div>
+                          <div className="rounded overflow-hidden flex items-center justify-center h-60 sm:h-72 md:h-80 lg:h-96 xl:h-[40rem]">
+                            {img ? (
+                              <div className="relative w-full h-full group">
+                                <img
+                                  src={img}
+                                  alt={label}
+                                  className="object-contain w-full h-full rounded-md cursor-zoom-in"
+                                  onClick={() => setModalImage(img)}
+                                />
+                              </div>
+                            ) : (
+                              <div className="text-xs text-gray-400 flex items-center justify-center w-full h-full">
+                                Нет изображения
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="rounded overflow-hidden flex items-center justify-center h-60 sm:h-72 md:h-80 lg:h-96 xl:h-[40rem]">
-                          {img ? (
-                            <div className="relative w-full h-full group">
-                              <img
-                                src={img}
-                                alt={label}
-                                className="object-contain w-full h-full rounded-md transform transition-transform duration-300 group-hover:scale-105 cursor-zoom-in"
-                                onClick={() => setModalImage(img)}
-                              />
-                            </div>
-                          ) : (
-                            <div className="text-xs text-gray-400 flex items-center justify-center w-full h-full">
-                              Нет изображения
+
+                        {/* Форма объединения появляется сразу после графика areasWithFullIdsImage */}
+                        {k === 'areasWithFullIdsImage' &&
+                          mergeOpen &&
+                          !isViewOnly && (
+                            <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="text-sm font-semibold text-gray-900">
+                                    Объединить участки
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <input
+                                  value={mergePlot1}
+                                  onChange={(e) =>
+                                    setMergePlot1(e.target.value)
+                                  }
+                                  placeholder="plotId 1"
+                                  className="px-3 py-2 rounded-lg bg-gray-50 focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm"
+                                />
+                                <input
+                                  value={mergePlot2}
+                                  onChange={(e) =>
+                                    setMergePlot2(e.target.value)
+                                  }
+                                  placeholder="plotId 2"
+                                  className="px-3 py-2 rounded-lg bg-gray-50 focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm"
+                                />
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    onClick={() => setMergeOpen(false)}
+                                    className="px-3 py-2 rounded-lg text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+                                    disabled={mergingInProgress}
+                                  >
+                                    Отмена
+                                  </button>
+                                  <button
+                                    onClick={applyMerge}
+                                    disabled={mergingInProgress}
+                                    className="px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                  >
+                                    {mergingInProgress && (
+                                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    )}
+                                    {mergingInProgress
+                                      ? 'Объединение...'
+                                      : 'Применить'}
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           )}
-                        </div>
                       </div>
                     );
                   })}
                 </div>
-
-                {mergeOpen && !isViewOnly && (
-                  <div className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-gray-100 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-semibold text-gray-900">
-                          Объединить участки
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <input
-                        value={mergePlot1}
-                        onChange={(e) => setMergePlot1(e.target.value)}
-                        placeholder="plotId 1"
-                        className="px-3 py-2 rounded-lg bg-gray-50 focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm"
-                      />
-                      <input
-                        value={mergePlot2}
-                        onChange={(e) => setMergePlot2(e.target.value)}
-                        placeholder="plotId 2"
-                        className="px-3 py-2 rounded-lg bg-gray-50 focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm"
-                      />
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setMergeOpen(false)}
-                          className="px-3 py-2 rounded-lg text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
-                        >
-                          Отмена
-                        </button>
-                        <button
-                          onClick={applyMerge}
-                          className="px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:shadow-md transition"
-                        >
-                          Применить
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 <div className="flex flex-col gap-4">
                   {getOrderedTables(selectedOrder.metadata?.analyticsTables)
@@ -1548,7 +2010,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         <img
                           src={areasImg}
                           alt="areas"
-                          className="object-contain w-full h-full rounded-md cursor-zoom-in transform transition-transform duration-300 hover:scale-105"
+                          className="object-contain w-full h-full rounded-md cursor-zoom-in"
                           onClick={() => setModalImage(areasImg)}
                         />
                       ) : (
@@ -1568,7 +2030,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         <img
                           src={indexBoundsImg}
                           alt="index"
-                          className="object-contain w-full h-full rounded-md"
+                          className="object-contain w-full h-full rounded-md cursor-zoom-in"
                           onClick={() => setModalImage(indexBoundsImg)}
                         />
                       ) : (
@@ -1776,40 +2238,36 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         Назад
                       </button>
                     )}
-                    <div
+                    <button
+                      onClick={
+                        calcInProgress || !allClustersAssigned
+                          ? undefined
+                          : applyFinal
+                      }
+                      disabled={calcInProgress || !allClustersAssigned}
                       style={{
-                        transform: allClustersAssigned
-                          ? 'scaleY(1)'
-                          : 'scaleY(0)',
-                        transformOrigin: 'top',
-                        opacity: allClustersAssigned ? 1 : 0,
-                        maxHeight: allClustersAssigned ? '80px' : '0px',
-                        transition:
-                          'transform 220ms ease, opacity 220ms ease, max-height 220ms ease',
-                        overflow: 'hidden',
+                        cursor:
+                          calcInProgress || !allClustersAssigned
+                            ? 'not-allowed'
+                            : 'pointer',
                       }}
-                    >
-                      <button
-                        onClick={applyFinal}
-                        disabled={calcInProgress}
-                        className={`px-4 py-2 rounded flex items-center justify-center gap-2
+                      className={`px-4 py-2 rounded flex items-center justify-center gap-2 transition-all
     ${
-      calcInProgress
-        ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-        : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:scale-105 transition-transform'
+      calcInProgress || !allClustersAssigned
+        ? 'bg-gray-200 text-gray-500'
+        : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:scale-105'
     }
   `}
-                      >
-                        {calcInProgress ? (
-                          <>
-                            <Loader size={18} />
-                            <span>Загрузка...</span>
-                          </>
-                        ) : (
-                          'Запустить финальную обработку'
-                        )}
-                      </button>
-                    </div>
+                    >
+                      {calcInProgress ? (
+                        <>
+                          <Loader size={18} />
+                          <span>Загрузка...</span>
+                        </>
+                      ) : (
+                        'Запустить финальную обработку'
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1849,7 +2307,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
                             <img
                               src={img}
                               alt={label}
-                              className="object-contain h-full w-full rounded-md"
+                              className="object-contain h-full w-full rounded-md cursor-zoom-in"
+                              onClick={() => setModalImage(img)}
                             />
                           ) : (
                             <div className="text-xs text-gray-400">
@@ -1930,6 +2389,49 @@ export default function OperatorOrdersWizard(): JSX.Element {
           </div>
         </div>
       )}
+
+      {/* Toast уведомление */}
+      {toast && (
+        <div
+          className={`fixed z-[100] bottom-4 right-4 px-4 py-2 rounded-lg shadow-md flex flex-col gap-1
+      w-[min(350px,90vw)]
+      bg-emerald-50 border border-emerald-200 text-emerald-900
+    `}
+          style={{ animation: 'toast-fadein 0.3s, toast-fadeout 0.4s 3.1s' }}
+        >
+          <div className="flex justify-between items-center">
+            <div className="text-sm font-nekstmedium">{toast}</div>
+            <button
+              className="ml-2 text-lg text-gray-400 hover:text-gray-700 transition-colors"
+              onClick={() => setToast(null)}
+              aria-label="Закрыть уведомление"
+            >
+              ×
+            </button>
+          </div>
+          <div className="relative h-1 w-full rounded-full overflow-hidden bg-gray-200 mt-1">
+            <div
+              className="h-full absolute top-0 left-0 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
+              style={{ animation: 'toast-timer 3.5s linear forwards' }}
+            />
+          </div>
+        </div>
+      )}
+
+      <style>{`
+  @keyframes toast-timer {
+    from { width: 100%; }
+    to { width: 0%; }
+  }
+  @keyframes toast-fadein {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes toast-fadeout {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(20px); }
+  }
+`}</style>
     </div>
   );
 }
