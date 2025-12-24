@@ -556,8 +556,9 @@ export default function FriendlyOrdersPanel() {
   };
 
   const openModal = async (o: ApiOrder) => {
+    setPendingStatus(null); // сбрасываем статус изменений при открытии любого заказа
     setViewLoadingId(o.orderId);
-    setPendingStatus(null);
+
     setSelectedOperatorId(o.operatorId ?? null);
     setStatusOpen(false);
 
@@ -1390,9 +1391,7 @@ export default function FriendlyOrdersPanel() {
               >
                 {updatingId === selected.orderId
                   ? 'Сохранение…'
-                  : !hasChanges && selected
-                    ? 'Изменения применены'
-                    : 'Подтвердить'}
+                  : 'Подтвердить'}
               </button>
             </div>
           </div>
