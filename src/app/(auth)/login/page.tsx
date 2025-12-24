@@ -4,6 +4,7 @@ import { LogIn, Lock, Mail, Eye, EyeOff, ChevronLeft } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import axios from 'axios';
 import { useRouter } from 'next/navigation';
+import Snowfall from 'react-snowfall';
 
 export default function LoginPage() {
   const router = useRouter();

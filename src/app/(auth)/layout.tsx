@@ -4,11 +4,27 @@ import { CheckCircle, Home, ShieldCheck, UserPlus2 } from 'lucide-react';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
 import { usePathname } from 'next/navigation';
+import Snowfall from 'react-snowfall';
 
 export default function Layout({ children }: PropsWithChildren) {
   const pathName = usePathname();
   return (
     <div className="relative bg-[url(/pages/main/drone_15.jpg)] bg-cover min-h-[100vh] bg-gray-100">
+      <Snowfall
+        snowflakeCount={100} // количество снежинок
+        color="rgba(255, 255, 255, 0.7)"
+        radius={[1, 5]} // размер снежинок
+        speed={[0.5, 1.5]} // скорость падения
+        style={{
+          // position: '',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          zIndex: 50,
+        }}
+      />
       <div className="absolute inset-0 bg-white/20 backdrop-blur-[12px] z-0"></div>
       <div className="flex flex-col items-center justify-center h-[calc(100vh-72px)] relative z-10 p-4">
         <motion.h1

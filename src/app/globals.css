@@ -1,3 +1,7 @@
+/* Глобальная анимация для медленного вращения (Loader2) */
+.animate-spin-slow {
+  animation: spin 1.5s linear infinite;
+}
 @import 'tailwindcss';
 /* @import './resets.css'; */
 @font-face {

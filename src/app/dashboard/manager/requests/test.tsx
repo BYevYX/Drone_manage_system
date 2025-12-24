@@ -244,14 +244,52 @@ export default function FriendlyOrdersPanel() {
         const txt = await res.text().catch(() => '');
         throw new Error(`Ошибка получения заказов: ${res.status} ${txt}`);
       }
-      console.log(res, 'dadada');
       const data = await res.json();
-      const list: ApiOrder[] = Array.isArray(data.orders) ? data.orders : [];
+      let list: ApiOrder[] = Array.isArray(data.orders) ? data.orders : [];
       // Сортируем заявки по ID в порядке убывания
-      const sortedList = list.sort((a, b) => b.orderId - a.orderId);
-      setAllOrders(sortedList);
-      // setPage(1);
-      // setPageInput('1');
+      list = list.sort((a, b) => b.orderId - a.orderId);
+
+      // Подгружаем contractorPhone для заказов, где его нет
+      const ordersToFetch = list.filter(
+        (o) =>
+          o.contractorId && (!o.contractorPhone || o.contractorPhone === '—'),
+      );
+      if (ordersToFetch.length > 0) {
+        // Параллелим с лимитом 24 одновременных запроса
+        const concurrency = 50;
+        let i = 0;
+        const results: { orderId: number; phone: string | null }[] = [];
+        async function runBatch() {
+          const batch = ordersToFetch.slice(i, i + concurrency);
+          await Promise.all(
+            batch.map(async (o) => {
+              try {
+                const details = await fetchContractorDetails(o.contractorId);
+                results.push({
+                  orderId: o.orderId,
+                  phone: details?.phone || null,
+                });
+              } catch {
+                results.push({ orderId: o.orderId, phone: null });
+              }
+            }),
+          );
+          i += concurrency;
+        }
+        while (i < ordersToFetch.length) {
+          // eslint-disable-next-line no-await-in-loop
+          await runBatch();
+        }
+        // Обновляем телефоны в list
+        results.forEach(({ orderId, phone }) => {
+          const idx = list.findIndex((o) => o.orderId === orderId);
+          if (idx !== -1 && phone) {
+            list[idx].contractorPhone = phone;
+          }
+        });
+      }
+
+      setAllOrders(list);
       assignedOperatorsRef.current = false; // allow re-run operator assignment after fresh fetch
     } catch (err: any) {
       console.error(err);
@@ -494,17 +532,16 @@ export default function FriendlyOrdersPanel() {
                 : o,
             ),
           );
-          // Сразу обновляем selected, чтобы скрыть ModernSelect
-          setSelected((s) =>
-            s && s.orderId === orderId
-              ? {
-                  ...s,
-                  operatorId: operator.id,
-                  operatorName: `${operator.firstName} ${operator.lastName}`,
-                }
-              : s,
-          );
         }
+        setSelected((s) =>
+          s && s.orderId === orderId
+            ? {
+                ...s,
+                operatorId: operator.id,
+                operatorName: `${operator.firstName} ${operator.lastName}`,
+              }
+            : s,
+        );
         console.log('ASSIGN SUCCESS', orderId, operatorId);
         return true;
       } catch (err: any) {
@@ -572,13 +609,18 @@ export default function FriendlyOrdersPanel() {
       operatorDetails = await fetchOperatorDetails(o.operatorId);
     }
 
+    // приоритет: contractorDetails.phone > o.contractorPhone > null
+    const contractorPhone =
+      contractorDetails?.phone || o.contractorPhone || null;
+
     setSelected({
       ...o,
       ...(contractorDetails && {
         contractorName: contractorDetails.firstName,
         contractorLastName: contractorDetails.lastName,
         contractorEmail: contractorDetails.email,
-        contractorPhone: contractorDetails.phone,
+        contractorPhone,
+        contractorProfile: contractorDetails.contractorProfile || {},
       }),
       ...(operatorDetails && {
         operatorName: operatorDetails.firstName,
@@ -618,10 +660,10 @@ export default function FriendlyOrdersPanel() {
       // refresh list to be safe
       await fetchOrders();
 
-      // НЕ закрываем модалку, просто делаем кнопку неактивной
-      // setSelected(null);
-      // setPendingStatus(null);
-      // setStatusOpen(false);
+      // close modal
+      setSelected(null);
+      setPendingStatus(null);
+      setStatusOpen(false);
     } catch (e) {
       console.error('Ошибка при подтверждении изменений', e);
     }
@@ -928,6 +970,27 @@ export default function FriendlyOrdersPanel() {
                         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
                           <span>
                             Контрактор #{String(o.contractorId ?? '—')}
+                          </span>
+                          <span className="inline-flex items-center gap-1">
+                            <Phone size={12} />
+                            {(() => {
+                              // приоритет: selected.contractorPhone (которая теперь всегда актуальна после openModal) > o.contractorPhone > прочерк
+                              if (
+                                selected &&
+                                selected.orderId === o.orderId &&
+                                selected.contractorPhone &&
+                                selected.contractorPhone !== '—'
+                              ) {
+                                return selected.contractorPhone;
+                              }
+                              if (
+                                o.contractorPhone &&
+                                o.contractorPhone !== '—'
+                              ) {
+                                return o.contractorPhone;
+                              }
+                              return '—';
+                            })()}
                           </span>
                         </div>
                       </div>
@@ -1381,18 +1444,12 @@ export default function FriendlyOrdersPanel() {
 
               <button
                 onClick={handleConfirm}
-                disabled={
-                  !hasChanges ||
-                  updatingId === selected.orderId ||
-                  (!hasChanges && selected)
-                }
-                className={`px-5 py-2.5 rounded-xl font-nekstregular transition-all ${!hasChanges || updatingId === selected.orderId || (!hasChanges && selected) ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 text-white shadow-md hover:shadow-lg hover:-translate-y-[1px]'}`}
+                disabled={!hasChanges || updatingId === selected.orderId}
+                className={`px-5 py-2.5 rounded-xl font-nekstregular transition-all ${!hasChanges || updatingId === selected.orderId ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-emerald-600 text-white shadow-md hover:shadow-lg hover:-translate-y-[1px]'}`}
               >
                 {updatingId === selected.orderId
                   ? 'Сохранение…'
-                  : !hasChanges && selected
-                    ? 'Изменения применены'
-                    : 'Подтвердить'}
+                  : 'Подтвердить'}
               </button>
             </div>
           </div>

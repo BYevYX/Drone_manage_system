@@ -1,5 +1,18 @@
 'use client';
+
 import React, { useEffect, useRef, useState } from 'react';
+import { Loader } from '../../operator/requests/spinner';
+import {
+  CheckCircle,
+  Loader2,
+  Circle,
+  XCircle,
+  Info,
+  CheckCheck,
+  Clock,
+} from 'lucide-react';
+// Состояние загрузки для кнопки сохранения
+
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronDown,
@@ -19,6 +32,7 @@ import {
   getLocalId,
   getDisplayId,
 } from '../utils/fieldIdMapper';
+import { ModernSelect } from '../../modernSelect';
 
 /** Types */
 interface Request {
@@ -31,7 +45,7 @@ interface Request {
   crop?: string;
   type: string;
   area?: number;
-  status: 'new' | 'in_progress' | 'completed' | 'rejected';
+  status: 'in_progress' | 'processed' | 'completed' | 'cancelled';
   coords?: [number, number][];
   contactPhone?: string;
   wavelengthMode?: 'auto' | 'manual';
@@ -77,10 +91,10 @@ interface UserModel {
 /** Static options */
 const statusOptions = [
   { value: 'all', label: 'Все' },
-  { value: 'new', label: 'Новые' },
-  { value: 'in_progress', label: 'В обработке' },
-  { value: 'completed', label: 'Завершённые' },
-  { value: 'rejected', label: 'Отклонённые' },
+  { value: 'in_progress', label: 'В работе' },
+  { value: 'processed', label: 'Обработана' },
+  { value: 'completed', label: 'Завершена' },
+  { value: 'cancelled', label: 'Отменена' },
 ];
 const treatmentOptions = [
   { value: 'all', label: 'Все' },
@@ -92,177 +106,6 @@ const treatmentOptions = [
 /** small helper */
 const cn = (...parts: Array<string | false | null | undefined>) =>
   parts.filter(Boolean).join(' ');
-
-/** ModernSelect (compact) */
-const ModernSelect = ({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label?: string;
-  options: string[];
-  value: string;
-  onChange: (v: string) => void;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node))
-        setIsOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, []);
-  return (
-    <div className="space-y-2" ref={ref}>
-      {label && (
-        <label className="block text-sm font-medium text-gray-700/90 mb-1.5 pl-1.5">
-          {label}
-        </label>
-      )}
-      <div className="relative">
-        <button
-          onClick={() => setIsOpen((s) => !s)}
-          className={cn(
-            'w-full px-4 py-3.5 text-left bg-white/90 rounded-xl border text-gray-800 shadow-sm flex items-center justify-between',
-            isOpen
-              ? 'border-emerald-400 ring-2 ring-emerald-400/30'
-              : 'border-gray-300/80',
-          )}
-        >
-          <span
-            className={
-              value === options[0] ? 'text-gray-400/90' : 'text-gray-700'
-            }
-          >
-            {value}
-          </span>
-          <ChevronDown
-            size={18}
-            className={cn('text-gray-500', isOpen && 'text-emerald-500')}
-          />
-        </button>
-
-        <AnimatePresence>
-          {isOpen && (
-            <motion.ul
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              className="absolute z-30 w-full mt-2 bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200/80"
-            >
-              {options.map((opt, idx) => (
-                <li
-                  key={opt}
-                  onClick={() => {
-                    onChange(opt);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    'px-4 py-2.5 cursor-pointer flex items-center justify-between',
-                    value === opt ? 'bg-emerald-50' : 'hover:bg-gray-50',
-                    idx === 0 ? '' : 'border-t border-gray-100',
-                  )}
-                >
-                  <span className="text-gray-700">{opt}</span>
-                  {value === opt && (
-                    <Check size={16} className="text-emerald-500" />
-                  )}
-                </li>
-              ))}
-            </motion.ul>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
-  );
-};
-
-function FieldUploaderInline({
-  initialPreview,
-  onChangePreview,
-  onChangeMetadata,
-  onParsedJson,
-}: {
-  initialPreview?:
-    | { fieldPreview?: string | null; segmentsPreview?: string | null }
-    | undefined;
-  onChangePreview: (p: {
-    fieldPreview?: string | null;
-    segmentsPreview?: string | null;
-  }) => void;
-  onChangeMetadata: (m: Request['metadata'] | null) => void;
-  onParsedJson?: (json: any | null) => void;
-}) {
-  const [jsonPreview, setJsonPreview] = useState<any | null>(null);
-  const [isParsing, setIsParsing] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const fileRef = useRef<HTMLInputElement | null>(null);
-
-  useEffect(
-    () => onChangePreview({ fieldPreview: null, segmentsPreview: null }),
-    [onChangePreview],
-  );
-
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-  const handleFile = async (file?: File) => {
-    if (!file) {
-      fileRef.current?.click();
-      return;
-    }
-    setIsParsing(true);
-    setProgress(0);
-    try {
-      const text = await file.text();
-      const parsed = JSON.parse(text);
-      for (let i = 1; i <= 6; i++) {
-        // UX progress
-        // eslint-disable-next-line no-await-in-loop
-        await sleep(30);
-        setProgress(Math.round((i / 6) * 100));
-      }
-      setJsonPreview(parsed);
-      const meta: Request['metadata'] = {
-        name:
-          parsed.name ?? parsed.cadastralNumber ?? parsed.title ?? undefined,
-        area: parsed.area
-          ? String(parsed.area)
-          : (parsed.areaString ?? undefined),
-        parcels: parsed.parcels ? String(parsed.parcels) : undefined,
-        crop: parsed.crop ?? undefined,
-        notes: parsed.notes ?? undefined,
-      };
-      onChangeMetadata(meta);
-      if (onParsedJson) onParsedJson(parsed);
-    } catch (err) {
-      console.error('FieldUploaderInline parse error', err);
-      onChangeMetadata(null);
-      setJsonPreview(null);
-      if (onParsedJson) onParsedJson(null);
-      alert('Не удалось распарсить JSON файла поля.');
-    } finally {
-      setIsParsing(false);
-      setProgress(100);
-      await sleep(120);
-      setProgress(0);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <input
-        ref={fileRef}
-        type="file"
-        accept=".json,application/json"
-        className="hidden"
-        onChange={(e) => e.target.files && handleFile(e.target.files[0])}
-      />
-    </div>
-  );
-}
 
 /** Main component */
 export default function RequestsWithEditor({
@@ -296,6 +139,7 @@ export default function RequestsWithEditor({
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [requests, setRequests] = useState<Request[]>([]);
+  const [loading, setLoading] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<Request | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -303,6 +147,9 @@ export default function RequestsWithEditor({
   const [contractor, setContractor] = useState<UserModel | null>(null);
   const [dropdownFieldOpen, setDropdownFieldOpen] = useState(false);
   const [dropdownTypeOpen, setDropdownTypeOpen] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [loadingFieldNames, setLoadingFieldNames] = useState<Set<number>>(
     new Set(),
   );
@@ -315,7 +162,7 @@ export default function RequestsWithEditor({
     field: 'Выберите поле',
     selectedFieldId: -1 as number,
     type: 'Выберите тип обработки',
-    status: 'new' as Request['status'],
+    status: 'in_progress' as Request['status'],
     materialsProvided: false, // radio choice kept, but manual inputs removed
   });
 
@@ -327,16 +174,81 @@ export default function RequestsWithEditor({
   } | null>(null);
   const [metadata, setMetadata] = useState<Request['metadata'] | null>(null);
   const [viewRequest, setViewRequest] = useState<Request | null>(null);
+  // Toast уведомление
+  const [toast, setToast] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3500);
+  };
+  // Сбросить lightbox при закрытии viewModal
+  useEffect(() => {
+    if (!viewRequest) {
+      setLightboxOpen(false);
+      setLightboxSrc(null);
+    }
+  }, [viewRequest]);
+
+  // Для отслеживания изменений формы (редактирование)
+  const initialFormRef = useRef<any>(null);
+  useEffect(() => {
+    if (editorOpen && editingRequest) {
+      initialFormRef.current = {
+        id: editingRequest.id,
+        date: editingRequest.date,
+        dateFrom: editingRequest.dateFrom || editingRequest.date,
+        dateTo: editingRequest.dateTo || editingRequest.date,
+        field: editingRequest.field,
+        selectedFieldId: -1,
+        type: editingRequest.type,
+        status: editingRequest.status,
+        materialsProvided: true,
+      };
+    }
+    if (editorOpen && !editingRequest) {
+      initialFormRef.current = null;
+    }
+  }, [editorOpen, editingRequest]);
+
+  // Проверка, изменена ли форма (для "Сохранить изменения")
+  const isFormChanged = editingRequest
+    ? Object.keys(form).some(
+        (key) => (form as any)[key] !== initialFormRef.current?.[key],
+      )
+    : true;
+
+  // Проверка, все ли обязательные поля заполнены (для "Создать заявку")
+  const isFormValid =
+    form.field &&
+    form.field !== 'Выберите поле' &&
+    form.type &&
+    form.type !== 'Выберите тип обработки' &&
+    form.dateFrom &&
+    form.dateTo;
 
   // helpers
   const mapStatus = (s?: string): Request['status'] => {
-    if (!s) return 'new';
-    const low = String(s).toLowerCase();
-    if (/complete|done/.test(low)) return 'completed';
-    if (/in[_\s]?progress|progress/.test(low)) return 'in_progress';
-    if (/reject|denied/.test(low)) return 'rejected';
-    if (/new/.test(low)) return 'new';
-    return 'new';
+    if (!s) {
+      console.log(
+        '[mapStatus] status is undefined/null, returning "in_progress"',
+      );
+      return 'in_progress';
+    }
+    const normalized = String(s).trim().toLowerCase();
+    let result: Request['status'];
+    if (normalized === 'completed') result = 'completed';
+    else if (normalized === 'in progress' || normalized === 'in_progress')
+      result = 'in_progress';
+    else if (normalized === 'processed') result = 'processed';
+    else if (normalized === 'cancelled' || normalized === 'canceled')
+      result = 'cancelled';
+    else if (/complete|done/.test(normalized)) result = 'completed';
+    else if (/in[_\s]?progress|progress/.test(normalized))
+      result = 'in_progress';
+    else if (/process(ed)?/.test(normalized)) result = 'processed';
+    else if (/cancel(l)?ed|отмен/.test(normalized)) result = 'cancelled';
+    else result = 'in_progress';
+    return result;
   };
   const typeProcessIdToLabel = (id?: number) =>
     id === 1
@@ -353,15 +265,55 @@ export default function RequestsWithEditor({
     if (/картограф/i.test(n)) return 3;
     return 0;
   };
-  const renderStatusBadge = (st: Request['status']) =>
-    st === 'completed'
-      ? { text: 'Завершено', cls: 'bg-green-100 text-green-800' }
-      : st === 'in_progress'
-        ? { text: 'В обработке', cls: 'bg-blue-100 text-blue-800' }
-        : st === 'new'
-          ? { text: 'Новая', cls: 'bg-yellow-100 text-yellow-800' }
-          : { text: 'Отклонена', cls: 'bg-red-100 text-red-800' };
 
+  const renderStatusBadge = (st: Request['status']) => {
+    if (st === 'in_progress')
+      return {
+        text: 'В работе',
+        cls: 'bg-blue-100 text-blue-800',
+        icon: <Clock size={16} className="inline mr-1 -mt-0.5 text-blue-500" />,
+      };
+    if (st === 'processed')
+      return {
+        text: 'Обработана',
+        cls: 'bg-yellow-100 text-yellow-800',
+        icon: (
+          <CheckCheck
+            size={16}
+            className="inline mr-1 -mt-0.5 text-yellow-500"
+          />
+        ),
+      };
+    if (st === 'completed')
+      return {
+        text: 'Завершена',
+        cls: 'bg-green-100 text-green-800',
+        icon: (
+          <CheckCircle
+            size={16}
+            className="inline mr-1 -mt-0.5 text-green-500"
+          />
+        ),
+      };
+    if (st === 'cancelled')
+      return {
+        text: 'Отменена',
+        cls: 'bg-red-100 text-red-800',
+        icon: (
+          <XCircle size={16} className="inline mr-1 -mt-0.5 text-red-500" />
+        ),
+      };
+    return {
+      text: 'В работе',
+      cls: 'bg-blue-100 text-blue-800',
+      icon: (
+        <Clock
+          size={16}
+          className="inline mr-1 -mt-0.5 text-blue-500 animate-spin-slow"
+        />
+      ),
+    };
+  };
   // API helpers
   const fetchFields = async () => {
     try {
@@ -420,6 +372,7 @@ export default function RequestsWithEditor({
 
   const fetchOrders = async (page = 1, limit = 100) => {
     try {
+      setLoading(true);
       const userId = localStorage.getItem('userId');
 
       // Сначала получаем актуальный список полей
@@ -500,7 +453,7 @@ export default function RequestsWithEditor({
           preview: previewObj ?? undefined,
         } as Request;
       });
-      setRequests(baseRequests);
+      setRequests(baseRequests.sort((a, b) => b.id - a.id));
 
       // Отмечаем, что загружаем имена полей
       const orderIds = baseRequests.map((r) => r.id);
@@ -553,11 +506,13 @@ export default function RequestsWithEditor({
           metadata: { ...(r.metadata ?? {}), name: u.name },
         };
       });
-      setRequests(updated);
+      setRequests(updated.sort((a, b) => b.id - a.id));
       setLoadingFieldNames(new Set());
+      setLoading(false);
     } catch (e) {
       console.error(e);
       setRequests([]);
+      setLoading(false);
     }
   };
 
@@ -604,52 +559,6 @@ export default function RequestsWithEditor({
     }
   };
 
-  const deleteField = async (fieldId: number) => {
-    if (!confirm(`Удалить поле #${fieldId}?`)) return;
-    try {
-      const res = await authFetch(`${API_BASE}/api/orders/${fieldId}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
-        setFieldsList((p) => p.filter((f) => f.fieldId !== fieldId));
-        if ((form as any).selectedFieldId === fieldId)
-          setForm((s) => ({
-            ...s,
-            selectedFieldId: -1,
-            field: 'Выберите поле',
-          }));
-        setMetadata(null);
-        alert('Поле удалено');
-        return;
-      }
-      if ([400, 404, 405, 501].includes(res.status)) {
-        try {
-          const res2 = await authFetch(`${API_BASE}/api/orders/${fieldId}`, {
-            method: 'DELETE',
-          });
-          if (res2.ok) {
-            setFieldsList((p) => p.filter((f) => f.fieldId !== fieldId));
-            if ((form as any).selectedFieldId === fieldId)
-              setForm((s) => ({
-                ...s,
-                selectedFieldId: -1,
-                field: 'Выберите поле',
-              }));
-            setMetadata(null);
-            alert('Поле удалено (через fallback /api/orders/{id})');
-            return;
-          }
-        } catch (e) {
-          console.warn(e);
-        }
-      }
-      alert(`Не удалось удалить поле. Сервер вернул ${res.status}.`);
-    } catch (e) {
-      console.error(e);
-      alert('Ошибка запроса на удаление поля.');
-    }
-  };
-
   useEffect(() => {
     (async () => {
       // Сначала загружаем поля, потом заявки (чтобы fieldsList был заполнен)
@@ -688,7 +597,7 @@ export default function RequestsWithEditor({
         field: 'Выберите поле',
         selectedFieldId: -1,
         type: 'Выберите тип обработки',
-        status: 'new',
+        status: 'in_progress',
         materialsProvided: false,
       }));
       setPreview(null);
@@ -698,7 +607,9 @@ export default function RequestsWithEditor({
   }, [editingRequest, editorOpen]);
 
   const filtered = requests.filter((r) => {
-    if (status !== 'all' && r.status !== status) return false;
+    // Приводим статус к внутреннему формату ('in_progress', 'processed', ...)
+    const normalizedStatus = mapStatus(r.status);
+    if (status !== 'all' && normalizedStatus !== status) return false;
     if (treatmentType !== 'all') {
       if (treatmentType === 'spraying' && !/опрыс/i.test(r.type.toLowerCase()))
         return false;
@@ -754,125 +665,157 @@ export default function RequestsWithEditor({
   };
 
   const saveForm = async () => {
-    if (
-      !form.field ||
-      form.field === 'Выберите поле' ||
-      !form.type ||
-      form.type === 'Выберите тип обработки'
-    ) {
-      alert('Выберите поле и тип обработения');
-      return;
-    }
-
-    // require uploaded JSON — regardless of radio choice we send pendingJson as-is
-    // if (!pendingJson) {
-    //   alert(
-    //     'Пожалуйста, загрузите JSON с характеристиками поля (тот JSON, который должен быть отправлен на бэк).',
-    //   );
-    //   return;
-    // }
-    const payload = pendingJson;
-
-    // send payload to analytics endpoint, include order id as second parameter:
-    // use the temporary id we'll assign to payloadRequest so backend can link if needed
-    const tempOrderId = isNew
-      ? Math.max(0, ...requests.map((x) => x.id)) + 1
-      : form.id;
-
-    const ok = await sendPayload(payload, tempOrderId);
-    if (!ok) {
-      alert(
-        'Не удалось отправить JSON на анализ. Проверьте соединение и попробуйте ещё раз.',
-      );
-      return;
-    }
-
-    let createdOrderId: number | null = null;
-    const errors: string[] = [];
-
+    if (saving) return;
+    setSaving(true);
     try {
+      if (
+        !form.field ||
+        form.field === 'Выберите поле' ||
+        !form.type ||
+        form.type === 'Выберите тип обработки'
+      ) {
+        setErrorMsg('Выберите поле и тип обработения');
+        setSaving(false);
+        return;
+      }
+
+      const payload = pendingJson;
+      // send payload to analytics endpoint, include order id as second parameter:
+      const tempOrderId = isNew
+        ? Math.max(0, ...requests.map((x) => x.id)) + 1
+        : form.id;
+
+      const ok = await sendPayload(payload, tempOrderId);
+      if (!ok) {
+        setErrorMsg(
+          'Не удалось отправить JSON на анализ. Проверьте соединение и попробуйте ещё раз.',
+        );
+        setSaving(false);
+        return;
+      }
+
+      let orderIdToUse: number | null = null;
+      const errors: string[] = [];
+
       const body: any = {
         typeProcessId: typeToId(form.type),
-        status: 'In progress',
         dataStart: new Date(form.dateFrom || form.date).toISOString(),
         dataEnd: new Date(form.dateTo || form.date).toISOString(),
         materialsProvided: Boolean(form.materialsProvided),
       };
       if (contractor?.id) body.contractorId = contractor.id;
 
-      const res = await authFetch(`${API_BASE}/api/orders`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(
-          `Ошибка сервера при создании заказа: ${res.status} ${txt}`,
-        );
-      }
-      const data = await res.json().catch(() => ({}));
-      createdOrderId = data?.orderId ? Number(data.orderId) : null;
-
-      if (!createdOrderId) {
-        const latest = await getLatestOrderId();
-        if (latest) createdOrderId = latest;
-        else
-          console.warn('Не удалось определить orderId после создания заказа');
+      let res, data;
+      if (isNew) {
+        body.status = 'In progress';
+        res = await authFetch(`${API_BASE}/api/orders`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(
+            `Ошибка сервера при создании заказа: ${res.status} ${txt}`,
+          );
+        }
+        data = await res.json().catch(() => ({}));
+        orderIdToUse = data?.orderId ? Number(data.orderId) : null;
+        if (!orderIdToUse) {
+          const latest = await getLatestOrderId();
+          if (latest) orderIdToUse = latest;
+          else
+            console.warn('Не удалось определить orderId после создания заказа');
+        }
+      } else {
+        // Редактирование существующего заказа
+        res = await authFetch(`${API_BASE}/api/orders/${form.id}`, {
+          method: 'PUT',
+          body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(
+            `Ошибка сервера при редактировании заказа: ${res.status} ${txt}`,
+          );
+        }
+        data = await res.json().catch(() => ({}));
+        orderIdToUse = form.id;
       }
 
       const selFieldId = (form as any).selectedFieldId;
-      if (createdOrderId && typeof selFieldId === 'number' && selFieldId >= 0) {
-        const attached = await attachFieldToOrder(createdOrderId, selFieldId);
+      if (orderIdToUse && typeof selFieldId === 'number' && selFieldId >= 0) {
+        const attached = await attachFieldToOrder(orderIdToUse, selFieldId);
         if (!attached)
           errors.push(
-            `attachFieldToOrder failed for order ${createdOrderId}, field ${selFieldId}`,
+            `attachFieldToOrder failed for order ${orderIdToUse}, field ${selFieldId}`,
           );
-        else {
-          const activated = await activateOrder(createdOrderId);
+        else if (isNew) {
+          const activated = await activateOrder(orderIdToUse);
           if (!activated)
-            errors.push(`activateOrder failed for order ${createdOrderId}`);
+            errors.push(`activateOrder failed for order ${orderIdToUse}`);
         }
       }
 
+      // Динамически обновляем информацию о заявках после успешного изменения
+      await fetchOrders();
+
+      // Если открыт viewModal и редактируется текущая заявка — обновить viewRequest из обновлённого списка заявок
+      if (!isNew && viewRequest && viewRequest.id === form.id) {
+        // fetchOrders обновляет requests асинхронно, поэтому используем setTimeout, чтобы дождаться обновления состояния
+        setTimeout(() => {
+          setRequests((currentRequests) => {
+            const updated = currentRequests.find((r) => r.id === form.id);
+            if (updated) setViewRequest(updated);
+            return currentRequests;
+          });
+        }, 150);
+      }
+
       if (!errors.length) {
-        alert('Заявка успешно отправлена менеджеру.');
+        showToast(
+          isNew
+            ? 'Заявка успешно отправлена менеджеру.'
+            : 'Заявка успешно обновлена.',
+        );
         setEditorOpen(false);
         setEditingRequest(null);
         setIsNew(false);
-        await fetchOrders();
+        setErrorMsg(null);
       } else {
         console.warn('saveForm completed with errors', errors);
-        alert('Частично успешно: ' + errors.join('; '));
-        await fetchOrders();
+        setErrorMsg('Частично успешно: ' + errors.join('; '));
+        setEditorOpen(false);
+        setEditingRequest(null);
+        setIsNew(false);
       }
     } catch (e: any) {
       console.error('saveForm error', e);
-      alert('Не удалось отправить заявку: ' + (e?.message ?? e));
+      setErrorMsg('Не удалось отправить заявку: ' + (e?.message ?? e));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const deleteRequest = async (id: number) => {
-    if (!confirm('Удалить заявку?')) return;
-    try {
-      const res = await authFetch(`${API_BASE}/api/orders/${id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) {
-        let body = '';
-        try {
-          body = await res.text();
-        } catch {}
-        throw new Error(`Ошибка удаления заказа: ${res.status} ${body}`);
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setEditorOpen(false);
+        setViewRequest(null);
       }
-      setRequests((p) => p.filter((r) => r.id !== id));
-      setEditorOpen(false);
-      setEditingRequest(null);
-      setViewRequest((v) => (v && v.id === id ? null : v));
-      alert(`Заказ #${id} удалён`);
-    } catch (e: any) {
-      console.error(e);
-      alert('Не удалось удалить заявку: ' + (e?.message ?? e));
-    }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
+  const renderRequests = () => {
+    const sortedRequests = [...requests].sort((a, b) => b.id - a.id);
+    return sortedRequests.map((request) => (
+      <div key={request.id} className="request-item">
+        {/* Render request details here */}
+      </div>
+    ));
   };
 
   return (
@@ -886,7 +829,7 @@ export default function RequestsWithEditor({
           <div>
             <h2 className="text-2xl font-bold">Мои заявки</h2>
             <div className="text-sm text-gray-500 mt-1">
-              Управление заказами: создавайте, редактируйте и просматривайте.
+              Управление заказами: создавайте и редактируйте.
             </div>
           </div>
 
@@ -902,6 +845,11 @@ export default function RequestsWithEditor({
               className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center gap-2 shadow"
             >
               <Plus size={16} /> Новая заявка
+              <style>{`
+              .animate-spin-slow {
+                animation: spin 1.5s linear infinite;
+              }
+            `}</style>
             </button>
           </div>
         </div>
@@ -914,6 +862,7 @@ export default function RequestsWithEditor({
                 Статус
               </label>
               <ModernSelect
+                isFull
                 options={statusOptions.map((o) => o.label)}
                 value={
                   statusOptions.find((o) => o.value === status)?.label || 'Все'
@@ -930,6 +879,7 @@ export default function RequestsWithEditor({
                 Тип обработки
               </label>
               <ModernSelect
+                isFull
                 options={treatmentOptions.map((o) => o.label)}
                 value={
                   treatmentOptions.find((o) => o.value === treatmentType)
@@ -998,271 +948,466 @@ export default function RequestsWithEditor({
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-3xl shadow-lg overflow-hidden border border-gray-100">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  {[
-                    '№',
-                    'Период выполнения',
-                    'Поле (ID)',
-                    'Тип',
-                    'Статус',
-                    'Действия',
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-6 py-3 text-left text-xs font-nekstmedium text-gray-500 uppercase tracking-wider"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filtered.map((request) => {
-                  const badge = renderStatusBadge(request.status);
-                  return (
-                    <tr
-                      key={request.id}
-                      className="hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        #{request.id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {request.dateFrom && request.dateTo
-                          ? `${new Date(request.dateFrom).toLocaleDateString()} - ${new Date(request.dateTo).toLocaleDateString()}`
-                          : new Date(request.date).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {request.field}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {request.type}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full font-nekstmedium ${badge.cls}`}
-                        >
-                          {badge.text}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex space-x-2">
+        <div className="bg-white rounded-3xl shadow-lg overflow-hidden border border-gray-100 w-full">
+          <div className="overflow-x-auto w-full">
+            {/* Header */}
+            <div className="hidden md:grid grid-cols-[0.5fr_1.5fr_2fr_1fr_1fr_1fr] gap-4 w-full py-3 bg-white/60 backdrop-blur-sm sticky top-0 z-10 border-b border-gray-200 font-nekstregular text-xs text-gray-500 uppercase tracking-wide px-8">
+              <div>№</div>
+              <div>Период</div>
+              <div>Поле (ID)</div>
+              <div>Тип</div>
+              <div>Статус</div>
+              <div className="text-center">Действия</div>
+            </div>
+
+            {/* Loading */}
+            {loading && (
+              <div className="flex items-center justify-center gap-2 py-6 text-gray-500 text-base font-nekstregular w-full">
+                <Loader size={20} />
+                Загрузка заказов…
+              </div>
+            )}
+
+            {/* Orders */}
+            {!loading && filtered.length > 0 && (
+              <>
+                {/* Desktop */}
+                <div className="hidden md:block">
+                  {filtered.map((request, idx) => {
+                    const badge = renderStatusBadge(request.status);
+                    return (
+                      <div
+                        key={request.id}
+                        onClick={() => setViewRequest(request)}
+                        className={`grid grid-cols-[0.5fr_1.5fr_2fr_1fr_1fr_1fr] gap-4 w-full px-8 py-4 items-center border-b border-gray-100 font-nekstregular text-sm ${
+                          idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'
+                        } hover:bg-emerald-50 transition cursor-pointer`}
+                      >
+                        <div className="font-medium">#{request.id}</div>
+                        <div className="text-gray-600">
+                          {request.dateFrom && request.dateTo
+                            ? `${new Date(request.dateFrom).toLocaleDateString()} — ${new Date(
+                                request.dateTo,
+                              ).toLocaleDateString()}`
+                            : new Date(request.date).toLocaleDateString()}
+                        </div>
+                        <div className="truncate">{request.field}</div>
+                        <div>{request.type}</div>
+                        <div className="flex justify-center items-center">
+                          <span
+                            className={`inline-flex items-center justify-center gap-1 px-3 py-1 text-xs rounded-full w-full text-center ${badge.cls}`}
+                          >
+                            {badge.icon}
+                            {badge.text}
+                          </span>
+                        </div>
+                        <div className="flex justify-center gap-2">
                           <button
-                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white shadow hover:shadow-lg transition focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                            onClick={() => setViewRequest(request)}
-                            title="Просмотр"
+                            onClick={(e) => {
+                              e.stopPropagation(); // чтобы двойной вызов не был
+                              setViewRequest(request);
+                            }}
+                            className="flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition focus:outline-none focus:ring-2 focus:ring-emerald-300"
                           >
                             <Eye size={18} />
                           </button>
                           <button
-                            className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white shadow hover:shadow-lg transition focus:outline-none focus:ring-2 focus:ring-blue-400"
-                            onClick={() => openEdit(request)}
-                            title="Редактировать"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(request);
+                            }}
+                            className="flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition focus:outline-none focus:ring-2 focus:ring-blue-300"
                           >
                             <Edit size={16} />
                           </button>
-                          {(request.status === 'new' ||
-                            request.status === 'in_progress') && (
-                            <button
-                              className="w-10 h-10 flex items-center justify-center rounded-2xl bg-white shadow hover:shadow-lg transition focus:outline-none focus:ring-2 focus:ring-red-400"
-                              onClick={() => deleteRequest(request.id)}
-                              title="Удалить"
-                            >
-                              <Trash2 size={18} className="text-red-600" />
-                            </button>
-                          )}
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Mobile */}
+                <div className="md:hidden space-y-4">
+                  {filtered.map((r) => {
+                    const badge = renderStatusBadge(r.status);
+                    return (
+                      <div
+                        key={r.id}
+                        onClick={() => setViewRequest(r)}
+                        className="p-4 bg-white rounded-2xl shadow-sm hover:shadow-md transition font-nekstregular w-full cursor-pointer"
+                      >
+                        <div className="flex flex-col gap-3">
+                          <div className="flex justify-between items-start">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-sm text-gray-500 font-medium">
+                                #{r.id}
+                              </span>
+                              <span className="text-sm truncate font-medium">
+                                {r.field}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {r.dateFrom && r.dateTo
+                                  ? `${new Date(r.dateFrom).toLocaleDateString()} — ${new Date(
+                                      r.dateTo,
+                                    ).toLocaleDateString()}`
+                                  : new Date(r.date).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewRequest(r);
+                                }}
+                                className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md focus:outline-none"
+                              >
+                                <Eye size={16} />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openEdit(r);
+                                }}
+                                className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md focus:outline-none"
+                              >
+                                <Edit size={16} />
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex justify-center items-center">
+                            <span
+                              className={`inline-flex items-center justify-center gap-2 px-3 py-1 rounded-full text-xs font-nekstregular bg-gray-100 w-full text-center`}
+                            >
+                              <span
+                                className={`w-2.5 h-2.5 rounded-full inline-block ${
+                                  badge.cls.includes('bg-') ? badge.cls : ''
+                                }`}
+                              />
+                              {badge.icon}
+                              <span>{badge.text}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* No orders */}
+            {/* {!loading && filtered.length === 0 && (
+              <div className="py-10 text-center text-gray-500 font-nekstregular w-full">
+                Заказов нет
+              </div>
+            )} */}
           </div>
 
-          <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
-            <div className="text-sm text-gray-700">
-              Показано <span className="font-medium">1</span> -{' '}
+          {/* Footer */}
+          <div className="px-4 py-4 border-t border-gray-200 w-full">
+            <div className="text-sm text-gray-700 w-full">
+              Показано <span className="font-medium">1</span> —{' '}
               <span className="font-medium">{filtered.length}</span> из{' '}
               <span className="font-medium">{requests.length}</span>
-            </div>
-            <div className="flex space-x-2">
-              <button className="px-3 py-1 rounded-2xl bg-white border border-gray-200 shadow hover:shadow-lg text-sm font-medium text-gray-700 transition focus:outline-none focus:ring-2 focus:ring-gray-300">
-                Назад
-              </button>
-              <button className="px-3 py-1 rounded-2xl bg-white border border-gray-200 shadow hover:shadow-lg text-sm font-medium text-gray-700 transition focus:outline-none focus:ring-2 focus:ring-gray-300">
-                Вперед
-              </button>
             </div>
           </div>
         </div>
       </motion.div>
-
-      {/* View modal */}
       <AnimatePresence>
         {viewRequest && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                setViewRequest(null);
+                setLightboxOpen(false);
+                setLightboxSrc(null);
+              }
+            }}
           >
+            {/* Внутри модалки — ограничиваем максимальную высоту и даём overflow-y для контента */}
             <motion.div
-              initial={{ scale: 0.98, y: 8 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.98, y: 8 }}
-              className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden"
+              initial={{ scale: 0.97, y: 10, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.97, y: 10, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 30 }}
+              className="relative w-full max-w-full sm:max-w-3xl md:max-w-4xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-[0_30px_80px_rgba(2,6,23,0.48)] font-nekstregular"
+              role="dialog"
+              aria-modal="true"
             >
-              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-gray-500">
+              {/* --- Header --- */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 gap-3 sm:gap-0 sticky top-0 bg-white/95 backdrop-blur-sm z-20 border-b border-gray-100">
+                <div className="flex-1">
+                  <div className="text-sm text-gray-400 font-nekstregular">
                     Заявка #{viewRequest.id} •{' '}
                     {new Date(viewRequest.date).toLocaleDateString()}
                   </div>
-                  <div className="text-lg font-semibold mt-1">
+                  <div className="mt-1 text-2xl font-nekstmedium text-gray-900 truncate">
                     {viewRequest.field}
                   </div>
+                  <div className="mt-1 text-sm text-gray-500 font-nekstregular truncate">
+                    {viewRequest.type}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <button
-                    onClick={() => {
-                      openEdit(viewRequest);
-                      setViewRequest(null);
-                    }}
-                    className="px-3 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
+                    onClick={() => openEdit(viewRequest)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg shadow hover:bg-emerald-600 transition font-nekstmedium whitespace-nowrap"
                   >
                     Редактировать
                   </button>
                   <button
-                    onClick={() => setViewRequest(null)}
-                    className="px-3 py-2 bg-white border border-gray-200 rounded-lg"
-                  >
-                    Закрыть
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2 space-y-3">
-                  <div className="text-sm text-gray-600">
-                    <div>
-                      <strong>Тип обработки:</strong> {viewRequest.type}
-                    </div>
-                    <div className="mt-1">
-                      <strong>Площадь/Культура:</strong> —
-                    </div>
-                    {viewRequest.details?.chemicals && (
-                      <div className="mt-1">
-                        <strong>Средство:</strong>{' '}
-                        {viewRequest.details.chemicals} (
-                        {viewRequest.details.dosage})
-                      </div>
-                    )}
-                    {viewRequest.details?.droneType && (
-                      <div className="mt-1">
-                        <strong>Техника:</strong>{' '}
-                        {viewRequest.details.droneType}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="rounded-xl overflow-hidden border border-gray-100">
-                    {viewRequest.preview?.fieldPreview ? (
-                      <img
-                        src={viewRequest.preview.fieldPreview}
-                        alt="preview"
-                        className="w-full h-60 object-cover"
-                      />
-                    ) : viewRequest.coords && viewRequest.coords.length > 0 ? (
-                      <div className="p-6 text-sm text-gray-700">
-                        <div className="font-medium mb-2">
-                          Координаты участка
-                        </div>
-                        <div className="text-xs text-gray-500 space-y-1">
-                          {viewRequest.coords.map((c, i) => (
-                            <div key={i}>
-                              [{c[0].toFixed(6)}, {c[1].toFixed(6)}]
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-6 text-center text-gray-500">
-                        <MapPin
-                          size={36}
-                          className="mx-auto mb-2 text-gray-400"
-                        />
-                        <div>Координаты не указаны</div>
-                        <div className="text-xs text-gray-400 mt-1">
-                          Можно загрузить фото участка в редакторе заявки.
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
-                    <div className="text-xs text-gray-500">Статус</div>
-                    <div className="mt-2">
-                      <span
-                        className={cn(
-                          'px-3 py-2 rounded-full text-sm',
-                          renderStatusBadge(viewRequest.status).cls,
-                        )}
-                      >
-                        {renderStatusBadge(viewRequest.status).text}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="p-3 rounded-2xl bg-white border border-gray-100">
-                    <div className="text-xs text-gray-500">Дополнительно</div>
-                    <div className="mt-2 text-sm text-gray-700">
-                      Режим длин волн:{' '}
-                      <strong>
-                        {viewRequest.wavelengthMode === 'manual'
-                          ? 'Пользовательские длины волн'
-                          : 'Вычислить за меня'}
-                      </strong>
-                      {viewRequest.wavelengths && (
-                        <div className="mt-2 text-xs text-gray-500">
-                          Материалы: {viewRequest.wavelengths}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-4 border-t border-gray-100 flex items-center justify-between">
-                <div className="text-sm text-gray-500">
-                  ID:{' '}
-                  <span className="font-medium text-gray-700">
-                    #{viewRequest.id}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
                     onClick={() => {
-                      openEdit(viewRequest);
                       setViewRequest(null);
+                      setLightboxOpen(false);
+                      setLightboxSrc(null);
                     }}
-                    className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600"
-                  >
-                    Открыть в редакторе
-                  </button>
-                  <button
-                    onClick={() => setViewRequest(null)}
-                    className="px-4 py-2 bg-white border border-gray-200 rounded-lg"
+                    className="px-3 py-2 bg-white/70 border border-gray-200 rounded-lg hover:shadow transition font-nekstregular whitespace-nowrap"
                   >
                     Закрыть
                   </button>
                 </div>
+              </div>
+
+              {/* --- Content --- */}
+              <div className="p-5 space-y-5">
+                {/* Helper: получить фото полю (локально или по кадастру) */}
+                {/* Этот кусок можно вынести наружу компонента при желании */}
+                {(() => {
+                  const getFieldPhoto = () => {
+                    let fieldPhoto = null;
+                    if (
+                      viewRequest?.fieldLocalId &&
+                      Array.isArray(fieldsList)
+                    ) {
+                      const found = fieldsList.find(
+                        (f) => f.localId === viewRequest.fieldLocalId,
+                      );
+                      fieldPhoto = found?.mapFile ?? null;
+                    } else if (
+                      viewRequest?.field &&
+                      Array.isArray(fieldsList)
+                    ) {
+                      const cadastral = (viewRequest.field.match(
+                        /^(.*?)\s*\(ID:/,
+                      ) || [])[1];
+                      if (cadastral) {
+                        const found = fieldsList.find(
+                          (f) => f.cadastralNumber === cadastral,
+                        );
+                        fieldPhoto = found?.mapFile ?? null;
+                      }
+                    }
+                    return fieldPhoto;
+                  };
+
+                  const fieldPhoto = getFieldPhoto();
+
+                  return (
+                    <>
+                      {/* Превью поля — центрируем содержимое внутри блока */}
+                      <div
+                        className="relative rounded-xl overflow-hidden bg-gray-100 shadow-inner cursor-pointer group"
+                        onClick={() => {
+                          if (fieldPhoto) {
+                            setLightboxSrc(
+                              fieldPhoto.startsWith('data:')
+                                ? fieldPhoto
+                                : `data:image/jpeg;base64,${fieldPhoto}`,
+                            );
+                            setLightboxOpen(true);
+                          } else if (viewRequest.preview?.fieldPreview) {
+                            setLightboxSrc(viewRequest.preview.fieldPreview);
+                            setLightboxOpen(true);
+                          }
+                        }}
+                      >
+                        {/* Центрируем внутренний контент, чтобы "Превью не загружено" было ровно по центру */}
+                        <div className="h-56 sm:h-64 w-full flex items-center justify-center overflow-hidden">
+                          {fieldPhoto ? (
+                            <img
+                              src={
+                                fieldPhoto.startsWith('data:')
+                                  ? fieldPhoto
+                                  : `data:image/jpeg;base64,${fieldPhoto}`
+                              }
+                              alt="Фото поля"
+                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                            />
+                          ) : viewRequest.preview?.fieldPreview ? (
+                            <img
+                              src={viewRequest.preview.fieldPreview}
+                              alt="preview"
+                              className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                            />
+                          ) : viewRequest.coords?.length > 0 ? (
+                            <div className="p-4 text-sm text-gray-700 font-nekstregular max-w-full overflow-auto">
+                              <div className="font-medium mb-1">
+                                Координаты участка
+                              </div>
+                              <div className="text-xs text-gray-500 space-y-1">
+                                {viewRequest.coords.map((c, i) => (
+                                  <div key={i}>
+                                    [{c[0].toFixed(6)}, {c[1].toFixed(6)}]
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-center text-gray-400 p-4">
+                              <MapPin
+                                size={40}
+                                className="mx-auto mb-2 text-gray-300"
+                              />
+                              <div className="text-sm font-nekstregular">
+                                Превью не загружено
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="absolute bottom-2 right-2 bg-black/30 text-white text-xs px-2 py-1 rounded">
+                          Кликните для увеличения
+                        </div>
+                      </div>
+
+                      {/* Информация о заявке */}
+                      <div className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(16,24,40,0.04)] space-y-4">
+                        <div className="text-lg font-nekstmedium text-gray-800">
+                          Информация о заявке
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700 font-nekstregular">
+                          <div>
+                            <div className="text-xs text-gray-500">
+                              Тип обработки
+                            </div>
+                            <div className="mt-1">
+                              {viewRequest.type ?? '—'}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-xs text-gray-500">Статус</div>
+                            <div className="mt-1">
+                              <span
+                                className={cn(
+                                  'px-3 py-1 rounded-full text-sm',
+                                  renderStatusBadge(viewRequest.status).cls,
+                                )}
+                              >
+                                {renderStatusBadge(viewRequest.status).text}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-xs text-gray-500">Период</div>
+                            <div className="mt-1">
+                              {viewRequest.dateFrom && viewRequest.dateTo
+                                ? `${new Date(viewRequest.dateFrom).toLocaleDateString()} — ${new Date(viewRequest.dateTo).toLocaleDateString()}`
+                                : new Date(
+                                    viewRequest.date,
+                                  ).toLocaleDateString()}
+                            </div>
+                          </div>
+
+                          <div>
+                            <div className="text-xs text-gray-500">
+                              ID заявки
+                            </div>
+                            <div className="mt-1 font-nekstmedium">
+                              #{viewRequest.id}
+                            </div>
+                          </div>
+
+                          {viewRequest.details?.chemicals && (
+                            <div className="col-span-1 sm:col-span-2">
+                              <div className="text-xs text-gray-500">
+                                Средство / Дозировка
+                              </div>
+                              <div className="mt-1">
+                                {viewRequest.details.chemicals}{' '}
+                                {viewRequest.details.dosage
+                                  ? `(${viewRequest.details.dosage})`
+                                  : ''}
+                              </div>
+                            </div>
+                          )}
+
+                          {viewRequest.details?.droneType && (
+                            <div>
+                              <div className="text-xs text-gray-500">
+                                Техника
+                              </div>
+                              <div className="mt-1">
+                                {viewRequest.details.droneType}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Информация о менеджере */}
+                      <div className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(16,24,40,0.04)] space-y-4">
+                        <div className="text-lg font-nekstmedium text-gray-800">
+                          Менеджер
+                        </div>
+                        <div className="grid grid-cols-1 gap-2 text-sm text-gray-700 font-nekstregular">
+                          <div>
+                            <strong>ФИО:</strong> Мальцева Светлана Валентиновна
+                          </div>
+
+                          <div>
+                            <strong>Почта:</strong> smaltseva@hse.ru
+                          </div>
+                          <div>
+                            <strong>Телефон:</strong> +791234567890
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
+
+                {/* Lightbox */}
+                {lightboxOpen && lightboxSrc && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-60 flex items-center justify-center bg-black/80"
+                  >
+                    <button
+                      onClick={() => setLightboxOpen(false)}
+                      className="absolute top-4 right-4 z-70 text-white hover:text-gray-200 bg-black/50 hover:bg-black/70 p-2 rounded-full transition"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+
+                    <img
+                      src={lightboxSrc}
+                      alt="Фото поля"
+                      className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg shadow-lg"
+                    />
+                  </motion.div>
+                )}
               </div>
             </motion.div>
           </motion.div>
@@ -1270,175 +1415,160 @@ export default function RequestsWithEditor({
       </AnimatePresence>
 
       {/* Editor aside */}
+      {/* Editor aside */}
       <AnimatePresence>
         {editorOpen && (
           <motion.aside
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            className="fixed top-0 right-0 h-full w-full md:w-[880px] z-50 bg-white shadow-2xl overflow-auto"
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="fixed top-0 right-0 h-full w-full md:w-[880px] z-50 bg-white shadow-[0_20px_60px_rgba(16,24,40,0.12)] overflow-auto font-nekstregular"
           >
-            <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-40">
+            {/* Header */}
+            <div className="p-6 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur-sm z-40">
               <div>
-                <div className="text-sm text-gray-500">
-                  {isNew ? 'Новая заявка' : `Редактирование заявки #${form.id}`}
+                <div className="text-sm text-gray-500 flex items-center gap-3">
+                  <span className="font-nekstregular">
+                    {isNew
+                      ? 'Новая заявка'
+                      : `Редактирование заявки #${form.id}`}
+                  </span>
+                  {typeof renderStatusBadge === 'function' && form?.status && (
+                    <span
+                      className={cn(
+                        'text-xs px-2 py-0.5 rounded-full font-nekstmedium',
+                        renderStatusBadge(form.status).cls ??
+                          'bg-gray-100 text-gray-800',
+                      )}
+                    >
+                      {renderStatusBadge(form.status).text}
+                    </span>
+                  )}
                 </div>
-                <div className="text-lg font-semibold mt-1">{form.field}</div>
-              </div>
-              <div className="flex items-center gap-2">
-                {!isNew && (
-                  <button
-                    onClick={() => deleteRequest(form.id)}
-                    className="px-4 py-2 bg-white text-red-600 rounded-xl border border-red-100 hover:bg-red-50"
-                  >
-                    Удалить
-                  </button>
-                )}
 
+                <div className="text-2xl font-nekstmedium mt-1 text-gray-900 flex items-center gap-3">
+                  <span className="truncate max-w-[48ch]">
+                    {form.field || '—'}
+                  </span>
+                  <span className="text-sm text-gray-400 px-2 py-0.5 rounded-full bg-gray-50 font-nekstregular">
+                    {form.type || 'Тип не выбран'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => {
                     setEditorOpen(false);
                     setEditingRequest(null);
                   }}
-                  className="p-2 rounded-full bg-gray-100 ml-2"
+                  className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-shadow shadow-sm"
+                  aria-label="Закрыть"
+                  title="Закрыть"
                 >
                   <X size={18} />
                 </button>
               </div>
             </div>
 
-            <div className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2 space-y-6">
-                  <div className="bg-white/90 rounded-2xl border border-gray-100 p-4">
-                    <div className="flex gap-4 border-b border-gray-100 pb-3 mb-4">
-                      <div
-                        className={cn(
-                          'pb-2 px-1 font-medium',
-                          'details' === 'details'
-                            ? 'text-emerald-600 border-b-2 border-emerald-500'
-                            : 'text-gray-500',
-                        )}
-                      >
-                        Данные
+            {/* Body */}
+            <div className="p-6 pb-28">
+              <div className="grid grid-cols-1 gap-6">
+                <div className="space-y-6">
+                  <div className="rounded-2xl p-6 bg-white shadow-[0_8px_24px_rgba(16,24,40,0.06)]">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex flex-col">
+                        <div className="text-lg font-nekstmedium text-gray-800">
+                          Данные
+                        </div>
+                        <div className="text-xs font-nekstregular text-gray-400">
+                          Основные параметры заявки
+                        </div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {/* Поле */}
                       <div className="relative">
-                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                        <label className="block text-sm font-nekstmedium text-gray-700 mb-1.5">
                           Поле
                         </label>
-                        <div
-                          className="w-full px-4 py-3.5 bg-white rounded-xl border border-gray-300 shadow-sm 
-        cursor-pointer flex justify-between items-center transition-all
-        hover:border-emerald-400 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200"
-                          onClick={() => setDropdownFieldOpen((o) => !o)}
-                          tabIndex={0}
-                          // onBlur={() => setDropdownFieldOpen(false)}
-                        >
-                          <span>{form.field || 'Выберите поле'}</span>
-                          <svg
-                            className={`w-5 h-5 text-gray-400 transition-transform ${
-                              dropdownFieldOpen ? 'rotate-180' : ''
-                            }`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </div>
-                        {dropdownFieldOpen && (
-                          <ul className="absolute z-10 mt-1 w-full bg-white rounded-xl border border-gray-300 shadow-lg max-h-60 overflow-auto">
-                            {fieldsList.map((f) => (
-                              <li
-                                key={f.fieldId}
-                                className="px-4 py-3 hover:bg-emerald-100 cursor-pointer transition-colors"
-                                onClick={() => {
-                                  const displayName =
-                                    f.cadastralNumber ??
-                                    (f.localId
-                                      ? `Поле #${f.localId}`
-                                      : getDisplayId(f.fieldId));
-                                  setForm((s) => ({
-                                    ...s,
-                                    selectedFieldId: f.fieldId,
-                                    field: displayName,
-                                  }));
-                                  setMetadata((m) => ({
-                                    ...(m ?? {}),
-                                    name: f.cadastralNumber ?? undefined,
-                                  }));
-                                  setDropdownFieldOpen(false);
-                                }}
-                              >
-                                {f.cadastralNumber ??
-                                  (f.localId
-                                    ? `Поле #${f.localId}`
-                                    : getDisplayId(f.fieldId))}
-                              </li>
-                            ))}
-                          </ul>
+                        {isNew ? (
+                          <ModernSelect
+                            isFull
+                            label={undefined}
+                            options={fieldsList.map(
+                              (f) =>
+                                f.cadastralNumber ??
+                                (f.localId
+                                  ? `Поле #${f.localId}`
+                                  : `#${f.fieldId}`),
+                            )}
+                            value={
+                              form.field && form.field !== 'Выберите поле'
+                                ? form.field
+                                : 'Выберите поле'
+                            }
+                            onChange={(val) => {
+                              const idx = fieldsList.findIndex(
+                                (f) =>
+                                  f.cadastralNumber === val ||
+                                  `Поле #${f.localId}` === val ||
+                                  `#${f.fieldId}` === val,
+                              );
+                              if (idx !== -1) {
+                                setForm((s) => ({
+                                  ...s,
+                                  selectedFieldId: fieldsList[idx].fieldId,
+                                  field: val,
+                                }));
+                              }
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-100 rounded-xl shadow-none border border-gray-200 cursor-not-allowed opacity-70">
+                            <span
+                              className={cn(
+                                'select-none',
+                                !form.field || form.field === 'Выберите поле'
+                                  ? 'text-gray-400 font-nekstregular'
+                                  : 'text-gray-500 font-nekstregular',
+                              )}
+                            >
+                              {form.field || 'Выберите поле'}
+                            </span>
+                          </div>
                         )}
                       </div>
 
                       {/* Тип обработки */}
                       <div className="relative">
-                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                        <label className="block text-sm font-nekstmedium text-gray-700 mb-1.5">
                           Тип обработки
                         </label>
-                        <div
-                          className="w-full px-4 py-3.5 bg-white rounded-xl border border-gray-300 shadow-sm 
-        cursor-pointer flex justify-between items-center transition-all
-        hover:border-emerald-400 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-200"
-                          onClick={() => setDropdownTypeOpen((o) => !o)}
-                          tabIndex={0}
-                        >
-                          <span>{form.type || 'Выберите тип обработки'}</span>
-                          <svg
-                            className={`w-5 h-5 text-gray-400 transition-transform ${
-                              dropdownTypeOpen ? 'rotate-180' : ''
-                            }`}
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 9l-7 7-7-7"
-                            />
-                          </svg>
-                        </div>
-                        {dropdownTypeOpen && (
-                          <ul className="absolute z-10 mt-1 w-full bg-white rounded-xl border border-gray-300 shadow-lg max-h-60 overflow-auto">
-                            {['Опрыскивание'].map((t) => (
-                              <li
-                                key={t}
-                                className="px-4 py-3 hover:bg-emerald-100 cursor-pointer transition-colors"
-                                onClick={() => {
-                                  setForm((s) => ({ ...s, type: t }));
-                                  setDropdownTypeOpen(false);
-                                }}
-                              >
-                                {t}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
+                        <ModernSelect
+                          isFull
+                          label={undefined}
+                          options={[
+                            'Опрыскивание',
+                            // 'Внесение удобрений',
+                            // 'Картографирование',
+                          ]}
+                          value={
+                            form.type && form.type !== 'Выберите тип обработки'
+                              ? form.type
+                              : 'Выберите тип обработки'
+                          }
+                          onChange={(val) => {
+                            setForm((s) => ({ ...s, type: val }));
+                          }}
+                        />
                       </div>
 
-                      {/* Желаемый период выполнения */}
+                      {/* Желаемая дата начала */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                        <label className="block text-sm font-nekstmedium text-gray-700 mb-1.5">
                           Желаемая дата начала
                         </label>
                         <input
@@ -1451,14 +1581,13 @@ export default function RequestsWithEditor({
                               date: e.target.value,
                             }))
                           }
-                          className="w-full px-4 py-3.5 bg-white rounded-xl border border-gray-300 shadow-sm
-        focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200
-        outline-none transition-all"
+                          className="w-full px-4 py-3.5 bg-gray-50 rounded-xl shadow-sm focus:ring-2 focus:ring-emerald-100 outline-none transition font-nekstregular hover:cursor-pointer"
                         />
                       </div>
 
+                      {/* Желаемая дата окончания */}
                       <div>
-                        <label className="block text-sm font-medium text-gray-700/90 mb-1.5">
+                        <label className="block text-sm font-nekstmedium text-gray-700 mb-1.5">
                           Желаемая дата окончания
                         </label>
                         <input
@@ -1467,63 +1596,48 @@ export default function RequestsWithEditor({
                           onChange={(e) =>
                             setForm((s) => ({ ...s, dateTo: e.target.value }))
                           }
-                          className="w-full px-4 py-3.5 bg-white rounded-xl border border-gray-300 shadow-sm
-        focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200
-        outline-none transition-all"
+                          className="w-full px-4 py-3.5 bg-gray-50 rounded-xl shadow-sm focus:ring-2 focus:ring-emerald-100 outline-none transition font-nekstregular hover:cursor-pointer"
                         />
                       </div>
 
                       {/* Материалы */}
                       <div className="md:col-span-2 flex flex-col gap-4">
-                        <div className="text-sm font-medium text-gray-700/90 mb-1.5">
+                        <div className="text-sm font-nekstmedium text-gray-700 mb-1.5">
                           Материалы
                         </div>
 
-                        {/* Вариант "У меня нет материалов" */}
                         <label className="flex items-center gap-3 cursor-pointer select-none">
                           <input
                             type="radio"
-                            name="wavelengths"
+                            name="materials"
                             checked={!form.materialsProvided}
-                            onChange={() => {
+                            onChange={() =>
                               setForm((s) => ({
                                 ...s,
                                 materialsProvided: false,
-                              }));
-                              setPendingJson(null);
-                              setMetadata(null);
-                            }}
+                              }))
+                            }
                             className="peer hidden"
                           />
-                          <span
-                            className="w-5 h-5 flex-shrink-0 rounded-md border-2 border-gray-300
-          flex items-center justify-center transition-all
-          peer-checked:border-emerald-500 peer-checked:bg-emerald-500"
-                          >
-                            <svg
-                              className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={3}
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
+                          <span className="w-6 h-6 flex-shrink-0 rounded-lg border-2 border-gray-200 flex items-center justify-center transition-all peer-checked:border-emerald-500 peer-checked:bg-emerald-500">
+                            {!form.materialsProvided ? (
+                              <Check size={14} className="text-white" />
+                            ) : null}
                           </span>
-                          <span className="text-sm text-gray-700 peer-checked:text-emerald-700">
-                            У меня нет материалов
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="text-sm text-gray-700 font-nekstregular peer-checked:text-emerald-700">
+                              У меня нет материалов
+                            </span>
+                            <span className="text-xs text-gray-400 font-nekstregular">
+                              Мы поможем подобрать удобрения/препараты
+                            </span>
+                          </div>
                         </label>
 
-                        {/* Вариант "У меня есть материалы" */}
                         <label className="flex items-center gap-3 cursor-pointer select-none">
                           <input
                             type="radio"
-                            name="wavelengths"
+                            name="materials"
                             checked={form.materialsProvided}
                             onChange={() =>
                               setForm((s) => ({
@@ -1533,58 +1647,119 @@ export default function RequestsWithEditor({
                             }
                             className="peer hidden"
                           />
-                          <span
-                            className="w-5 h-5 flex-shrink-0 rounded-md border-2 border-gray-300
-          flex items-center justify-center transition-all
-          peer-checked:border-emerald-500 peer-checked:bg-emerald-500"
-                          >
-                            <svg
-                              className="w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth={3}
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
+                          <span className="w-6 h-6 flex-shrink-0 rounded-lg border-2 border-gray-200 flex items-center justify-center transition-all peer-checked:border-emerald-500 peer-checked:bg-emerald-500">
+                            {form.materialsProvided ? (
+                              <Check size={14} className="text-white" />
+                            ) : null}
                           </span>
-                          <span className="text-sm text-gray-700 peer-checked:text-emerald-700">
-                            У меня есть материалы
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="text-sm text-gray-700 font-nekstregular peer-checked:text-emerald-700">
+                              У меня есть материалы
+                            </span>
+                            <span className="text-xs text-gray-400 font-nekstregular">
+                              Например: удобрение, препарат и т.д.
+                            </span>
+                          </div>
                         </label>
                       </div>
                     </div>
                   </div>
                 </div>
-
-                <div className="space-y-4" />
               </div>
 
+              {/* Footer actions */}
+              {errorMsg && (
+                <span className="block mb-3 text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 text-sm font-nekstregular">
+                  {errorMsg}
+                </span>
+              )}
               <div className="mt-6 flex justify-end gap-3">
                 <button
                   onClick={() => {
                     setEditorOpen(false);
                     setEditingRequest(null);
                   }}
-                  className="px-4 py-2 rounded-xl border border-gray-200 bg-white"
+                  className="px-4 py-2 rounded-xl bg-white hover:shadow transition font-nekstregular"
                 >
                   Отмена
                 </button>
                 <button
-                  onClick={() => saveForm()}
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white"
+                  onClick={saveForm}
+                  className={
+                    'px-4 py-2 rounded-xl font-nekstmedium flex items-center justify-center gap-2 transition ' +
+                    (isNew
+                      ? isFormValid && !saving
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md hover:shadow-lg'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed hover:cursor-not-allowed'
+                      : isFormChanged && !saving
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md hover:shadow-lg'
+                        : 'bg-gray-200 text-gray-400 cursor-not-allowed hover:cursor-not-allowed')
+                  }
+                  disabled={saving || (isNew ? !isFormValid : !isFormChanged)}
+                  style={
+                    (isNew ? !isFormValid : !isFormChanged)
+                      ? { cursor: 'not-allowed' }
+                      : undefined
+                  }
                 >
-                  Сохранить заявку
+                  {saving ? (
+                    <>
+                      <Loader size={20} /> Загрузка...
+                    </>
+                  ) : isNew ? (
+                    'Создать заявку'
+                  ) : (
+                    'Сохранить изменения'
+                  )}
                 </button>
               </div>
             </div>
           </motion.aside>
         )}
       </AnimatePresence>
+
+      {/* Toast уведомление только для успеха */}
+      {toast && (
+        <div
+          className={`fixed z-[100] bottom-4 right-4 px-4 py-2 rounded-lg shadow-md flex flex-col gap-1
+      w-[min(350px,90vw)]  /* максимум 320px, на мобильных почти весь экран */
+      bg-emerald-50 border border-emerald-200 text-emerald-900
+    `}
+          style={{ animation: 'toast-fadein 0.3s, toast-fadeout 0.4s 3.1s' }}
+        >
+          <div className="flex justify-between items-center">
+            <div className="text-sm font-nekstmedium ">{toast}</div>
+            <button
+              className="ml-2 text-lg text-gray-400 hover:text-gray-700 transition-colors"
+              onClick={() => setToast(null)}
+              aria-label="Закрыть уведомление"
+            >
+              ×
+            </button>
+          </div>
+          <div className="relative h-1 w-full rounded-full overflow-hidden bg-gray-200 mt-1">
+            <div
+              className="h-full absolute top-0 left-0 rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
+              style={{ animation: 'toast-timer 3.5s linear forwards' }}
+            />
+          </div>
+        </div>
+      )}
+
+      <style>{`
+  @keyframes toast-timer {
+    from { width: 100%; }
+    to { width: 0%; }
+  }
+  @keyframes toast-fadein {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes toast-fadeout {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(20px); }
+  }
+`}</style>
     </div>
   );
 }

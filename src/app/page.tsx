@@ -27,28 +27,6 @@ import Link from 'next/link';
 import Footer from '../shared/ui/Footer';
 import { ReviewsSection } from './reviews/components/ReviewsSection';
 
-const benefits = [
-  {
-    icon: <GraduationCap className="w-12 h-12 text-red-500" />,
-    title: '1',
-    text: 'Нет необходимости находить, учить и контролировать людей, мы это сделаем за Вас.',
-  },
-  {
-    icon: <DollarSign className="w-12 h-12 text-green-500" />,
-    title: '2',
-    text: 'Позволяем значительно сократить объемы воды и затраты на спецтехнику, повысить выручку за счет отсутствия колеи.',
-  },
-  {
-    icon: <Droplet className="w-12 h-12 text-blue-500" />,
-    title: '3',
-    text: 'Повышаем эффективность действия препарата за счет омывания культуры. Капли прилипают с обеих сторон листа при одной обработке.',
-  },
-  {
-    icon: <CloudRain className="w-12 h-12 text-gray-700" />,
-    title: '4',
-    text: 'Производим обработки на влажных почвах, по росе, при тумане, сразу после дождя.',
-  },
-];
 export default function page() {
   const { ref, inView } = useInView({
     triggerOnce: true, // Анимация сработает только один раз, когда элемент впервые попадет в видимую часть экрана
