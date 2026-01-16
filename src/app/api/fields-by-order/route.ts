@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const API_BASE = 'https://droneagro.duckdns.org';
+const API_BASE = 'https://api.droneagro.xyz';
 
 export async function GET(request: NextRequest) {
   try {

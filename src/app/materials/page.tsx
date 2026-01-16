@@ -13,7 +13,7 @@ import {
 import Header from '@/src/shared/ui/Header';
 import Footer from '@/src/shared/ui/Footer';
 
-const API_BASE = 'https://droneagro.duckdns.org';
+const API_BASE = 'https://api.droneagro.xyz';
 
 export default function MaterialsPage() {
   const [materials, setMaterials] = useState<any[]>([]);

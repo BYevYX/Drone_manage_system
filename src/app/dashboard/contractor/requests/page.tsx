@@ -26,6 +26,7 @@ import {
   MapPin,
   Save,
   X,
+  Lock,
 } from 'lucide-react';
 import {
   syncFieldMappings,
@@ -63,11 +64,16 @@ interface Request {
     crop?: string;
     notes?: string;
     analyticsResponse?: any;
+    analyticsImages?: Record<string, string | null>;
+    analyticsTables?: Record<string, any[] | null>;
+    processed?: boolean;
+    latestInput?: { id: number; indexName?: string; createdAt?: string } | null;
   };
   preview?: {
     fieldPreview?: string | null;
     segmentsPreview?: string | null;
   };
+  orderType?: 'DEFAULT' | 'SPLIT';
 }
 
 interface FieldModel {
@@ -107,13 +113,156 @@ const treatmentOptions = [
 const cn = (...parts: Array<string | false | null | undefined>) =>
   parts.filter(Boolean).join(' ');
 
+/** Helper functions from operator panel */
+const ensureDataUrl = (s: string | null | undefined) => {
+  if (!s) return null;
+  if (s.startsWith('data:')) return s;
+  if (/^https?:\/\//.test(s)) return s;
+  const isProbablyBase64 = /^[A-Za-z0-9+/=\s]+$/.test(
+    (s || '').replace(/\s+/g, ''),
+  );
+  if (isProbablyBase64)
+    return `data:image/png;base64,${(s || '').replace(/\s+/g, '')}`;
+  return s;
+};
+
+function translateCol(col: string) {
+  const map: Record<string, string> = {
+    cluster_id: 'Кластер',
+    size_pixels: 'Пиксели',
+    area_percentage: '% площади',
+    NDVI_min: 'NDVI мин',
+    NDVI_max: 'NDVI макс',
+    NDVI_mean: 'NDVI сред',
+    NDVI_std: 'NDVI стд',
+    NDVI_variance: 'NDVI вар',
+    coefficient_of_variation: 'Коэф вар',
+    centroid_x: 'Центроид X',
+    centroid_y: 'Центроид Y',
+    droneId: 'ID дрона',
+    drone_id: 'ID дрона',
+    droneName: 'Дрон',
+    drone_type: 'Тип дрона',
+    area: 'Площадь',
+    total_distance: 'Общее расстояние',
+    processing_distance: 'Расстояние обработки',
+    flight_distance: 'Расстояние полета',
+    total_time: 'Общее время',
+    processing_time: 'Время обработки',
+    flight_time: 'Время полета',
+    charge_events: 'События зарядки',
+    charge_time: 'Время зарядки',
+    segment_id: 'ID сегмента',
+    segment_number: 'Номер сегмента',
+    battery_remaining_after_error: 'Остаток батареи после ошибки',
+    segment_index: 'Индекс сегмента',
+    field_count: 'Количество полей',
+    drone_count: 'Количество дронов',
+    parallel_total_time: 'Параллельное общее время',
+    parallel_processing_time: 'Параллельное время обработки',
+    parallel_flight_time: 'Параллельное время полета',
+    parallel_charge_time: 'Параллельное время зарядки',
+  };
+  return map[col] ?? col;
+}
+
+function formatCell(val: any) {
+  if (val === null || val === undefined) return '—';
+  const n = Number(val);
+  if (!Number.isNaN(n) && Number.isFinite(n)) {
+    if (Number.isInteger(n)) return String(n);
+    return n.toFixed(2);
+  }
+  return String(val);
+}
+
+function renderTableCard(name: string, rows: any[] | null): JSX.Element {
+  if (!rows)
+    return (
+      <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
+        <div className="text-sm font-medium text-gray-700 mb-2">{name}</div>
+        <div className="text-xs text-gray-500">
+          Таблица пуста или не удалось распарсить.
+        </div>
+      </div>
+    );
+  const cols = Array.from(
+    rows.reduce((acc, r) => {
+      Object.keys(r || {}).forEach((k) => acc.add(k));
+      return acc;
+    }, new Set<string>()),
+  );
+  const isMainTable = name === 'Основная таблица';
+  return (
+    <div className="rounded-xl bg-white p-3 shadow-sm border border-gray-100">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-medium text-gray-700">{name}</div>
+        <div className="text-xs text-gray-500">Строк: {rows.length}</div>
+      </div>
+      <div
+        className={
+          isMainTable
+            ? 'min-w-full'
+            : 'min-w-full max-h-[300px] overflow-x-auto'
+        }
+      >
+        <table className="w-full text-sm border-collapse">
+          <thead className="sticky top-0 z-10 bg-white">
+            <tr>
+              {cols.map((c) => (
+                <th
+                  key={c}
+                  className="text-xs text-gray-500 text-left py-2 pr-3 border-b"
+                >
+                  {translateCol(c)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                {cols.map((c) => (
+                  <td key={c} className="py-2 pr-3 align-top text-gray-700">
+                    {formatCell(r?.[c])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
+  if (!tables) return [] as [string, any[] | null][];
+  const preferred = [
+    'clusterStatsDf',
+    'dronesDf',
+    'segmentsDf',
+    'segmentSummaryDf',
+  ];
+  const present: [string, any[] | null][] = [];
+  preferred.forEach((k) => {
+    if (k in tables) present.push([k, tables[k]]);
+  });
+  Object.keys(tables)
+    .sort()
+    .forEach((k) => {
+      if (!preferred.includes(k)) present.push([k, tables[k]]);
+    });
+  return present;
+}
+
 /** Main component */
 export default function RequestsWithEditor({
   setActiveMenu,
 }: {
   setActiveMenu?: (s: string) => void;
 }) {
-  const API_BASE = 'https://droneagro.duckdns.org';
+  const API_BASE = 'https://api.droneagro.xyz';
 
   const authFetch = async (url: string, options: RequestInit = {}) => {
     const token =
@@ -135,6 +284,7 @@ export default function RequestsWithEditor({
 
   const [status, setStatus] = useState('all');
   const [treatmentType, setTreatmentType] = useState('all');
+  const [orderTypeFilter, setOrderTypeFilter] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -164,6 +314,7 @@ export default function RequestsWithEditor({
     type: 'Выберите тип обработки',
     status: 'in_progress' as Request['status'],
     materialsProvided: false, // radio choice kept, but manual inputs removed
+    orderType: 'DEFAULT' as 'DEFAULT' | 'SPLIT',
   });
 
   // pending parsed JSON from uploader (kept as-is, will be sent unchanged)
@@ -174,6 +325,10 @@ export default function RequestsWithEditor({
   } | null>(null);
   const [metadata, setMetadata] = useState<Request['metadata'] | null>(null);
   const [viewRequest, setViewRequest] = useState<Request | null>(null);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [loadingView, setLoadingView] = useState(false);
+  const [modalImage, setModalImage] = useState<string | null>(null);
+  const loadingCancelledRef = useRef(false);
   // Toast уведомление
   const [toast, setToast] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -203,6 +358,7 @@ export default function RequestsWithEditor({
         type: editingRequest.type,
         status: editingRequest.status,
         materialsProvided: true,
+        orderType: 'DEFAULT',
       };
     }
     if (editorOpen && !editingRequest) {
@@ -451,6 +607,7 @@ export default function RequestsWithEditor({
           details: o.details ?? undefined,
           metadata: metadataObj ?? undefined,
           preview: previewObj ?? undefined,
+          orderType: (o.orderType ?? 'DEFAULT') as 'DEFAULT' | 'SPLIT',
         } as Request;
       });
       setRequests(baseRequests.sort((a, b) => b.id - a.id));
@@ -508,6 +665,10 @@ export default function RequestsWithEditor({
       });
       setRequests(updated.sort((a, b) => b.id - a.id));
       setLoadingFieldNames(new Set());
+
+      // Проверяем наличие обработанных данных для заявок
+      await checkInputsForOrders(updated);
+
       setLoading(false);
     } catch (e) {
       console.error(e);
@@ -559,6 +720,175 @@ export default function RequestsWithEditor({
     }
   };
 
+  // Проверка наличия обработанных данных для заявок
+  const checkInputsForOrders = async (currentOrders: Request[]) => {
+    if (!currentOrders || !currentOrders.length) return;
+    console.log(
+      '[checkInputsForOrders] Проверяем',
+      currentOrders.length,
+      'заявок',
+    );
+    try {
+      const checks = currentOrders.map(async (ord) => {
+        try {
+          console.log(
+            `[checkInputsForOrders] Заявка #${ord.id}: запрос inputs...`,
+          );
+          const r = await authFetch(
+            `${API_BASE}/api/workflow/inputs?orderId=${ord.id}`,
+          );
+          if (!r.ok) {
+            console.log(
+              `[checkInputsForOrders] Заявка #${ord.id}: ошибка ${r.status}`,
+            );
+            return ord;
+          }
+          const json = await r.json().catch(() => ({}));
+          const inputs = Array.isArray(json.inputs) ? json.inputs : [];
+          console.log(
+            `[checkInputsForOrders] Заявка #${ord.id}: получено ${inputs.length} inputs:`,
+            inputs,
+          );
+          if (!inputs.length) {
+            return {
+              ...ord,
+              metadata: {
+                ...(ord.metadata ?? {}),
+                processed: false,
+                inputs: [],
+              },
+            } as Request;
+          }
+          const sorted = [...inputs].sort((a: any, b: any) => {
+            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            if (ta === tb) return (a.id ?? 0) - (b.id ?? 0);
+            return ta - tb;
+          });
+          const last = sorted[sorted.length - 1];
+          console.log(
+            `[checkInputsForOrders] Заявка #${ord.id}: последний input:`,
+            last,
+          );
+          const latestInputId = Number(last.id ?? last.inputId ?? 0);
+          console.log(
+            `[checkInputsForOrders] Заявка #${ord.id}: processed=true, latestInputId=${latestInputId}`,
+          );
+          return {
+            ...ord,
+            metadata: {
+              ...(ord.metadata ?? {}),
+              processed: true,
+              inputs,
+              latestInput: {
+                id: latestInputId,
+                indexName: last.indexName ?? last.index_name,
+                createdAt: last.createdAt ?? null,
+              },
+            },
+          } as Request;
+        } catch (e) {
+          console.warn('checkInputs error for', ord.id, e);
+          return ord;
+        }
+      });
+
+      const resolved = await Promise.all(checks);
+      setRequests(resolved);
+    } catch (e) {
+      console.error('checkInputsForOrders failed', e);
+    }
+  };
+
+  // Загрузка результатов обработки для просмотра
+  const loadResults = async (request: Request) => {
+    const latest = request.metadata?.latestInput?.id ?? null;
+    console.log('[loadResults] inputId:', latest);
+    if (!latest) {
+      console.log(
+        '[loadResults] ❌ Не найден inputId для загрузки результатов',
+      );
+      return request;
+    }
+
+    console.log(`[loadResults] ✅ Загружаем результаты для inputId=${latest}`);
+    setLoadingResults(true);
+    try {
+      console.log(
+        `[loadResults] Вызываем: ${API_BASE}/api/workflow/result?inputId=${latest}`,
+      );
+      const res = await authFetch(
+        `${API_BASE}/api/workflow/result?inputId=${latest}`,
+      );
+      if (!res.ok) {
+        console.error(`[loadResults] ❌ result fetch failed: ${res.status}`);
+        return request;
+      }
+      const parsed = await res.json().catch(() => ({}));
+      console.log('[loadResults] Получен ответ:', parsed);
+      const result = parsed?.result ?? parsed;
+      console.log('[loadResults] Обработанный result:', result);
+
+      const isSplit = (request.orderType ?? 'DEFAULT') === 'SPLIT';
+
+      const images: Record<string, string | null> = {};
+      if (isSplit) {
+        images.areasWithFullIdsImage = ensureDataUrl(
+          result?.areasWithFullIdsImage ?? null,
+        );
+      } else {
+        const imageKeys = [
+          'originalImage',
+          'indexImage',
+          'areasWithFullIdsImage',
+          'indexWithBoundsImage',
+          'areasWithSegmentsAndFullIds',
+        ];
+        imageKeys.forEach((k) => {
+          images[k] = ensureDataUrl(result?.[k] ?? null);
+        });
+      }
+
+      const tables: Record<string, any[] | null> = {};
+      if (!isSplit) {
+        Object.keys(result || {}).forEach((k) => {
+          const kl = k.toLowerCase();
+          if (
+            kl.endsWith('df') ||
+            kl.endsWith('statsdf') ||
+            (kl.includes('cluster') && kl.includes('df'))
+          ) {
+            const v = result[k];
+            if (!v) {
+              tables[k] = null;
+              return;
+            }
+            try {
+              tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+            } catch {
+              tables[k] = null;
+            }
+          }
+        });
+      }
+
+      return {
+        ...request,
+        metadata: {
+          ...(request.metadata ?? {}),
+          analyticsResponse: result,
+          analyticsImages: images,
+          analyticsTables: isSplit ? {} : tables,
+        },
+      } as Request;
+    } catch (e) {
+      console.error('loadResults error', e);
+      return request;
+    } finally {
+      setLoadingResults(false);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       // Сначала загружаем поля, потом заявки (чтобы fieldsList был заполнен)
@@ -567,6 +897,7 @@ export default function RequestsWithEditor({
       // Небольшая задержка, чтобы state успел обновиться
       await new Promise((resolve) => setTimeout(resolve, 100));
       await fetchOrders();
+      // checkInputsForOrders вызывается внутри fetchOrders после загрузки заявок
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -599,6 +930,7 @@ export default function RequestsWithEditor({
         type: 'Выберите тип обработки',
         status: 'in_progress',
         materialsProvided: false,
+        orderType: 'DEFAULT',
       }));
       setPreview(null);
       setMetadata(null);
@@ -610,6 +942,9 @@ export default function RequestsWithEditor({
     // Приводим статус к внутреннему формату ('in_progress', 'processed', ...)
     const normalizedStatus = mapStatus(r.status);
     if (status !== 'all' && normalizedStatus !== status) return false;
+    if (orderTypeFilter !== 'all') {
+      if ((r.orderType ?? 'DEFAULT') !== orderTypeFilter) return false;
+    }
     if (treatmentType !== 'all') {
       if (treatmentType === 'spraying' && !/опрыс/i.test(r.type.toLowerCase()))
         return false;
@@ -634,6 +969,15 @@ export default function RequestsWithEditor({
     return true;
   });
 
+  // Логирование для отладки
+  console.log('[filtered] Всего заявок:', requests.length);
+  console.log('[filtered] Отфильтрованных:', filtered.length);
+  filtered.forEach((r) => {
+    console.log(
+      `[filtered] Заявка #${r.id}: processed=${r.metadata?.processed}, latestInputId=${r.metadata?.latestInput?.id}`,
+    );
+  });
+
   const openNew = () => {
     setIsNew(true);
     setEditingRequest(null);
@@ -645,6 +989,51 @@ export default function RequestsWithEditor({
     setIsNew(false);
     setEditingRequest(r);
     setEditorOpen(true);
+  };
+
+  const openView = async (r: Request) => {
+    console.log('[openView] Открываем заявку:', r.id);
+    console.log('[openView] metadata:', r.metadata);
+    console.log('[openView] processed:', r.metadata?.processed);
+    console.log('[openView] latestInput:', r.metadata?.latestInput);
+
+    // Показываем лоадер и сбрасываем флаг отмены
+    loadingCancelledRef.current = false;
+    setLoadingView(true);
+
+    try {
+      // Если заявка обработана и есть latestInput - загружаем результаты
+      if (r.metadata?.processed && r.metadata?.latestInput?.id) {
+        console.log('[openView] Условие выполнено, загружаем результаты...');
+        const withResults = await loadResults(r);
+
+        // Проверяем, не была ли операция отменена
+        if (!loadingCancelledRef.current) {
+          setViewRequest(withResults);
+        } else {
+          console.log(
+            '[openView] Операция была отменена, не открываем модалку',
+          );
+        }
+      } else {
+        console.log(
+          '[openView] Условие не выполнено, показываем без результатов',
+        );
+        // Проверяем, не была ли операция отменена
+        if (!loadingCancelledRef.current) {
+          setViewRequest(r);
+        } else {
+          console.log(
+            '[openView] Операция была отменена, не открываем модалку',
+          );
+        }
+      }
+    } finally {
+      // Скрываем лоадер после загрузки (только если не отменено)
+      if (!loadingCancelledRef.current) {
+        setLoadingView(false);
+      }
+    }
   };
 
   /** sendPayload:
@@ -697,11 +1086,19 @@ export default function RequestsWithEditor({
       let orderIdToUse: number | null = null;
       const errors: string[] = [];
 
+      const typeId = typeToId(form.type);
+      if (typeId === 0) {
+        setErrorMsg('Некорректный тип обработки');
+        setSaving(false);
+        return;
+      }
+
       const body: any = {
-        typeProcessId: typeToId(form.type),
+        typeProcessId: typeId,
         dataStart: new Date(form.dateFrom || form.date).toISOString(),
         dataEnd: new Date(form.dateTo || form.date).toISOString(),
         materialsProvided: Boolean(form.materialsProvided),
+        orderType: form.orderType,
       };
       if (contractor?.id) body.contractorId = contractor.id;
 
@@ -801,6 +1198,7 @@ export default function RequestsWithEditor({
       if (event.key === 'Escape') {
         setEditorOpen(false);
         setViewRequest(null);
+        setModalImage(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -856,7 +1254,7 @@ export default function RequestsWithEditor({
 
         {/* Filters */}
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700/90 mb-1.5 pl-1.5">
                 Статус
@@ -888,6 +1286,28 @@ export default function RequestsWithEditor({
                 onChange={(label) => {
                   const opt = treatmentOptions.find((o) => o.label === label);
                   if (opt) setTreatmentType(opt.value);
+                }}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700/90 mb-1.5 pl-1.5">
+                Тип заказа
+              </label>
+              <ModernSelect
+                isFull
+                options={['Все', 'Обычный', 'Разбиение']}
+                value={
+                  orderTypeFilter === 'all'
+                    ? 'Все'
+                    : orderTypeFilter === 'DEFAULT'
+                      ? 'Обычный'
+                      : 'Разбиение'
+                }
+                onChange={(label) => {
+                  if (label === 'Все') setOrderTypeFilter('all');
+                  else if (label === 'Обычный') setOrderTypeFilter('DEFAULT');
+                  else if (label === 'Разбиение') setOrderTypeFilter('SPLIT');
                 }}
               />
             </div>
@@ -978,7 +1398,7 @@ export default function RequestsWithEditor({
                     return (
                       <div
                         key={request.id}
-                        onClick={() => setViewRequest(request)}
+                        onClick={() => openView(request)}
                         className={`grid grid-cols-[0.5fr_1.5fr_2fr_1fr_1fr_1fr] gap-4 w-full px-8 py-4 items-center border-b border-gray-100 font-nekstregular text-sm ${
                           idx % 2 === 1 ? 'bg-gray-50' : 'bg-white'
                         } hover:bg-emerald-50 transition cursor-pointer`}
@@ -1004,8 +1424,8 @@ export default function RequestsWithEditor({
                         <div className="flex justify-center gap-2">
                           <button
                             onClick={(e) => {
-                              e.stopPropagation(); // чтобы двойной вызов не был
-                              setViewRequest(request);
+                              e.stopPropagation();
+                              openView(request);
                             }}
                             className="flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition focus:outline-none focus:ring-2 focus:ring-emerald-300"
                           >
@@ -1014,9 +1434,16 @@ export default function RequestsWithEditor({
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              openEdit(request);
+                              if (request.status === 'in_progress') {
+                                openEdit(request);
+                              }
                             }}
-                            className="flex items-center justify-center w-9 h-9 rounded-xl bg-white border border-gray-200 shadow-sm hover:shadow-md transition focus:outline-none focus:ring-2 focus:ring-blue-300"
+                            disabled={request.status !== 'in_progress'}
+                            className={`flex items-center justify-center w-9 h-9 rounded-xl border shadow-sm focus:outline-none ${
+                              request.status === 'in_progress'
+                                ? 'bg-white border-gray-200 hover:shadow-md transition cursor-pointer focus:ring-2 focus:ring-blue-300'
+                                : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                            }`}
                           >
                             <Edit size={16} />
                           </button>
@@ -1033,7 +1460,7 @@ export default function RequestsWithEditor({
                     return (
                       <div
                         key={r.id}
-                        onClick={() => setViewRequest(r)}
+                        onClick={() => openView(r)}
                         className="p-4 bg-white rounded-2xl shadow-sm hover:shadow-md transition font-nekstregular w-full cursor-pointer"
                       >
                         <div className="flex flex-col gap-3">
@@ -1057,7 +1484,7 @@ export default function RequestsWithEditor({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setViewRequest(r);
+                                  openView(r);
                                 }}
                                 className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md focus:outline-none"
                               >
@@ -1066,9 +1493,16 @@ export default function RequestsWithEditor({
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openEdit(r);
+                                  if (r.status === 'in_progress') {
+                                    openEdit(r);
+                                  }
                                 }}
-                                className="p-2 bg-white rounded-lg shadow-sm hover:shadow-md focus:outline-none"
+                                disabled={r.status !== 'in_progress'}
+                                className={`p-2 rounded-lg shadow-sm focus:outline-none ${
+                                  r.status === 'in_progress'
+                                    ? 'bg-white hover:shadow-md cursor-pointer transition'
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
                               >
                                 <Edit size={16} />
                               </button>
@@ -1113,8 +1547,40 @@ export default function RequestsWithEditor({
           </div>
         </div>
       </motion.div>
+
+      {/* Спиннер загрузки просмотра */}
+      {loadingView && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4">
+            <Loader size={48} className="animate-spin text-emerald-500" />
+            <div className="text-lg font-nekstmedium text-gray-700">
+              Загрузка результатов...
+            </div>
+            <button
+              onClick={() => {
+                loadingCancelledRef.current = true;
+                setLoadingView(false);
+                setViewRequest(null);
+              }}
+              className="
+    mt-2 inline-flex items-center justify-center
+    px-5 py-2.5 text-sm font-nekstmedium
+    text-gray-600
+    bg-white border border-gray-200
+    rounded-xl
+    hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50
+    focus:outline-none focus:ring-2 focus:ring-gray-200
+    transition-all duration-200
+  "
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+
       <AnimatePresence>
-        {viewRequest && (
+        {viewRequest && !loadingView && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1155,8 +1621,17 @@ export default function RequestsWithEditor({
 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
-                    onClick={() => openEdit(viewRequest)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white rounded-lg shadow hover:bg-emerald-600 transition font-nekstmedium whitespace-nowrap"
+                    onClick={() => {
+                      if (viewRequest.status === 'in_progress') {
+                        openEdit(viewRequest);
+                      }
+                    }}
+                    disabled={viewRequest.status !== 'in_progress'}
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg shadow font-nekstmedium whitespace-nowrap ${
+                      viewRequest.status === 'in_progress'
+                        ? 'bg-emerald-500 text-white hover:bg-emerald-600 cursor-pointer transition'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
                   >
                     Редактировать
                   </button>
@@ -1291,6 +1766,17 @@ export default function RequestsWithEditor({
                           </div>
 
                           <div>
+                            <div className="text-xs text-gray-500">
+                              Тип заявки
+                            </div>
+                            <div className="mt-1">
+                              <span className="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
+                                Обычный
+                              </span>
+                            </div>
+                          </div>
+
+                          <div>
                             <div className="text-xs text-gray-500">Статус</div>
                             <div className="mt-1">
                               <span
@@ -1350,6 +1836,126 @@ export default function RequestsWithEditor({
                           )}
                         </div>
                       </div>
+
+                      {/* Результаты обработки */}
+                      {viewRequest.metadata?.processed && (
+                        <div className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(16,24,40,0.04)] space-y-4">
+                          <div className="text-lg font-nekstmedium text-gray-800">
+                            Результаты обработки
+                          </div>
+
+                          {loadingResults ? (
+                            <div className="flex items-center justify-center py-8">
+                              <Loader2
+                                className="animate-spin text-emerald-600"
+                                size={32}
+                              />
+                            </div>
+                          ) : (
+                            <div className="space-y-4">
+                              {/* Изображения */}
+                              {viewRequest.metadata?.analyticsImages && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {(() => {
+                                    const images =
+                                      viewRequest.metadata.analyticsImages;
+                                    const isSplit =
+                                      (viewRequest.orderType ?? 'DEFAULT') ===
+                                      'SPLIT';
+
+                                    if (isSplit) {
+                                      // Для SPLIT только одно изображение
+                                      return (
+                                        images.areasWithFullIdsImage && (
+                                          <div
+                                            key="areasWithFullIdsImage"
+                                            className="col-span-full"
+                                          >
+                                            <div className="text-sm text-gray-600 mb-2">
+                                              Карта разбиения
+                                            </div>
+                                            <img
+                                              src={images.areasWithFullIdsImage}
+                                              alt="Карта разбиения"
+                                              className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition"
+                                              onClick={() =>
+                                                setModalImage(
+                                                  images.areasWithFullIdsImage ??
+                                                    null,
+                                                )
+                                              }
+                                            />
+                                          </div>
+                                        )
+                                      );
+                                    } else {
+                                      // Для DEFAULT все изображения
+                                      const imageLabels: Record<
+                                        string,
+                                        string
+                                      > = {
+                                        originalImage:
+                                          'Оригинальное изображение',
+                                        indexImage: 'Индексное изображение',
+                                        areasWithFullIdsImage: 'Карта участков',
+                                        indexWithBoundsImage:
+                                          'Индекс с границами',
+                                        areasWithSegmentsAndFullIds:
+                                          'Сегменты с ID',
+                                      };
+
+                                      return Object.entries(images).map(
+                                        ([key, src]) => {
+                                          if (!src) return null;
+                                          return (
+                                            <div key={key}>
+                                              <div className="text-sm text-gray-600 mb-2">
+                                                {imageLabels[key] || key}
+                                              </div>
+                                              <img
+                                                src={src}
+                                                alt={imageLabels[key] || key}
+                                                className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition"
+                                                onClick={() =>
+                                                  setModalImage(src)
+                                                }
+                                              />
+                                            </div>
+                                          );
+                                        },
+                                      );
+                                    }
+                                  })()}
+                                </div>
+                              )}
+
+                              {/* Таблицы данных */}
+                              {viewRequest.metadata?.analyticsTables && (
+                                <div className="space-y-4">
+                                  {getOrderedTables(
+                                    viewRequest.metadata.analyticsTables,
+                                  ).map(([name, rows]) => (
+                                    <div key={name}>
+                                      {renderTableCard(
+                                        name === 'clusterStatsDf'
+                                          ? 'Статистика по кластерам'
+                                          : name === 'dronesDf'
+                                            ? 'Информация о дронах'
+                                            : name === 'segmentsDf'
+                                              ? 'Сегменты'
+                                              : name === 'segmentSummaryDf'
+                                                ? 'Сводка по сегментам'
+                                                : name,
+                                        rows,
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Информация о менеджере */}
                       <div className="rounded-2xl bg-white p-5 shadow-[0_8px_24px_rgba(16,24,40,0.04)] space-y-4">
@@ -1413,6 +2019,36 @@ export default function RequestsWithEditor({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Модальное окно для увеличения изображений результатов */}
+      {modalImage && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModalImage(null);
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="relative w-full max-w-[calc(100vw-64px)] max-h-[calc(100vh-64px)]">
+            <button
+              onClick={() => setModalImage(null)}
+              className="absolute -right-2 -top-2 z-[210] bg-white hover:bg-gray-100 rounded-full p-2 shadow-lg transition-colors"
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={modalImage}
+              alt="preview full"
+              className="w-full h-full object-contain rounded-md shadow-2xl"
+              style={{
+                maxHeight: 'calc(100vh - 96px)',
+                maxWidth: 'calc(100vw - 96px)',
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Editor aside */}
       {/* Editor aside */}
@@ -1598,6 +2234,84 @@ export default function RequestsWithEditor({
                           }
                           className="w-full px-4 py-3.5 bg-gray-50 rounded-xl shadow-sm focus:ring-2 focus:ring-emerald-100 outline-none transition font-nekstregular hover:cursor-pointer"
                         />
+                      </div>
+
+                      {/* Тип заявки */}
+                      <div className="relative md:col-span-2">
+                        <label className="block text-sm font-nekstmedium text-gray-700 mb-1.5">
+                          Тип заявки
+                        </label>
+                        {isNew ? (
+                          <ModernSelect
+                            isFull
+                            label={undefined}
+                            options={['Обычный', 'Только разбиение']}
+                            value={
+                              form.orderType === 'DEFAULT'
+                                ? 'Обычный'
+                                : 'Только разбиение'
+                            }
+                            onChange={(val) => {
+                              setForm((s) => ({
+                                ...s,
+                                orderType:
+                                  val === 'Обычный' ? 'DEFAULT' : 'SPLIT',
+                              }));
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-100 rounded-xl shadow-none border border-gray-200 cursor-not-allowed opacity-70">
+                            <span className="text-gray-600 font-nekstregular">
+                              {form.orderType === 'DEFAULT'
+                                ? 'Обычный'
+                                : 'Только разбиение'}
+                            </span>
+                            <Lock size={16} className="text-gray-400" />
+                          </div>
+                        )}
+                        <div className="mt-2 text-xs text-gray-500 font-nekstregular">
+                          {form.orderType === 'DEFAULT' ? (
+                            <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg p-3">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              <span className="text-blue-700">
+                                <strong>Обычный:</strong> Полный цикл обработки
+                                — анализ поля, построение маршрутов дронов,
+                                опрыскивание и отчёты
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-start gap-2 bg-purple-50 border border-purple-100 rounded-lg p-3">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              <span className="text-purple-700">
+                                <strong>Только разбиение:</strong> Генерация
+                                карты разбиения поля на участки без анализа и
+                                построения маршрутов
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* Материалы */}

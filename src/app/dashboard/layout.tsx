@@ -292,6 +292,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [activeMenu, setActiveMenu] = useState(pathname);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+
   useEffect(() => {
     const ls = localStorage.getItem('sidebarOpen');
     if (ls !== null) setSidebarOpen(ls === 'true');
@@ -302,6 +303,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     setFirstName(localStorage.getItem('firstName') || '');
     setLastName(localStorage.getItem('lastName') || '');
   }, [sidebarOpen]);
+
+  // Синхронизируем activeMenu с изменениями pathname
+  useEffect(() => {
+    setActiveMenu(pathname);
+  }, [pathname]);
 
   useEffect(() => {
     if (!showNotifications) return;

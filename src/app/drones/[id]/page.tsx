@@ -9,7 +9,7 @@ import Footer from '@/src/shared/ui/Footer';
 import { Drone } from '../types';
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || 'https://droneagro.duckdns.org';
+  process.env.NEXT_PUBLIC_API_BASE || 'https://api.droneagro.xyz';
 
 const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
   const resolvedParams = use(params);

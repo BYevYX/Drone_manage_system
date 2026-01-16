@@ -23,7 +23,7 @@ import { Drone, DroneListResponse, CreateDroneRequest } from './types';
 
 // предпочитаемый базовый URL через env, fallback для dev
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || 'https://droneagro.duckdns.org';
+  process.env.NEXT_PUBLIC_API_BASE || 'https://api.droneagro.xyz';
 
 // Небольшой debounce hook — современно и просто
 function useDebounced<T>(value: T, delay = 300) {

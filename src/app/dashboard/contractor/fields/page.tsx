@@ -36,7 +36,7 @@ import {
  * - stopPropagation on uploadbtn clicks to avoid accidental modal close / card click
  */
 
-const API_BASE = 'https://droneagro.duckdns.org';
+const API_BASE = 'https://api.droneagro.xyz';
 
 type FieldItem = {
   fieldId: number;

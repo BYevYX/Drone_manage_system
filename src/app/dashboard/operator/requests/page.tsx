@@ -131,7 +131,7 @@ function FilterDropdown({
   }, [open]);
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative font-nekstmedium" ref={ref}>
       <button
         onClick={() => setOpen((prev) => !prev)}
         className="flex items-center gap-2 px-3 py-2 rounded-lg bg-transparent hover:bg-gray-50 transition-all group"
@@ -474,6 +474,7 @@ interface Order {
   fieldId?: number;
   coords?: [number, number][];
   status: OrderStatus;
+  orderType?: 'DEFAULT' | 'SPLIT';
   preview?: { fieldPhoto?: string | null };
   metadata?: {
     raw?: any;
@@ -492,12 +493,13 @@ interface Order {
 
 export default function OperatorOrdersWizard(): JSX.Element {
   const { userInfo } = useGlobalContext() as any;
-  const API_BASE = 'https://droneagro.duckdns.org';
+  const API_BASE = 'https://api.droneagro.xyz';
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [orderTypeFilter, setOrderTypeFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [isViewOnly, setIsViewOnly] = useState(false);
@@ -665,6 +667,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
             fieldName: o.fieldName ?? `ID:${o.id ?? o.orderId}`,
             fieldId,
             status: normalizeStatus(o.status ?? 'new'),
+            orderType: (o.orderType ?? 'DEFAULT') as 'DEFAULT' | 'SPLIT',
             preview: { fieldPhoto: null },
             metadata: {
               raw: o,
@@ -749,95 +752,178 @@ export default function OperatorOrdersWizard(): JSX.Element {
         'Сначала загрузите JSON с полями coords_polygon, coords_index, bands_index.',
       );
 
-    const body = {
-      orderId: selectedOrder.id,
-      indexName: selectedIndex || 'NDVI',
-      payload: uploaded,
-    };
+    const orderType = selectedOrder.orderType ?? 'DEFAULT';
 
     try {
       setCalcInProgress(true);
       setCalcProgress(10);
 
-      const res = await authFetch(`${API_BASE}/api/workflow/analyze`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      });
+      // Для SPLIT используем упрощенную ручку
+      if (orderType === 'SPLIT') {
+        const body = {
+          orderId: selectedOrder.id,
+          payload: uploaded,
+        };
 
-      setCalcProgress(50);
+        const res = await authFetch(`${API_BASE}/api/workflow/split`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
 
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        console.error('analyze failed', res.status, txt);
-        alert('Ошибка от сервера при запуске анализа.');
-        setCalcInProgress(false);
-        setCalcProgress(0);
-        return;
-      }
+        setCalcProgress(50);
 
-      const parsed = await res.json().catch(async () => {
-        const t = await res.text().catch(() => '');
-        return { rawText: t };
-      });
-
-      const out = parsed?.output ?? {};
-      const imageKeys = [
-        'originalImage',
-        'indexImage',
-        'areasWithFullIdsImage',
-        'indexWithBoundsImage',
-      ];
-
-      const images: Record<string, string | null> = {};
-      imageKeys.forEach((k) => (images[k] = ensureDataUrl(out?.[k] ?? null)));
-
-      const tables: Record<string, any[] | null> = {};
-      Object.keys(out || {}).forEach((k) => {
-        const kl = k.toLowerCase();
-        if (
-          kl.endsWith('df') ||
-          kl.endsWith('statsdf') ||
-          (kl.includes('cluster') && kl.includes('df'))
-        ) {
-          const v = out[k];
-          if (!v) {
-            tables[k] = null;
-            return;
-          }
-          try {
-            tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
-          } catch {
-            tables[k] = null;
-          }
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          console.error('split failed', res.status, txt);
+          alert('Ошибка от сервера при запуске разбиения.');
+          setCalcInProgress(false);
+          setCalcProgress(0);
+          return;
         }
-      });
 
-      // здесь берем inputId из верхнего уровня ответа
-      const inputId = parsed?.inputId ?? null;
+        const parsed = await res.json().catch(async () => {
+          const t = await res.text().catch(() => '');
+          return { rawText: t };
+        });
 
-      setSelectedOrder((so) =>
-        so
-          ? ({
-              ...so,
-              metadata: {
-                ...(so.metadata ?? {}),
-                uploadedJson: uploaded,
-                latestInput: { id: inputId },
-                analyticsResponse: parsed,
-                analyticsImages: images,
-                analyticsTables: tables,
-              },
-            } as Order)
-          : so,
-      );
+        const out = parsed?.output ?? {};
+        const inputId = parsed?.inputId ?? null;
 
-      setOrders((prev) =>
-        prev.map((p) =>
-          p.id === selectedOrder.id
+        // Для SPLIT только одно изображение
+        const images: Record<string, string | null> = {
+          areasWithFullIdsImage: ensureDataUrl(
+            out?.areasWithFullIdsImage ?? null,
+          ),
+        };
+
+        setSelectedOrder((so) =>
+          so
             ? ({
-                ...p,
+                ...so,
+                status: 'processed',
                 metadata: {
-                  ...(p.metadata ?? {}),
+                  ...(so.metadata ?? {}),
+                  uploadedJson: uploaded,
+                  latestInput: { id: inputId },
+                  analyticsResponse: parsed,
+                  analyticsImages: images,
+                  analyticsTables: {},
+                  processed: true,
+                },
+              } as Order)
+            : so,
+        );
+
+        setOrders((prev) =>
+          prev.map((p) =>
+            p.id === selectedOrder.id
+              ? ({
+                  ...p,
+                  status: 'processed',
+                  metadata: {
+                    ...(p.metadata ?? {}),
+                    uploadedJson: uploaded,
+                    latestInput: { id: inputId },
+                    analyticsResponse: parsed,
+                    analyticsImages: images,
+                    analyticsTables: {},
+                    processed: true,
+                  },
+                } as Order)
+              : p,
+          ),
+        );
+
+        setCalcProgress(100);
+        setIsViewOnly(false);
+        setStep(4); // Сразу переходим к финальному шагу для SPLIT
+        showToast('Разбиение успешно завершено!');
+
+        // Обновляем статус заказа на бекенде
+        try {
+          const statusRes = await authFetch(
+            `${API_BASE}/api/orders_status/${selectedOrder.id}`,
+            {
+              method: 'PUT',
+              body: JSON.stringify({ status: 'Processed' }),
+            },
+          );
+          if (!statusRes.ok) {
+            console.error('Failed to update order status on backend');
+          }
+        } catch (e) {
+          console.error('Error updating order status', e);
+        }
+      } else {
+        // Для DEFAULT используем стандартную ручку analyze
+        const body = {
+          orderId: selectedOrder.id,
+          indexName: selectedIndex || 'NDVI',
+          payload: uploaded,
+        };
+
+        const res = await authFetch(`${API_BASE}/api/workflow/analyze`, {
+          method: 'POST',
+          body: JSON.stringify(body),
+        });
+
+        setCalcProgress(50);
+
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          console.error('analyze failed', res.status, txt);
+          alert('Ошибка от сервера при запуске анализа.');
+          setCalcInProgress(false);
+          setCalcProgress(0);
+          return;
+        }
+
+        const parsed = await res.json().catch(async () => {
+          const t = await res.text().catch(() => '');
+          return { rawText: t };
+        });
+
+        const out = parsed?.output ?? {};
+        const imageKeys = [
+          'originalImage',
+          'indexImage',
+          'areasWithFullIdsImage',
+          'indexWithBoundsImage',
+        ];
+
+        const images: Record<string, string | null> = {};
+        imageKeys.forEach((k) => (images[k] = ensureDataUrl(out?.[k] ?? null)));
+
+        const tables: Record<string, any[] | null> = {};
+        Object.keys(out || {}).forEach((k) => {
+          const kl = k.toLowerCase();
+          if (
+            kl.endsWith('df') ||
+            kl.endsWith('statsdf') ||
+            (kl.includes('cluster') && kl.includes('df'))
+          ) {
+            const v = out[k];
+            if (!v) {
+              tables[k] = null;
+              return;
+            }
+            try {
+              tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+            } catch {
+              tables[k] = null;
+            }
+          }
+        });
+
+        // здесь берем inputId из верхнего уровня ответа
+        const inputId = parsed?.inputId ?? null;
+
+        setSelectedOrder((so) =>
+          so
+            ? ({
+                ...so,
+                metadata: {
+                  ...(so.metadata ?? {}),
                   uploadedJson: uploaded,
                   latestInput: { id: inputId },
                   analyticsResponse: parsed,
@@ -845,13 +931,31 @@ export default function OperatorOrdersWizard(): JSX.Element {
                   analyticsTables: tables,
                 },
               } as Order)
-            : p,
-        ),
-      );
+            : so,
+        );
 
-      setCalcProgress(100);
-      setIsViewOnly(false);
-      setStep(2);
+        setOrders((prev) =>
+          prev.map((p) =>
+            p.id === selectedOrder.id
+              ? ({
+                  ...p,
+                  metadata: {
+                    ...(p.metadata ?? {}),
+                    uploadedJson: uploaded,
+                    latestInput: { id: inputId },
+                    analyticsResponse: parsed,
+                    analyticsImages: images,
+                    analyticsTables: tables,
+                  },
+                } as Order)
+              : p,
+          ),
+        );
+
+        setCalcProgress(100);
+        setIsViewOnly(false);
+        setStep(2);
+      }
     } catch (e) {
       console.error('runAnalyze error', e);
       alert('Ошибка при вызове analyze.');
@@ -1123,22 +1227,20 @@ export default function OperatorOrdersWizard(): JSX.Element {
       showToast('Обработка успешно завершена!');
 
       // Обновляем статус заказа на бекенде
-      // try {
-      //   const statusRes = await authFetch(
-      //     `${API_BASE}/api/orders_status/${selectedOrder.id}`,
-      //     {
-      //       method: 'PUT',
-      //       body: JSON.stringify({ status: 'processed' }),
-      //     },
-      //   );
-      //   if (!statusRes.ok) {
-      //     console.error('Failed to update order status on backend');
-      //     alert('Заказ обработан, но не удалось обновить статус на сервере.');
-      //   }
-      // } catch (e) {
-      //   console.error('Error updating order status', e);
-      //   alert('Заказ обработан, но произошла ошибка при обновлении статуса.');
-      // }
+      try {
+        const statusRes = await authFetch(
+          `${API_BASE}/api/orders_status/${selectedOrder.id}`,
+          {
+            method: 'PUT',
+            body: JSON.stringify({ status: 'Processed' }),
+          },
+        );
+        if (!statusRes.ok) {
+          console.error('Failed to update order status on backend');
+        }
+      } catch (e) {
+        console.error('Error updating order status', e);
+      }
     } catch (e) {
       console.error('applyFinal error', e);
       alert('Ошибка при вызове final.');
@@ -1170,37 +1272,54 @@ export default function OperatorOrdersWizard(): JSX.Element {
         return { rawText: t };
       });
       const result = parsed?.result ?? parsed;
-      const imageKeys = [
-        'originalImage',
-        'indexImage',
-        'areasWithFullIdsImage',
-        'indexWithBoundsImage',
-        'areasWithSegmentsAndFullIds',
-      ];
+
+      // Для SPLIT заявок загружаем только карту разбиения
+      const isSplit = (o.orderType ?? 'DEFAULT') === 'SPLIT';
+
       const images: Record<string, string | null> = {};
-      imageKeys.forEach((k) => {
-        images[k] = ensureDataUrl(result?.[k] ?? null);
-      });
+      if (isSplit) {
+        // Для SPLIT только areasWithFullIdsImage
+        images.areasWithFullIdsImage = ensureDataUrl(
+          result?.areasWithFullIdsImage ?? null,
+        );
+      } else {
+        // Для DEFAULT все изображения
+        const imageKeys = [
+          'originalImage',
+          'indexImage',
+          'areasWithFullIdsImage',
+          'indexWithBoundsImage',
+          'areasWithSegmentsAndFullIds',
+        ];
+        imageKeys.forEach((k) => {
+          images[k] = ensureDataUrl(result?.[k] ?? null);
+        });
+      }
+
+      // Таблицы загружаем только для DEFAULT
       const tables: Record<string, any[] | null> = {};
-      Object.keys(result || {}).forEach((k) => {
-        const kl = k.toLowerCase();
-        if (
-          kl.endsWith('df') ||
-          kl.endsWith('statsdf') ||
-          (kl.includes('cluster') && kl.includes('df'))
-        ) {
-          const v = result[k];
-          if (!v) {
-            tables[k] = null;
-            return;
+      if (!isSplit) {
+        Object.keys(result || {}).forEach((k) => {
+          const kl = k.toLowerCase();
+          if (
+            kl.endsWith('df') ||
+            kl.endsWith('statsdf') ||
+            (kl.includes('cluster') && kl.includes('df'))
+          ) {
+            const v = result[k];
+            if (!v) {
+              tables[k] = null;
+              return;
+            }
+            try {
+              tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+            } catch {
+              tables[k] = null;
+            }
           }
-          try {
-            tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
-          } catch {
-            tables[k] = null;
-          }
-        }
-      });
+        });
+      }
+
       const updatedOrder = {
         ...o,
         metadata: {
@@ -1210,10 +1329,12 @@ export default function OperatorOrdersWizard(): JSX.Element {
             ...(o.metadata?.analyticsImages ?? {}),
             ...images,
           },
-          analyticsTables: {
-            ...(o.metadata?.analyticsTables ?? {}),
-            ...tables,
-          },
+          analyticsTables: isSplit
+            ? {}
+            : {
+                ...(o.metadata?.analyticsTables ?? {}),
+                ...tables,
+              },
         },
       } as Order;
       setSelectedOrder(updatedOrder);
@@ -1221,7 +1342,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
         prev.map((p) => (p.id === updatedOrder.id ? updatedOrder : p)),
       );
       setIsViewOnly(true);
-      setStep(2);
+      // Для SPLIT переходим на шаг 4 (финальный результат), для DEFAULT - на шаг 2
+      setStep(isSplit ? 4 : 2);
     } catch (e) {
       console.error('handleView error', e);
       alert('Ошибка при получении результата.');
@@ -1320,6 +1442,14 @@ export default function OperatorOrdersWizard(): JSX.Element {
       });
     }
 
+    // Фильтруем по типу заявки
+    if (orderTypeFilter !== 'all') {
+      sorted = sorted.filter((o) => {
+        const ot = o.orderType ?? 'DEFAULT';
+        return ot === orderTypeFilter;
+      });
+    }
+
     // Затем сортируем по дате, если выбрана сортировка по времени
     if (sortOrder === 'desc') {
       sorted = sorted.sort((a, b) => {
@@ -1338,7 +1468,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
     }
 
     return sorted;
-  }, [orders, statusFilter, sortOrder]);
+  }, [orders, statusFilter, orderTypeFilter, sortOrder]);
 
   // Проверяем, назначен ли дрон каждому кластеру.
   const allClustersAssigned =
@@ -1389,12 +1519,19 @@ export default function OperatorOrdersWizard(): JSX.Element {
               const idx = (i + 1) as 1 | 2 | 3 | 4;
               const active = step === idx;
               const done = step > idx;
-              const disabled = isViewOnly && idx !== 2;
+              const isSplit =
+                (selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT';
+              // Для SPLIT показываем только шаги 1 и 4
+              if (isSplit && (idx === 2 || idx === 3)) return null;
+              const disabled =
+                (isViewOnly && idx !== 2) ||
+                (isSplit && idx !== 1 && idx !== 4);
               return (
                 <div key={t} className="flex-1">
                   <button
                     onClick={() => {
                       if (disabled) return;
+                      if (isSplit && idx !== 1 && idx !== 4) return;
                       setStep(idx);
                     }}
                     className="w-full text-left"
@@ -1462,6 +1599,41 @@ export default function OperatorOrdersWizard(): JSX.Element {
                   </div>
 
                   <div className="flex items-center gap-0 bg-white rounded-xl shadow-sm border border-gray-200">
+                    <FilterDropdown
+                      icon={({ className }) => (
+                        <svg
+                          className={className}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"
+                          />
+                        </svg>
+                      )}
+                      value={
+                        orderTypeFilter === 'all'
+                          ? 'Все типы'
+                          : orderTypeFilter === 'DEFAULT'
+                            ? 'Обычные'
+                            : 'Только разбиение'
+                      }
+                      options={['Все типы', 'Обычные', 'Только разбиение']}
+                      onChange={(val) => {
+                        if (val === 'Все типы') setOrderTypeFilter('all');
+                        else if (val === 'Обычные')
+                          setOrderTypeFilter('DEFAULT');
+                        else if (val === 'Только разбиение')
+                          setOrderTypeFilter('SPLIT');
+                      }}
+                    />
+
+                    <div className="w-px h-6 bg-gray-200" />
+
                     <div className="px-1 py-1 font-nekstmedium">
                       <FilterDropdown
                         icon={(props) => (
@@ -1575,6 +1747,11 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         </th>
                         <th className="px-6 py-4 text-left">
                           <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                            Тип заявки
+                          </span>
+                        </th>
+                        <th className="px-6 py-4 text-left">
+                          <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
                             Статус
                           </span>
                         </th>
@@ -1645,6 +1822,47 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                 {o.date}
                               </span>
                             </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {o.orderType === 'SPLIT' ? (
+                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-100 to-purple-50 border border-purple-200 shadow-sm">
+                                <svg
+                                  className="w-3.5 h-3.5 text-purple-600"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                  />
+                                </svg>
+                                <span className="text-xs font-nekstmedium text-purple-700">
+                                  Только разбиение
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-200 shadow-sm">
+                                <svg
+                                  className="w-3.5 h-3.5 text-blue-600"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                  />
+                                </svg>
+                                <span className="text-xs font-nekstmedium text-blue-700">
+                                  Обычный
+                                </span>
+                              </div>
+                            )}
                           </td>
                           <td className="px-6 py-4">
                             {o.metadata?.processed ? (
@@ -1740,115 +1958,345 @@ export default function OperatorOrdersWizard(): JSX.Element {
           <div>
             <div className="flex items-start justify-between mb-4">
               <div>
-                <div className="text-sm text-gray-500">
-                  Заявка #{selectedOrder.id} • {selectedOrder.fieldName}
+                <div className="text-sm text-gray-500 flex items-center gap-2">
+                  <span>
+                    Заявка #{selectedOrder.id} • {selectedOrder.fieldName}
+                  </span>
+                  {selectedOrder.orderType === 'SPLIT' ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-100 to-purple-50 border border-purple-200 text-purple-700 text-xs font-nekstmedium">
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                      Только разбиение
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-200 text-blue-700 text-xs font-nekstmedium">
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        />
+                      </svg>
+                      Обычный
+                    </span>
+                  )}
                 </div>
                 <div className="text-lg font-semibold mt-1">
-                  Пошаговая обработка поля
+                  {selectedOrder.orderType === 'SPLIT'
+                    ? 'Разбиение поля'
+                    : 'Пошаговая обработка поля'}
                 </div>
               </div>
             </div>
 
-            {step === 1 && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 z-100">
-                <div className="lg:col-span-1 space-y-4">
-                  <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
-                    <div className="text-sm text-gray-500">Поле</div>
-                    <div className="text-lg font-medium mt-1">
-                      {selectedOrder.fieldName}
+            {(selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT' ? (
+              // Упрощенный интерфейс для SPLIT - два шага: 1-загрузка, 4-результат
+              <div className="space-y-6">
+                {step === 1 && (
+                  // Режим редактирования - загрузка и анализ
+                  <>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 z-100">
+                      <div className="lg:col-span-1 space-y-4">
+                        <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                          <div className="text-sm text-gray-500">Поле</div>
+                          <div className="text-lg font-medium mt-1">
+                            {selectedOrder.fieldName}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                          <div className="text-sm text-gray-500">
+                            Тип заявки
+                          </div>
+                          <div className="mt-2">
+                            <div className="flex items-start gap-2 bg-purple-50 border border-purple-100 rounded-lg p-3">
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0"
+                                viewBox="0 0 20 20"
+                                fill="currentColor"
+                              >
+                                <path
+                                  fillRule="evenodd"
+                                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                  clipRule="evenodd"
+                                />
+                              </svg>
+                              <span className="text-purple-700 text-xs">
+                                <strong>Только разбиение:</strong> Генерация
+                                карты разбиения поля на участки без анализа и
+                                построения маршрутов
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="lg:col-span-2 flex flex-col gap-4">
+                        <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                          <div className="text-sm font-medium mb-2">
+                            Загрузка данных поля
+                          </div>
+                          <FieldJsonUploader
+                            initialParsed={
+                              selectedOrder.metadata?.uploadedJson ?? null
+                            }
+                            onParsed={(p) =>
+                              setSelectedOrder((so) =>
+                                so
+                                  ? ({
+                                      ...so,
+                                      metadata: {
+                                        ...(so.metadata ?? {}),
+                                        uploadedJson: p,
+                                      },
+                                    } as Order)
+                                  : so,
+                              )
+                            }
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Кнопки управления */}
+                    <div className="flex items-center justify-between pt-2">
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(null);
+                          setStep(1);
+                          setIsViewOnly(false);
+                        }}
+                        className="px-4 py-2.5 rounded-xl text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                      >
+                        Отмена
+                      </button>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={runAnalyze}
+                          disabled={isAnalyzeDisabled}
+                          className="px-4 py-2.5 rounded-xl text-sm font-medium shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-md active:scale-[0.98]"
+                        >
+                          {calcInProgress ? (
+                            <>
+                              <svg
+                                className="animate-spin h-4 w-4"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                  fill="none"
+                                />
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                />
+                              </svg>
+                              <span>Анализ... {calcProgress}%</span>
+                            </>
+                          ) : (
+                            <span>Запустить разбиение</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              step === 1 && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 z-100">
+                  <div className="lg:col-span-1 space-y-4">
+                    <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                      <div className="text-sm text-gray-500">Поле</div>
+                      <div className="text-lg font-medium mt-1">
+                        {selectedOrder.fieldName}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                      <div className="text-sm text-gray-500">Тип заявки</div>
+                      <div className="mt-2">
+                        {(selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT' ? (
+                          <div className="flex items-start gap-2 bg-purple-50 border border-purple-100 rounded-lg p-3">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            <span className="text-purple-700 text-xs">
+                              <strong>Только разбиение:</strong> Генерация карты
+                              разбиения поля на участки без анализа и построения
+                              маршрутов
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg p-3">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                            <span className="text-blue-700 text-xs">
+                              <strong>Обычный:</strong> Полный цикл обработки —
+                              анализ поля, построение маршрутов дронов,
+                              опрыскивание и отчёты
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                      <div className="text-sm font-medium mb-2">Параметры</div>
+                      {selectedOrder.orderType === 'DEFAULT' ? (
+                        <ModernSelect
+                          label="Индекс"
+                          options={[
+                            'ARVI',
+                            'DVI',
+                            'EVI',
+                            'GEMI',
+                            'IPVI',
+                            'NDVI',
+                            'PVI',
+                            'RVI',
+                            'SARVI',
+                            'SAVI',
+                            'TSAVI',
+                            'TVI',
+                            'WDVI',
+                          ]}
+                          value={selectedIndex}
+                          onChange={setSelectedIndex}
+                        />
+                      ) : (
+                        <div className="flex items-start gap-2 bg-purple-50 border border-purple-100 rounded-lg p-3">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4 text-purple-500 mt-0.5 flex-shrink-0"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span className="text-purple-700 text-xs">
+                            Для типа "Только разбиение" выбор индекса не
+                            требуется
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
-                    <div className="text-sm font-medium mb-2">Параметры</div>
-                    <ModernSelect
-                      label="Индекс"
-                      options={[
-                        'ARVI',
-                        'DVI',
-                        'EVI',
-                        'GEMI',
-                        'IPVI',
-                        'NDVI',
-                        'PVI',
-                        'RVI',
-                        'SARVI',
-                        'SAVI',
-                        'TSAVI',
-                        'TVI',
-                        'WDVI',
-                      ]}
-                      value={selectedIndex}
-                      onChange={setSelectedIndex}
-                    />
-                  </div>
-                </div>
 
-                <div className="lg:col-span-2 flex flex-col gap-4">
-                  <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
-                    <div className="text-sm font-medium mb-2">
-                      Загрузить JSON поля
+                  <div className="lg:col-span-2 flex flex-col gap-4">
+                    <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                      <div className="text-sm font-medium mb-2">
+                        Загрузить JSON поля
+                      </div>
+                      <FieldJsonUploader
+                        initialParsed={
+                          selectedOrder.metadata?.uploadedJson ?? null
+                        }
+                        onParsed={(p) =>
+                          setSelectedOrder((so) =>
+                            so
+                              ? ({
+                                  ...so,
+                                  metadata: {
+                                    ...(so.metadata ?? {}),
+                                    uploadedJson: p,
+                                  },
+                                } as Order)
+                              : so,
+                          )
+                        }
+                      />
                     </div>
-                    <FieldJsonUploader
-                      initialParsed={
-                        selectedOrder.metadata?.uploadedJson ?? null
-                      }
-                      onParsed={(p) =>
-                        setSelectedOrder((so) =>
-                          so
-                            ? ({
-                                ...so,
-                                metadata: {
-                                  ...(so.metadata ?? {}),
-                                  uploadedJson: p,
-                                },
-                              } as Order)
-                            : so,
-                        )
-                      }
-                    />
-                  </div>
 
-                  <div className="mt-auto flex items-center justify-end gap-2 pt-4">
-                    <button
-                      onClick={closeSelected}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
-                    >
-                      Отмена
-                    </button>
-                    <button
-                      onClick={isAnalyzeDisabled ? undefined : runAnalyze}
-                      disabled={isAnalyzeDisabled}
-                      className={`px-5 py-2 rounded-lg text-sm font-medium select-none transition
+                    <div className="mt-auto flex items-center justify-end gap-2 pt-4">
+                      <button
+                        onClick={closeSelected}
+                        className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        onClick={isAnalyzeDisabled ? undefined : runAnalyze}
+                        disabled={isAnalyzeDisabled}
+                        className={`px-5 py-2 rounded-lg text-sm font-medium select-none transition
     flex items-center justify-center gap-2
     ${
       isAnalyzeDisabled
         ? 'bg-gray-200 text-gray-400 border border-gray-200 shadow-none opacity-80 cursor-not-allowed'
         : 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-sm hover:shadow-md hover:-translate-y-[1px] active:scale-[0.97] cursor-pointer'
     }`}
-                    >
-                      {calcInProgress ? (
-                        <>
-                          <Loader size={18} />
-                          <span>Загрузка…</span>
-                        </>
-                      ) : (
-                        'Запустить анализ'
-                      )}
-                    </button>
+                      >
+                        {calcInProgress ? (
+                          <>
+                            <Loader size={18} />
+                            <span>Загрузка…</span>
+                          </>
+                        ) : (
+                          'Запустить анализ'
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )
             )}
 
             {step === 2 && (
               <div className="space-y-4">
                 <div className="space-y-4">
-                  {[
-                    'originalImage',
-                    'indexImage',
-                    'areasWithFullIdsImage',
-                    'indexWithBoundsImage',
-                  ].map((k) => {
+                  {((selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT'
+                    ? ['areasWithFullIdsImage']
+                    : [
+                        'originalImage',
+                        'indexImage',
+                        'areasWithFullIdsImage',
+                        'indexWithBoundsImage',
+                      ]
+                  ).map((k) => {
                     const img =
                       selectedOrder.metadata?.analyticsImages?.[k] ?? null;
                     const label =
@@ -2275,86 +2723,170 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
             {step === 4 && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-                  {[
-                    'originalImage',
-                    'indexImage',
-                    'areasWithFullIdsImage',
-                    'indexWithBoundsImage',
-                    'areasWithSegmentsAndFullIds',
-                  ].map((k) => {
-                    const img =
-                      selectedOrder.metadata?.analyticsImages?.[k] ?? null;
-                    const label =
-                      (
-                        {
-                          originalImage: 'Original',
-                          indexImage: 'Index',
-                          areasWithFullIdsImage: 'Areas with Full IDs',
-                          indexWithBoundsImage: 'Index with Bounds',
-                          areasWithSegmentsAndFullIds:
-                            'Areas with Segments and Full IDs',
-                        } as Record<string, string>
-                      )[k] ?? k;
-                    return (
-                      <div
-                        key={k}
-                        className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm "
-                      >
-                        <div className="text-sm font-medium mb-2">{label}</div>
-                        <div className="h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130 bg-gray-50 rounded overflow-hidden flex items-center justify-center">
-                          {img ? (
-                            <img
-                              src={img}
-                              alt={label}
-                              className="object-contain h-full w-full rounded-md cursor-zoom-in"
-                              onClick={() => setModalImage(img)}
-                            />
-                          ) : (
-                            <div className="text-xs text-gray-400">
-                              Нет изображения
+                {(selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT' ? (
+                  // Упрощенный результат для SPLIT - только изображение
+                  <>
+                    {!isViewOnly &&
+                      selectedOrder.metadata?.analyticsImages
+                        ?.areasWithFullIdsImage && (
+                        <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 border border-emerald-200 shadow-md">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center">
+                              <svg
+                                className="w-5 h-5 text-white"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
                             </div>
-                          )}
+                            <div>
+                              <h3 className="text-lg font-nekstmedium text-emerald-900">
+                                Результат разбиения поля
+                              </h3>
+                              <p className="text-sm text-emerald-700 mt-0.5">
+                                Карта участков успешно сгенерирована
+                              </p>
+                            </div>
+                          </div>
                         </div>
+                      )}
+
+                    <div className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm">
+                      <div className="text-sm font-medium mb-2">
+                        Карта разбиения поля
                       </div>
-                    );
-                  })}
-                </div>
-
-                <div className="flex flex-col gap-4">
-                  {getOrderedTables(selectedOrder.metadata?.analyticsTables)
-                    .length > 0 ? (
-                    getOrderedTables(
-                      selectedOrder.metadata?.analyticsTables,
-                    ).map(([k, rows]) => (
-                      <div key={k}>{renderTableCard(k, rows ?? null)}</div>
-                    ))
-                  ) : (
-                    <div className="text-xs text-gray-500">
-                      Таблицы отсутствуют.
+                      <div className="h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130 bg-gray-50 rounded overflow-hidden flex items-center justify-center">
+                        {selectedOrder.metadata?.analyticsImages
+                          ?.areasWithFullIdsImage ? (
+                          <img
+                            src={
+                              selectedOrder.metadata.analyticsImages
+                                .areasWithFullIdsImage
+                            }
+                            alt="Карта разбиения"
+                            className="object-contain h-full w-full rounded-md cursor-zoom-in"
+                            onClick={() =>
+                              setModalImage(
+                                selectedOrder.metadata?.analyticsImages
+                                  ?.areasWithFullIdsImage ?? null,
+                              )
+                            }
+                          />
+                        ) : (
+                          <div className="text-xs text-gray-400">
+                            Нет изображения
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
 
-                <div className="flex items-center justify-end gap-2">
-                  {!isViewOnly && (
-                    <button
-                      onClick={() => setStep(3)}
-                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
-                    >
-                      Назад
-                    </button>
-                  )}
-                  <button
-                    onClick={() => {
-                      setSelectedOrder(null);
-                      setStep(1);
-                    }}
-                    className="px-4 py-2 rounded bg-emerald-600 text-white"
-                  >
-                    Завершить
-                  </button>
-                </div>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(null);
+                          setStep(1);
+                          setIsViewOnly(false);
+                        }}
+                        className="px-4 py-2 rounded bg-emerald-600 text-white"
+                      >
+                        Завершить
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  // Полный результат для DEFAULT
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                      {[
+                        'originalImage',
+                        'indexImage',
+                        'areasWithFullIdsImage',
+                        'indexWithBoundsImage',
+                        'areasWithSegmentsAndFullIds',
+                      ].map((k) => {
+                        const img =
+                          selectedOrder.metadata?.analyticsImages?.[k] ?? null;
+                        const label =
+                          (
+                            {
+                              originalImage: 'Original',
+                              indexImage: 'Index',
+                              areasWithFullIdsImage: 'Areas with Full IDs',
+                              indexWithBoundsImage: 'Index with Bounds',
+                              areasWithSegmentsAndFullIds:
+                                'Areas with Segments and Full IDs',
+                            } as Record<string, string>
+                          )[k] ?? k;
+                        return (
+                          <div
+                            key={k}
+                            className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm "
+                          >
+                            <div className="text-sm font-medium mb-2">
+                              {label}
+                            </div>
+                            <div className="h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130 bg-gray-50 rounded overflow-hidden flex items-center justify-center">
+                              {img ? (
+                                <img
+                                  src={img}
+                                  alt={label}
+                                  className="object-contain h-full w-full rounded-md cursor-zoom-in"
+                                  onClick={() => setModalImage(img)}
+                                />
+                              ) : (
+                                <div className="text-xs text-gray-400">
+                                  Нет изображения
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex flex-col gap-4">
+                      {getOrderedTables(selectedOrder.metadata?.analyticsTables)
+                        .length > 0 ? (
+                        getOrderedTables(
+                          selectedOrder.metadata?.analyticsTables,
+                        ).map(([k, rows]) => (
+                          <div key={k}>{renderTableCard(k, rows ?? null)}</div>
+                        ))
+                      ) : (
+                        <div className="text-xs text-gray-500">
+                          Таблицы отсутствуют.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2">
+                      {!isViewOnly && (
+                        <button
+                          onClick={() => setStep(3)}
+                          className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                        >
+                          Назад
+                        </button>
+                      )}
+                      <button
+                        onClick={() => {
+                          setSelectedOrder(null);
+                          setStep(1);
+                        }}
+                        className="px-4 py-2 rounded bg-emerald-600 text-white"
+                      >
+                        Завершить
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -2363,7 +2895,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
       {modalImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) setModalImage(null);
           }}
@@ -2373,14 +2905,14 @@ export default function OperatorOrdersWizard(): JSX.Element {
           <div className="relative w-full max-w-[calc(100vw-64px)] max-h-[calc(100vh-64px)]">
             <button
               onClick={() => setModalImage(null)}
-              className="absolute right-2 top-2 z-50 bg-white/90 rounded-full p-2 shadow"
+              className="absolute -right-2 -top-2 z-[210] bg-white hover:bg-gray-100 rounded-full p-2 shadow-lg transition-colors"
             >
-              <X size={18} />
+              <X size={20} />
             </button>
             <img
               src={modalImage}
               alt="preview full"
-              className="w-full h-full object-contain rounded-md"
+              className="w-full h-full object-contain rounded-md shadow-2xl"
               style={{
                 maxHeight: 'calc(100vh - 96px)',
                 maxWidth: 'calc(100vw - 96px)',
@@ -2430,6 +2962,13 @@ export default function OperatorOrdersWizard(): JSX.Element {
   @keyframes toast-fadeout {
     from { opacity: 1; transform: translateY(0); }
     to { opacity: 0; transform: translateY(20px); }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fadeIn {
+    animation: fadeIn 0.4s ease-out forwards;
   }
 `}</style>
     </div>

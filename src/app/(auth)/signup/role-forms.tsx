@@ -63,16 +63,18 @@ export function ManagerForm({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Название компании *"
-          id="name_company_manager"
-          value={data.nameCompany}
-          onChange={(e: any) =>
-            setData({ ...data, nameCompany: e.target.value })
-          }
-          icon={<Building size={20} />}
-          error={isSubmitted && !required(data.nameCompany)}
-        />
+        {data.type !== 'PERSON' && (
+          <Input
+            label="Название компании *"
+            id="name_company_manager"
+            value={data.nameCompany}
+            onChange={(e: any) =>
+              setData({ ...data, nameCompany: e.target.value })
+            }
+            icon={<Building size={20} />}
+            error={isSubmitted && !required(data.nameCompany)}
+          />
+        )}
         <Input
           label={`ИНН ${data.type === 'COMPANY' ? '*' : ''}`}
           id="inn_manager"
@@ -268,16 +270,18 @@ export function CustomerForm({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Название компании *"
-          id="cust_name_company"
-          value={data.nameCompany}
-          onChange={(e: any) =>
-            setData({ ...data, nameCompany: e.target.value })
-          }
-          icon={<Building size={20} />}
-          error={isSubmitted && !required(data.nameCompany)}
-        />
+        {data.type !== 'PERSON' && (
+          <Input
+            label="Название компании *"
+            id="cust_name_company"
+            value={data.nameCompany}
+            onChange={(e: any) =>
+              setData({ ...data, nameCompany: e.target.value })
+            }
+            icon={<Building size={20} />}
+            error={isSubmitted && !required(data.nameCompany)}
+          />
+        )}
         <Input
           label={`ИНН ${data.type === 'COMPANY' ? '*' : ''}`}
           id="cust_inn"
@@ -462,16 +466,18 @@ export function DroneSupplierForm({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Название компании *"
-          id="ds_name_company"
-          value={data.nameCompany}
-          onChange={(e: any) =>
-            setData({ ...data, nameCompany: e.target.value })
-          }
-          icon={<Building size={20} />}
-          error={isSubmitted && !required(data.nameCompany)}
-        />
+        {data.type !== 'PERSON' && (
+          <Input
+            label="Название компании *"
+            id="ds_name_company"
+            value={data.nameCompany}
+            onChange={(e: any) =>
+              setData({ ...data, nameCompany: e.target.value })
+            }
+            icon={<Building size={20} />}
+            error={isSubmitted && !required(data.nameCompany)}
+          />
+        )}
         <Input
           label={`ИНН ${data.type === 'COMPANY' ? '*' : ''}`}
           id="ds_inn"
@@ -653,16 +659,18 @@ export function MaterialSupplierForm({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Название компании *"
-          id="ms_name_company"
-          value={data.nameCompany}
-          onChange={(e: any) =>
-            setData({ ...data, nameCompany: e.target.value })
-          }
-          icon={<Building size={20} />}
-          error={isSubmitted && !required(data.nameCompany)}
-        />
+        {data.type !== 'PERSON' && (
+          <Input
+            label="Название компании *"
+            id="ms_name_company"
+            value={data.nameCompany}
+            onChange={(e: any) =>
+              setData({ ...data, nameCompany: e.target.value })
+            }
+            icon={<Building size={20} />}
+            error={isSubmitted && !required(data.nameCompany)}
+          />
+        )}
         <Input
           label={`ИНН ${data.type === 'COMPANY' ? '*' : ''}`}
           id="ms_inn"

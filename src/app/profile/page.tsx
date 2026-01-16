@@ -33,7 +33,7 @@ type MeResponse = {
   contractorProfile?: ContractorProfile;
 };
 
-const API_BASE = 'https://droneagro.duckdns.org';
+const API_BASE = 'https://api.droneagro.xyz';
 
 export default function ProfileModernPage() {
   const [me, setMe] = useState<MeResponse | null>(null);

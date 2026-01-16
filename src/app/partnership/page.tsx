@@ -206,9 +206,6 @@ export default function BecomePartner() {
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
               Наши партнёры уже работают в:
             </h2>
-            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-              Присоединяйтесь к успешным компаниям по всей России
-            </p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -225,12 +222,15 @@ export default function BecomePartner() {
               </div>
             ))}
           </div>
+          <div className="text-[24px] mt-[20px] font-nekstmedium flex items-center justify-center text-gray-600 max-w-3xl mx-auto">
+            Присоединяйтесь к успешным компаниям по всей России!
+          </div>
         </section>
 
         {/* FAQ Section */}
-        <section className="mb-20 bg-white rounded-2xl p-8 shadow-md">
-          <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-12">
+        <section className="mb-20  rounded-2xl p-8 shadow-msd w-full">
+          <div className="mx-auto w-full">
+            <div className="text-center mb-12 w-full">
               <h2 className="text-3xl font-bold text-gray-900 mb-4">
                 Частые вопросы
               </h2>
@@ -239,7 +239,7 @@ export default function BecomePartner() {
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 w-full">
               {faqs.map((faq, index) => (
                 <div
                   key={index}

@@ -20,7 +20,7 @@ import {
  * - cadastral input auto-formats to pattern: ХХ:ХХ:ХХХХХХХ:ХХХХ (2:2:7:4)
  */
 
-const API_BASE = 'https://droneagro.duckdns.org';
+const API_BASE = 'https://api.droneagro.xyz';
 
 type FieldItem = {
   fieldId: number;

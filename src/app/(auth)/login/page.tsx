@@ -42,10 +42,9 @@ export default function LoginPage() {
   const [newPwdFocused, setNewPwdFocused] = useState(false);
 
   // --- API endpoints ---
-  const LOGIN_API_URL = 'https://droneagro.duckdns.org/api/auth/login';
-  const FORGOT_API_URL =
-    'https://droneagro.duckdns.org/api/auth/forgot-password';
-  const RESET_API_URL = 'https://droneagro.duckdns.org/api/auth/reset-password';
+  const LOGIN_API_URL = 'https://api.droneagro.xyz/api/auth/login';
+  const FORGOT_API_URL = 'https://api.droneagro.xyz/api/auth/forgot-password';
+  const RESET_API_URL = 'https://api.droneagro.xyz/api/auth/reset-password';
 
   const isEmailValid = (v: string) => v.length > 4 && v.includes('@');
   const isPasswordValid = (v: string) => v.length >= 8;
@@ -105,7 +104,7 @@ export default function LoginPage() {
       localStorage.setItem('userRole', res.data.userRole ?? '');
       localStorage.setItem('userId', String(res.data.id ?? ''));
 
-      const { data } = await axios.get('https://droneagro.duckdns.org/api/me', {
+      const { data } = await axios.get('https://api.droneagro.xyz/api/me', {
         headers: { Authorization: `Bearer ${res.data.accessToken}` },
       });
       localStorage.setItem('email', data['email']);

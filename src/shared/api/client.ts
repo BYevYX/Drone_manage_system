@@ -27,7 +27,7 @@ class ApiClient {
 
   constructor() {
     this.baseURL =
-      process.env.NEXT_PUBLIC_API_URL || 'http://51.250.43.77:8080';
+      process.env.NEXT_PUBLIC_API_URL || 'https://api.droneagro.xyz';
 
     this.client = axios.create({
       baseURL: this.baseURL,

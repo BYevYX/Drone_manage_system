@@ -178,7 +178,7 @@ const USER_FIELD_LABELS: Record<string, string> = {
 };
 
 export default function FriendlyOrdersPanel() {
-  const API_BASE = 'https://droneagro.duckdns.org';
+  const API_BASE = 'https://api.droneagro.xyz';
 
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 

@@ -219,7 +219,7 @@ export default function ServicesModernPage() {
                         <div>
                           <div className="text-sm font-medium">{s.title}</div>
                           <div className="text-xs text-gray-500">
-                            {s.links.length} услуг
+                            {s.links.length} услуги
                           </div>
                         </div>
                       </div>

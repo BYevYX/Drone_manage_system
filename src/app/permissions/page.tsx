@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import Header from '@/src/shared/ui/Header';
 import Footer from '@/src/shared/ui/Footer';
+import Link from 'next/link';
 
 export default function DronePermissionsInfo() {
   const [progress, setProgress] = useState(0);
@@ -211,10 +212,14 @@ export default function DronePermissionsInfo() {
               Наши специалисты оформят все разрешения и будут сопровождать ваши
               полёты
             </p>
-            <button className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition">
+
+            <Link
+              href="/contacts"
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition"
+            >
               Получить консультацию
               <ChevronRight className="ml-2" size={20} />
-            </button>
+            </Link>
           </div>
         </div>
       </div>

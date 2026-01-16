@@ -27,7 +27,7 @@ import {
 } from '../utils/validation';
 
 // Константа с адресом бэкенда
-const API_URL = 'https://droneagro.duckdns.org/api/auth/register';
+const API_URL = 'https://api.droneagro.xyz/api/auth/register';
 
 export default function MultiStepSignup() {
   const [step, setStep] = useState(1);
@@ -157,11 +157,13 @@ export default function MultiStepSignup() {
       const errs: Record<string, string> = {};
       let ok = true;
 
-      // Валидация названия компании
-      const companyValidation = validateCompanyName(customerData.nameCompany);
-      if (!companyValidation.isValid) {
-        errs.nameCompany = companyValidation.error || 'Обязательное поле';
-        ok = false;
+      // Валидация названия компании (только для COMPANY и INDIVIDUAL)
+      if (customerData.type !== 'PERSON') {
+        const companyValidation = validateCompanyName(customerData.nameCompany);
+        if (!companyValidation.isValid) {
+          errs.nameCompany = companyValidation.error || 'Обязательное поле';
+          ok = false;
+        }
       }
 
       // Валидация ИНН
@@ -342,7 +344,8 @@ export default function MultiStepSignup() {
         userRole: 'CONTRACTOR',
         contractor: {
           organization: customerData.type,
-          organizationName: customerData.nameCompany,
+          organizationName:
+            customerData.type === 'PERSON' ? '' : customerData.nameCompany,
           organizationType:
             customerData.type === 'COMPANY'
               ? 'LEGAL_ENTITY'
@@ -438,7 +441,7 @@ export default function MultiStepSignup() {
     setIsVerifying(true);
     try {
       // GET /api/auth/verify?code=123
-      const url = `https://droneagro.duckdns.org/api/verification?code=${verificationCode}`;
+      const url = `https://api.droneagro.xyz/api/verification?code=${verificationCode}`;
       const res = await axios.get(url);
       alert(res.data?.message || 'Почта подтверждена!');
       window.location.href = '/login';

@@ -196,21 +196,23 @@ export function CustomerForm({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label={
-            <>
-              Название компании <span className="text-red-500">*</span>
-            </>
-          }
-          value={data.nameCompany}
-          onChange={(e: any) =>
-            setData((prev) => ({ ...prev, nameCompany: e.target.value }))
-          }
-          id="name_company"
-          icon={<Building size={20} />}
-          error={Boolean(errors.nameCompany)}
-          errorMessage={errors.nameCompany}
-        />
+        {data.type !== 'PERSON' && (
+          <Input
+            label={
+              <>
+                Название компании <span className="text-red-500">*</span>
+              </>
+            }
+            value={data.nameCompany}
+            onChange={(e: any) =>
+              setData((prev) => ({ ...prev, nameCompany: e.target.value }))
+            }
+            id="name_company"
+            icon={<Building size={20} />}
+            error={Boolean(errors.nameCompany)}
+            errorMessage={errors.nameCompany}
+          />
+        )}
 
         <Input
           label={
@@ -821,7 +823,7 @@ export function Step3({
               );
             })}
           </div>
-          <div className="text-sm mt-1 text-gray-600">
+          <div className="text-sm mt-1 text-gray-600 font-nekstregular">
             {passwordLabel(passwordStrength)}
           </div>
         </div>

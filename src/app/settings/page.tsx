@@ -6,7 +6,7 @@ import { Mail, Lock, Send, Check, User } from 'lucide-react';
 import Header from '@/src/shared/ui/Header';
 import Footer from '@/src/shared/ui/Footer';
 
-const API_BASE = 'https://droneagro.duckdns.org';
+const API_BASE = 'https://api.droneagro.xyz';
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<'main' | 'security'>('main');

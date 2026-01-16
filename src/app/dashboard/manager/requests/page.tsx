@@ -68,6 +68,149 @@ const statusBadgeIcon = (status?: string) => {
   return STATUS_ICON[s] || null;
 };
 
+/** Helper functions для результатов */
+const ensureDataUrl = (s: string | null | undefined) => {
+  if (!s) return null;
+  if (s.startsWith('data:')) return s;
+  if (/^https?:\/\//.test(s)) return s;
+  const isProbablyBase64 = /^[A-Za-z0-9+/=\s]+$/.test(
+    (s || '').replace(/\s+/g, ''),
+  );
+  if (isProbablyBase64)
+    return `data:image/png;base64,${(s || '').replace(/\s+/g, '')}`;
+  return s;
+};
+
+function translateCol(col: string) {
+  const map: Record<string, string> = {
+    cluster_id: 'Кластер',
+    size_pixels: 'Пиксели',
+    area_percentage: '% площади',
+    NDVI_min: 'NDVI мин',
+    NDVI_max: 'NDVI макс',
+    NDVI_mean: 'NDVI сред',
+    NDVI_std: 'NDVI стд',
+    NDVI_variance: 'NDVI вар',
+    coefficient_of_variation: 'Коэф вар',
+    centroid_x: 'Центроид X',
+    centroid_y: 'Центроид Y',
+    droneId: 'ID дрона',
+    drone_id: 'ID дрона',
+    droneName: 'Дрон',
+    drone_type: 'Тип дрона',
+    area: 'Площадь',
+    total_distance: 'Общее расстояние',
+    processing_distance: 'Расстояние обработки',
+    flight_distance: 'Расстояние полета',
+    total_time: 'Общее время',
+    processing_time: 'Время обработки',
+    flight_time: 'Время полета',
+    charge_events: 'События зарядки',
+    charge_time: 'Время зарядки',
+    segment_id: 'ID сегмента',
+    segment_number: 'Номер сегмента',
+    battery_remaining_after_error: 'Остаток батареи после ошибки',
+    segment_index: 'Индекс сегмента',
+    field_count: 'Количество полей',
+    drone_count: 'Количество дронов',
+    parallel_total_time: 'Параллельное общее время',
+    parallel_processing_time: 'Параллельное время обработки',
+    parallel_flight_time: 'Параллельное время полета',
+    parallel_charge_time: 'Параллельное время зарядки',
+  };
+  return map[col] ?? col;
+}
+
+function formatCell(val: any) {
+  if (val === null || val === undefined) return '—';
+  const n = Number(val);
+  if (!Number.isNaN(n) && Number.isFinite(n)) {
+    if (Number.isInteger(n)) return String(n);
+    return n.toFixed(2);
+  }
+  return String(val);
+}
+
+function renderTableCard(name: string, rows: any[] | null): JSX.Element {
+  if (!rows)
+    return (
+      <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
+        <div className="text-sm font-medium text-gray-700 mb-2">{name}</div>
+        <div className="text-xs text-gray-500">
+          Таблица пуста или не удалось распарсить.
+        </div>
+      </div>
+    );
+  const cols: string[] = Array.from(
+    rows.reduce((acc, r) => {
+      Object.keys(r || {}).forEach((k) => acc.add(k));
+      return acc;
+    }, new Set<string>()),
+  );
+  const isMainTable = name === 'Основная таблица';
+  return (
+    <div className="rounded-xl bg-white p-3 shadow-sm border border-gray-100">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-medium text-gray-700">{name}</div>
+        <div className="text-xs text-gray-500">Строк: {rows.length}</div>
+      </div>
+      <div
+        className={
+          isMainTable
+            ? 'min-w-full'
+            : 'min-w-full max-h-[300px] overflow-x-auto'
+        }
+      >
+        <table className="w-full text-sm border-collapse">
+          <thead className="sticky top-0 z-10 bg-white">
+            <tr>
+              {cols.map((c: string) => (
+                <th
+                  key={c}
+                  className="text-xs text-gray-500 text-left py-2 pr-3 border-b"
+                >
+                  {translateCol(c)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                {cols.map((c: string) => (
+                  <td key={c} className="py-2 pr-3 align-top text-gray-700">
+                    {formatCell(r?.[c as keyof typeof r])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
+  if (!tables) return [] as [string, any[] | null][];
+  const preferred = [
+    'clusterStatsDf',
+    'dronesDf',
+    'segmentsDf',
+    'segmentSummaryDf',
+  ];
+  const present: [string, any[] | null][] = [];
+  preferred.forEach((k) => {
+    if (k in tables) present.push([k, tables[k]]);
+  });
+  Object.keys(tables)
+    .sort()
+    .forEach((k) => {
+      if (!preferred.includes(k)) present.push([k, tables[k]]);
+    });
+  return present;
+}
+
 type OperatorProfile = {
   organization?: string;
   organizationName?: string;
@@ -104,6 +247,14 @@ type ApiOrder = {
   dataEnd?: string | null;
   materialsProvided?: boolean | null;
   preview?: { fieldPreview?: string | null } | null;
+  orderType?: 'DEFAULT' | 'SPLIT';
+  metadata?: {
+    processed?: boolean;
+    latestInput?: { id: number; indexName?: string; createdAt?: string } | null;
+    analyticsImages?: Record<string, string | null>;
+    analyticsTables?: Record<string, any[] | null>;
+    analyticsResponse?: any;
+  };
   [k: string]: any;
 };
 
@@ -178,7 +329,7 @@ const USER_FIELD_LABELS: Record<string, string> = {
 };
 
 export default function FriendlyOrdersPanel() {
-  const API_BASE = 'https://droneagro.duckdns.org';
+  const API_BASE = 'https://api.droneagro.xyz';
 
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
@@ -186,6 +337,8 @@ export default function FriendlyOrdersPanel() {
   const [loading, setLoading] = useState(false);
   // Сортировка по статусу заказа
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  // Фильтр по типу заказа
+  const [orderTypeFilter, setOrderTypeFilter] = useState<string>('all');
   // Пагинация отключена
   const [selected, setSelected] = useState<ApiOrder | null>(null);
   const [pendingStatus, setPendingStatus] = useState<string | null>(null);
@@ -198,6 +351,12 @@ export default function FriendlyOrdersPanel() {
 
   const [operatorLoading, setOperatorLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Для отображения результатов
+  const [loadingView, setLoadingView] = useState(false);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [modalImage, setModalImage] = useState<string | null>(null);
+  const loadingCancelledRef = useRef(false);
 
   // dropdown portal state for row actions
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
@@ -234,6 +393,175 @@ export default function FriendlyOrdersPanel() {
     return fetch(url, { ...options, headers });
   };
 
+  // Проверка наличия обработанных данных для заявок
+  const checkInputsForOrders = async (currentOrders: ApiOrder[]) => {
+    if (!currentOrders || !currentOrders.length) return;
+    console.log(
+      '[checkInputsForOrders] Проверяем',
+      currentOrders.length,
+      'заявок',
+    );
+    try {
+      const checks = currentOrders.map(async (ord) => {
+        try {
+          console.log(
+            `[checkInputsForOrders] Заявка #${ord.orderId}: запрос inputs...`,
+          );
+          const r = await authFetch(
+            `${API_BASE}/api/workflow/inputs?orderId=${ord.orderId}`,
+          );
+          if (!r.ok) {
+            console.log(
+              `[checkInputsForOrders] Заявка #${ord.orderId}: ошибка ${r.status}`,
+            );
+            return ord;
+          }
+          const json = await r.json().catch(() => ({}));
+          const inputs = Array.isArray(json.inputs) ? json.inputs : [];
+          console.log(
+            `[checkInputsForOrders] Заявка #${ord.orderId}: получено ${inputs.length} inputs:`,
+            inputs,
+          );
+          if (!inputs.length) {
+            return {
+              ...ord,
+              metadata: {
+                ...(ord.metadata ?? {}),
+                processed: false,
+                inputs: [],
+              },
+            } as ApiOrder;
+          }
+          const sorted = [...inputs].sort((a: any, b: any) => {
+            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            if (ta === tb) return (a.id ?? 0) - (b.id ?? 0);
+            return ta - tb;
+          });
+          const last = sorted[sorted.length - 1];
+          console.log(
+            `[checkInputsForOrders] Заявка #${ord.orderId}: последний input:`,
+            last,
+          );
+          const latestInputId = Number(last.id ?? last.inputId ?? 0);
+          console.log(
+            `[checkInputsForOrders] Заявка #${ord.orderId}: processed=true, latestInputId=${latestInputId}`,
+          );
+          return {
+            ...ord,
+            metadata: {
+              ...(ord.metadata ?? {}),
+              processed: true,
+              inputs,
+              latestInput: {
+                id: latestInputId,
+                indexName: last.indexName ?? last.index_name,
+                createdAt: last.createdAt ?? null,
+              },
+            },
+          } as ApiOrder;
+        } catch (e) {
+          console.warn('checkInputs error for', ord.orderId, e);
+          return ord;
+        }
+      });
+
+      const resolved = await Promise.all(checks);
+      setAllOrders(resolved);
+    } catch (e) {
+      console.error('checkInputsForOrders failed', e);
+    }
+  };
+
+  // Загрузка результатов обработки для просмотра
+  const loadResults = async (order: ApiOrder) => {
+    const latest = order.metadata?.latestInput?.id ?? null;
+    console.log('[loadResults] inputId:', latest);
+    if (!latest) {
+      console.log(
+        '[loadResults] ❌ Не найден inputId для загрузки результатов',
+      );
+      return order;
+    }
+
+    console.log(`[loadResults] ✅ Загружаем результаты для inputId=${latest}`);
+    setLoadingResults(true);
+    try {
+      console.log(
+        `[loadResults] Вызываем: ${API_BASE}/api/workflow/result?inputId=${latest}`,
+      );
+      const res = await authFetch(
+        `${API_BASE}/api/workflow/result?inputId=${latest}`,
+      );
+      if (!res.ok) {
+        console.error(`[loadResults] ❌ result fetch failed: ${res.status}`);
+        return order;
+      }
+      const parsed = await res.json().catch(() => ({}));
+      console.log('[loadResults] Получен ответ:', parsed);
+      const result = parsed?.result ?? parsed;
+      console.log('[loadResults] Обработанный result:', result);
+
+      const isSplit = (order.orderType ?? 'DEFAULT') === 'SPLIT';
+
+      const images: Record<string, string | null> = {};
+      if (isSplit) {
+        images.areasWithFullIdsImage = ensureDataUrl(
+          result?.areasWithFullIdsImage ?? null,
+        );
+      } else {
+        const imageKeys = [
+          'originalImage',
+          'indexImage',
+          'areasWithFullIdsImage',
+          'indexWithBoundsImage',
+          'areasWithSegmentsAndFullIds',
+        ];
+        imageKeys.forEach((k) => {
+          images[k] = ensureDataUrl(result?.[k] ?? null);
+        });
+      }
+
+      const tables: Record<string, any[] | null> = {};
+      if (!isSplit) {
+        Object.keys(result || {}).forEach((k) => {
+          const kl = k.toLowerCase();
+          if (
+            kl.endsWith('df') ||
+            kl.endsWith('statsdf') ||
+            (kl.includes('cluster') && kl.includes('df'))
+          ) {
+            const v = result[k];
+            if (!v) {
+              tables[k] = null;
+              return;
+            }
+            try {
+              tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+            } catch {
+              tables[k] = null;
+            }
+          }
+        });
+      }
+
+      return {
+        ...order,
+        metadata: {
+          ...(order.metadata ?? {}),
+          analyticsResponse: result,
+          analyticsImages: images,
+          analyticsTables: isSplit ? {} : tables,
+        },
+      } as ApiOrder;
+    } catch (e) {
+      console.error('loadResults error', e);
+      return order;
+    } finally {
+      setLoadingResults(false);
+    }
+  };
+
   // --- fetchOrders
   const fetchOrders = useCallback(async () => {
     try {
@@ -253,6 +581,9 @@ export default function FriendlyOrdersPanel() {
       // setPage(1);
       // setPageInput('1');
       assignedOperatorsRef.current = false; // allow re-run operator assignment after fresh fetch
+
+      // Проверяем наличие обработанных данных для заявок
+      await checkInputsForOrders(sortedList);
     } catch (err: any) {
       console.error(err);
       setError(String(err?.message ?? err));
@@ -360,6 +691,11 @@ export default function FriendlyOrdersPanel() {
         return st === statusFilter.toLowerCase();
       });
     }
+    if (orderTypeFilter !== 'all') {
+      filtered = filtered.filter((o) => {
+        return (o.orderType ?? 'DEFAULT') === orderTypeFilter;
+      });
+    }
     const sorted = [...filtered].sort((a, b) => {
       if (sortOrder === 'desc') {
         return (
@@ -374,7 +710,7 @@ export default function FriendlyOrdersPanel() {
       }
     });
     return sorted;
-  }, [allOrders, statusFilter, sortOrder]);
+  }, [allOrders, statusFilter, orderTypeFilter, sortOrder]);
 
   // totalPages больше не нужен
 
@@ -519,11 +855,6 @@ export default function FriendlyOrdersPanel() {
   );
 
   // --- utils
-  const statusBadgeClass = (status?: string) => {
-    const s = (status ?? '').toLowerCase();
-    return STATUS_STYLE[s] || 'bg-gray-100 text-gray-700';
-  };
-
   const renderKeyValueRows = (
     obj: Record<string, any>,
     exclude: string[] = [],
@@ -556,39 +887,109 @@ export default function FriendlyOrdersPanel() {
   };
 
   const openModal = async (o: ApiOrder) => {
-    setPendingStatus(null); // сбрасываем статус изменений при открытии любого заказа
+    setPendingStatus(null);
+    loadingCancelledRef.current = false;
+    setLoadingView(true);
     setViewLoadingId(o.orderId);
-
     setSelectedOperatorId(o.operatorId ?? null);
     setStatusOpen(false);
 
-    let contractorDetails = null;
-    let operatorDetails = null;
+    try {
+      let contractorDetails = null;
+      let operatorDetails = null;
 
-    if (o.contractorId) {
-      contractorDetails = await fetchContractorDetails(o.contractorId);
+      if (o.contractorId) {
+        contractorDetails = await fetchContractorDetails(o.contractorId);
+      }
+
+      if (o.operatorId) {
+        operatorDetails = await fetchOperatorDetails(o.operatorId);
+      }
+
+      // Проверяем inputs прямо здесь, не полагаясь на state
+      let orderWithResults = o;
+      console.log('[openModal] Проверяем inputs для заявки #', o.orderId);
+
+      try {
+        const inputsRes = await authFetch(
+          `${API_BASE}/api/workflow/inputs?orderId=${o.orderId}`,
+        );
+
+        if (inputsRes.ok) {
+          const inputsJson = await inputsRes.json().catch(() => ({}));
+          const inputs = Array.isArray(inputsJson.inputs)
+            ? inputsJson.inputs
+            : [];
+          console.log('[openModal] Найдено inputs:', inputs.length);
+
+          if (inputs.length > 0) {
+            // Сортируем и берем последний input
+            const sorted = [...inputs].sort((a: any, b: any) => {
+              const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+              const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+              if (ta === tb) return (a.id ?? 0) - (b.id ?? 0);
+              return ta - tb;
+            });
+            const last = sorted[sorted.length - 1];
+            const latestInputId = Number(last.id ?? last.inputId ?? 0);
+
+            console.log('[openModal] ✅ Последний inputId:', latestInputId);
+
+            // Обновляем заказ с metadata
+            orderWithResults = {
+              ...o,
+              metadata: {
+                ...(o.metadata ?? {}),
+                processed: true,
+                latestInput: {
+                  id: latestInputId,
+                  indexName: last.indexName ?? last.index_name,
+                  createdAt: last.createdAt ?? null,
+                },
+              },
+            };
+
+            // Загружаем результаты
+            orderWithResults = await loadResults(orderWithResults);
+          } else {
+            console.log('[openModal] ❌ Нет inputs для этой заявки');
+          }
+        } else {
+          console.log(
+            '[openModal] ❌ Ошибка загрузки inputs:',
+            inputsRes.status,
+          );
+        }
+      } catch (err) {
+        console.error('[openModal] Ошибка проверки inputs:', err);
+      }
+
+      // Проверяем, не была ли операция отменена
+      if (!loadingCancelledRef.current) {
+        setSelected({
+          ...orderWithResults,
+          ...(contractorDetails && {
+            contractorName: contractorDetails.firstName,
+            contractorLastName: contractorDetails.lastName,
+            contractorEmail: contractorDetails.email,
+            contractorPhone: contractorDetails.phone,
+          }),
+          ...(operatorDetails && {
+            operatorName: operatorDetails.firstName,
+            operatorLastName: operatorDetails.lastName,
+            operatorEmail: operatorDetails.email,
+            operatorPhone: operatorDetails.phone,
+          }),
+        });
+      } else {
+        console.log('[openModal] Операция была отменена');
+      }
+    } finally {
+      if (!loadingCancelledRef.current) {
+        setLoadingView(false);
+      }
+      setViewLoadingId(null);
     }
-
-    if (o.operatorId) {
-      operatorDetails = await fetchOperatorDetails(o.operatorId);
-    }
-
-    setSelected({
-      ...o,
-      ...(contractorDetails && {
-        contractorName: contractorDetails.firstName,
-        contractorLastName: contractorDetails.lastName,
-        contractorEmail: contractorDetails.email,
-        contractorPhone: contractorDetails.phone,
-      }),
-      ...(operatorDetails && {
-        operatorName: operatorDetails.firstName,
-        operatorLastName: operatorDetails.lastName,
-        operatorEmail: operatorDetails.email,
-        operatorPhone: operatorDetails.phone,
-      }),
-    });
-    setViewLoadingId(null);
   };
 
   // --- combined confirm: assign operator + update status (if needed)
@@ -681,38 +1082,16 @@ export default function FriendlyOrdersPanel() {
     };
   }, []);
 
-  // helper to open dropdown via event target and compute portal position
-  const openDropdownFor = (orderId: number, buttonEl: HTMLElement | null) => {
-    if (!buttonEl) {
-      setOpenDropdownId(null);
-      setDropdownPos(null);
-      return;
-    }
-
-    const rect = buttonEl.getBoundingClientRect();
-    const dropdownWidth = 208;
-    const itemHeight = 40;
-    const dropdownHeight = STATUS_OPTIONS.length * itemHeight + 16;
-    const margin = 8;
-    let top = rect.bottom + margin;
-    let up = false;
-    if (rect.bottom + dropdownHeight + margin > window.innerHeight) {
-      top = rect.top - dropdownHeight - margin;
-      up = true;
-      if (top < 8) top = 8;
-    }
-    let left = rect.right - dropdownWidth;
-    if (left < 8) left = 8;
-    if (left + dropdownWidth > window.innerWidth - 8)
-      left = Math.max(8, window.innerWidth - dropdownWidth - 8);
-    setOpenDropdownId(orderId);
-    setDropdownPos({
-      top: Math.round(top),
-      left: Math.round(left),
-      alignRight: true,
-      up,
-    });
-  };
+  // Close image zoom modal on ESC
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && modalImage) {
+        setModalImage(null);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [modalImage]);
 
   // input commit helpers
   // commitPageInput и commitPageSizeInput больше не нужны
@@ -744,6 +1123,19 @@ export default function FriendlyOrdersPanel() {
     'Все',
     ...Object.keys(STATUS_LABEL_EN).filter((k) => k !== 'Все'),
   ];
+
+  // Опции для типа заказа
+  const ORDER_TYPE_OPTIONS = ['Все', 'Обычный', 'Разбиение'];
+  const ORDER_TYPE_MAP: Record<string, string> = {
+    Все: 'all',
+    Обычный: 'DEFAULT',
+    Разбиение: 'SPLIT',
+  };
+  const ORDER_TYPE_LABEL: Record<string, string> = {
+    all: 'Все',
+    DEFAULT: 'Обычный',
+    SPLIT: 'Разбиение',
+  };
 
   // Сортировка
   const SORT_OPTIONS = [
@@ -872,6 +1264,18 @@ export default function FriendlyOrdersPanel() {
                 <ModernSelect
                   width={220}
                   height={44}
+                  label="Тип заказа"
+                  options={ORDER_TYPE_OPTIONS}
+                  value={ORDER_TYPE_LABEL[orderTypeFilter] || 'Все'}
+                  onChange={(label) => {
+                    setOrderTypeFilter(ORDER_TYPE_MAP[label] || 'all');
+                  }}
+                  placeholder="Все типы"
+                />
+
+                <ModernSelect
+                  width={220}
+                  height={44}
                   label="Сортировка"
                   options={SORT_OPTIONS.map((opt) => opt.label)}
                   value={
@@ -936,6 +1340,19 @@ export default function FriendlyOrdersPanel() {
 
                     {/* Right block */}
                     <div className="flex flex-wrap items-center gap-3 justify-end">
+                      {/* Тип заказа */}
+                      <div
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-nekstmedium backdrop-blur transition-all duration-200 hover:scale-105 ${
+                          o.orderType === 'SPLIT'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}
+                        style={{ minWidth: 100, justifyContent: 'center' }}
+                      >
+                        {o.orderType === 'SPLIT' ? 'Разбиение' : 'Обычный'}
+                      </div>
+
+                      {/* Статус */}
                       <div
                         className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-nekstmedium backdrop-blur ${statusBadgeClass(o.status)} transition-all duration-200 hover:scale-105`}
                         style={{ minWidth: 120, justifyContent: 'center' }}
@@ -993,8 +1410,30 @@ export default function FriendlyOrdersPanel() {
         </div>
       </section>
 
+      {/* Спиннер загрузки просмотра */}
+      {loadingView && (
+        <div className="fixed inset-0  z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white px-[70px] rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4">
+            <Loader size={48} />
+            <div className="text-lg font-nekstmedium text-gray-700">
+              Загрузка результатов...
+            </div>
+            <button
+              onClick={() => {
+                loadingCancelledRef.current = true;
+                setLoadingView(false);
+                setSelected(null);
+              }}
+              className="mt-2 inline-flex items-center justify-center px-5 py-2.5 text-sm font-nekstmedium text-gray-600 bg-white border border-gray-200 rounded-xl hover:text-gray-900 hover:border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-200 transition-all duration-200"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* modal */}
-      {selected && (
+      {selected && !loadingView && (
         <div
           style={{ position: 'fixed', inset: 0, zIndex: 9999 }}
           className="flex items-start justify-center p-3 sm:p-6 pt-12 bg-slate-900/40 backdrop-blur-sm"
@@ -1043,207 +1482,174 @@ export default function FriendlyOrdersPanel() {
             </div>
 
             {/* body scrollable */}
-            <div className="overflow-auto p-5 grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
-              {/* main */}
-              <div className="lg:col-span-2 space-y-5">
-                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-                  <div className=" items-center justify-between">
-                    <div className="text-left">
-                      <div className="text-xs text-slate-500">Телефон</div>
-                      <div className="text-sm font-nekstregular mt-1 flex items-center gap-3">
-                        <span className="truncate max-w-xs">
-                          {selected.contractorPhone ?? '—'}
-                        </span>
-                        {selected.contractorPhone && (
-                          <button
-                            onClick={() => {
-                              navigator.clipboard?.writeText(
-                                String(selected.contractorPhone),
-                              );
-                              alert('Телефон скопирован');
-                            }}
-                            className="text-xs text-emerald-600 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50"
-                          >
-                            <Copy size={14} /> Копировать
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <div className="text-xs text-slate-500">
-                        Временные рамки
-                      </div>
-                      <div className="text-sm mt-1">
-                        {humanDate(selected.dataStart)} —{' '}
-                        {humanDate(selected.dataEnd)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-sm font-nekstmedium text-slate-700 mb-4">
-                    Подробности заказа
-                  </div>
-                  <div className="space-y-3">
-                    {/* Тип обработки */}
-                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
-                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
-                        Тип обработки
-                      </div>
-                      <div className="text-sm text-slate-700">
-                        {TYPE_LABEL[Number(selected.typeProcessId ?? -1)] ??
-                          `Тип #${String(selected.typeProcessId ?? '—')}`}
-                      </div>
-                    </div>
-
-                    {/* Статус */}
-                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
-                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
-                        Статус
-                      </div>
-                      <div className="text-sm text-slate-700">
-                        {STATUS_LABEL[(selected.status ?? '').toLowerCase()] ??
-                          selected.status ??
-                          '—'}
-                      </div>
-                    </div>
-
-                    {/* Дата создания */}
-                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
-                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
-                        Дата создания
-                      </div>
-                      <div className="text-sm text-slate-700">
-                        {humanDate(selected.createdAt)}
-                      </div>
-                    </div>
-
-                    {/* Период выполнения */}
-                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
-                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
-                        Период выполнения
-                      </div>
-                      <div className="text-sm text-slate-700">
-                        {humanDate(selected.dataStart)} —{' '}
-                        {humanDate(selected.dataEnd)}
-                      </div>
-                    </div>
-
-                    {/* Материалы */}
-                    <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
-                      <div className="text-xs text-slate-400 w-32 flex-shrink-0">
-                        Материалы
-                      </div>
-                      <div className="text-sm text-slate-700">
-                        {selected.materialsProvided ? (
-                          <span className="text-emerald-600 font-nekstregular">
-                            ✓ Предоставлены
+            <div className="overflow-auto p-5 flex-1">
+              {/* wrapper для левой и правой части */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* main */}
+                <div className="lg:col-span-2 space-y-5">
+                  <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className=" items-center justify-between">
+                      <div className="text-left">
+                        <div className="text-xs text-slate-500">Телефон</div>
+                        <div className="text-sm font-nekstregular mt-1 flex items-center gap-3">
+                          <span className="truncate max-w-xs">
+                            {selected.contractorPhone ?? '—'}
                           </span>
-                        ) : (
-                          <span className="text-amber-600">
-                            ✗ Не предоставлены
-                          </span>
-                        )}
+                          {selected.contractorPhone && (
+                            <button
+                              onClick={() => {
+                                navigator.clipboard?.writeText(
+                                  String(selected.contractorPhone),
+                                );
+                                alert('Телефон скопирован');
+                              }}
+                              className="text-xs text-emerald-600 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-50"
+                            >
+                              <Copy size={14} /> Копировать
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Дополнительные поля пользователя */}
-                    {Object.entries(selected.contractorProfile || {})
-                      .filter(
-                        ([k, v]) =>
-                          v !== undefined && v !== null && String(v) !== '',
-                      )
-                      .map(([k, v]) => (
-                        <div
-                          key={k}
-                          className="flex items-start gap-3 pb-3 border-b border-slate-100"
-                        >
-                          <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
-                            {USER_FIELD_LABELS[`contractorProfile.${k}`] ||
-                              k.replace(/([A-Z])/g, ' $1')}
-                          </div>
-                          <div className="text-sm text-slate-700 break-words">
-                            {String(v)}
-                          </div>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <div className="text-xs text-slate-500">
+                          Временные рамки
                         </div>
-                      ))}
-                  </div>
-                </div>
-
-                {/* Информация о контракторе */}
-                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-sm font-nekstmedium text-slate-700 mb-4">
-                    Информация о контракторе
-                  </div>
-                  <div className="space-y-3">
-                    {Object.entries(selected)
-                      .filter(([k]) =>
-                        [
-                          'contractorName',
-                          'contractorLastName',
-                          'contractorEmail',
-                          'contractorPhone',
-                        ].includes(k),
-                      )
-                      .map(([k, v]) => (
-                        <div
-                          key={k}
-                          className="flex items-start gap-3 pb-3 border-b border-slate-100"
-                        >
-                          <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
-                            {USER_FIELD_LABELS[k] ||
-                              k.replace(/([A-Z])/g, ' $1')}
-                          </div>
-                          <div className="text-sm text-slate-700 break-words">
-                            {String(v)}
-                          </div>
+                        <div className="text-sm mt-1">
+                          {humanDate(selected.dataStart)} —{' '}
+                          {humanDate(selected.dataEnd)}
                         </div>
-                      ))}
-
-                    {/* Профиль контрактора */}
-                    {Object.entries(selected.contractorProfile || {})
-                      .filter(
-                        ([k, v]) =>
-                          v !== undefined &&
-                          v !== null &&
-                          String(v) !== '' &&
-                          typeof v !== 'object',
-                      )
-                      .map(([k, v]) => (
-                        <div
-                          key={k}
-                          className="flex items-start gap-3 pb-3 border-b border-slate-100"
-                        >
-                          <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
-                            {USER_FIELD_LABELS[`contractorProfile.${k}`] ||
-                              k.replace(/([A-Z])/g, ' $1')}
-                          </div>
-                          <div className="text-sm text-slate-700 break-words">
-                            {String(v)}
-                          </div>
-                        </div>
-                      ))}
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                {/* Информация об операторе */}
-                {selected.operatorId && (
                   <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
                     <div className="text-sm font-nekstmedium text-slate-700 mb-4">
-                      Информация об операторе
+                      Подробности заказа
+                    </div>
+                    <div className="space-y-3">
+                      {/* Тип заказа */}
+                      <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                        <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                          Тип заказа
+                        </div>
+                        <div className="text-sm">
+                          <span
+                            className={`inline-flex items-center px-3 py-1 rounded-lg font-nekstmedium text-xs ${
+                              selected.orderType === 'SPLIT'
+                                ? 'bg-purple-50 text-purple-700'
+                                : 'bg-blue-50 text-blue-700'
+                            }`}
+                          >
+                            {selected.orderType === 'SPLIT'
+                              ? 'Разбиение'
+                              : 'Обычный'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Тип обработки */}
+                      <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                        <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                          Тип обработки
+                        </div>
+                        <div className="text-sm text-slate-700">
+                          {TYPE_LABEL[Number(selected.typeProcessId ?? -1)] ??
+                            `Тип #${String(selected.typeProcessId ?? '—')}`}
+                        </div>
+                      </div>
+
+                      {/* Статус */}
+                      <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                        <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                          Статус
+                        </div>
+                        <div className="text-sm text-slate-700">
+                          {STATUS_LABEL[
+                            (selected.status ?? '').toLowerCase()
+                          ] ??
+                            selected.status ??
+                            '—'}
+                        </div>
+                      </div>
+
+                      {/* Дата создания */}
+                      <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                        <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                          Дата создания
+                        </div>
+                        <div className="text-sm text-slate-700">
+                          {humanDate(selected.createdAt)}
+                        </div>
+                      </div>
+
+                      {/* Период выполнения */}
+                      <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                        <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                          Период выполнения
+                        </div>
+                        <div className="text-sm text-slate-700">
+                          {humanDate(selected.dataStart)} —{' '}
+                          {humanDate(selected.dataEnd)}
+                        </div>
+                      </div>
+
+                      {/* Материалы */}
+                      <div className="flex items-start gap-3 pb-3 border-b border-slate-100">
+                        <div className="text-xs text-slate-400 w-32 flex-shrink-0">
+                          Материалы
+                        </div>
+                        <div className="text-sm text-slate-700">
+                          {selected.materialsProvided ? (
+                            <span className="text-emerald-600 font-nekstregular">
+                              ✓ Предоставлены
+                            </span>
+                          ) : (
+                            <span className="text-amber-600">
+                              ✗ Не предоставлены
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Дополнительные поля пользователя */}
+                      {Object.entries(selected.contractorProfile || {})
+                        .filter(
+                          ([k, v]) =>
+                            v !== undefined && v !== null && String(v) !== '',
+                        )
+                        .map(([k, v]) => (
+                          <div
+                            key={k}
+                            className="flex items-start gap-3 pb-3 border-b border-slate-100"
+                          >
+                            <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
+                              {USER_FIELD_LABELS[`contractorProfile.${k}`] ||
+                                k.replace(/([A-Z])/g, ' $1')}
+                            </div>
+                            <div className="text-sm text-slate-700 break-words">
+                              {String(v)}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Информация о контракторе */}
+                  <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="text-sm font-nekstmedium text-slate-700 mb-4">
+                      Информация о контракторе
                     </div>
                     <div className="space-y-3">
                       {Object.entries(selected)
                         .filter(([k]) =>
                           [
-                            'operatorName',
-                            'operatorLastName',
-                            'operatorEmail',
-                            'operatorPhone',
+                            'contractorName',
+                            'contractorLastName',
+                            'contractorEmail',
+                            'contractorPhone',
                           ].includes(k),
                         )
                         .map(([k, v]) => (
@@ -1260,112 +1666,275 @@ export default function FriendlyOrdersPanel() {
                             </div>
                           </div>
                         ))}
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              {/* right */}
-              <aside className="space-y-4">
-                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="text-xs text-slate-500">
-                      Назначение оператора
-                    </div>
-                    {selected.operatorId !== null && (
-                      <div className="text-xs text-emerald-600 font-nekstmedium truncate">
-                        Назначен
-                      </div>
-                    )}
-                  </div>
-
-                  {selected.operatorId !== null &&
-                  selected.operatorId !== undefined ? (
-                    <div className="w-full px-3 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
-                      <div className="font-nekstregular flex gap-[0px] justify-between">
-                        {selected.operatorName ??
-                          `Оператор #${selected.operatorId}`}
-                        {(() => {
-                          const operator = operators.find(
-                            (op) => op.id === selected.operatorId,
-                          );
-                          return operator ? (
-                            <div className="text-xs text-slate-500 mt-1">
-                              {operator.email}
+                      {/* Профиль контрактора */}
+                      {Object.entries(selected.contractorProfile || {})
+                        .filter(
+                          ([k, v]) =>
+                            v !== undefined &&
+                            v !== null &&
+                            String(v) !== '' &&
+                            typeof v !== 'object',
+                        )
+                        .map(([k, v]) => (
+                          <div
+                            key={k}
+                            className="flex items-start gap-3 pb-3 border-b border-slate-100"
+                          >
+                            <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
+                              {USER_FIELD_LABELS[`contractorProfile.${k}`] ||
+                                k.replace(/([A-Z])/g, ' $1')}
                             </div>
-                          ) : null;
-                        })()}
-                      </div>
+                            <div className="text-sm text-slate-700 break-words">
+                              {String(v)}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
 
-                      <div className="text-xs text-slate-500 mt-1">
-                        Оператор уже назначен и не может быть изменен
+                  {/* Информация об операторе */}
+                  {selected.operatorId && (
+                    <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="text-sm font-nekstmedium text-slate-700 mb-4">
+                        Информация об операторе
+                      </div>
+                      <div className="space-y-3">
+                        {Object.entries(selected)
+                          .filter(([k]) =>
+                            [
+                              'operatorName',
+                              'operatorLastName',
+                              'operatorEmail',
+                              'operatorPhone',
+                            ].includes(k),
+                          )
+                          .map(([k, v]) => (
+                            <div
+                              key={k}
+                              className="flex items-start gap-3 pb-3 border-b border-slate-100"
+                            >
+                              <div className="text-xs text-slate-400 w-32 flex-shrink-0 capitalize">
+                                {USER_FIELD_LABELS[k] ||
+                                  k.replace(/([A-Z])/g, ' $1')}
+                              </div>
+                              <div className="text-sm text-slate-700 break-words">
+                                {String(v)}
+                              </div>
+                            </div>
+                          ))}
                       </div>
                     </div>
-                  ) : (
-                    <ModernSelect
-                      // width={200}
-                      isFull
-                      height={44}
-                      dropdownMaxHeight={250}
-                      label="Оператор"
-                      options={[
-                        ...(operatorLoading
-                          ? ['Загрузка...']
-                          : [
-                              'Не назначен',
-                              ...operators.map(
-                                (op) =>
-                                  `${op.firstName} ${op.lastName} (${op.email})`,
-                              ),
-                            ]),
-                      ]}
-                      value={(() => {
-                        if (operatorLoading) return 'Загрузка...';
-                        if (selectedOperatorId === null) return 'Не назначен';
-                        const found = operators.find(
-                          (op) => op.id === selectedOperatorId,
-                        );
-                        return found
-                          ? `${found.firstName} ${found.lastName} (${found.email})`
-                          : 'Не назначен';
-                      })()}
-                      onChange={(val) => {
-                        if (val === 'Не назначен' || val === 'Загрузка...') {
-                          setSelectedOperatorId(null);
-                        } else {
-                          const found = operators.find(
-                            (op) =>
-                              `${op.firstName} ${op.lastName} (${op.email})` ===
-                              val,
-                          );
-                          setSelectedOperatorId(found ? found.id : null);
-                        }
-                      }}
-                      disabled={
-                        operatorLoading || updatingId === selected.orderId
-                      }
-                      placeholder="Выберите оператора"
-                    />
                   )}
                 </div>
 
-                <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
-                  <div className="text-xs text-slate-500">Текущий статус</div>
-                  <div className="mt-3">
-                    <div
-                      className={`inline-block px-3 py-2 rounded-full font-nekstmedium ${statusBadgeClass(pendingStatus ?? selected.status)}`}
-                      style={{ minWidth: 120, textAlign: 'center' }}
-                    >
-                      {STATUS_LABEL[
-                        (pendingStatus ?? selected.status ?? '').toLowerCase()
-                      ] ??
-                        pendingStatus ??
-                        selected.status ??
-                        '—'}
+                {/* right */}
+                <aside className="space-y-4">
+                  <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs text-slate-500">
+                        Назначение оператора
+                      </div>
+                      {selected.operatorId !== null && (
+                        <div className="text-xs text-emerald-600 font-nekstmedium truncate">
+                          Назначен
+                        </div>
+                      )}
+                    </div>
+
+                    {selected.operatorId !== null &&
+                    selected.operatorId !== undefined ? (
+                      <div className="w-full px-3 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-700">
+                        <div className="font-nekstregular flex gap-[0px] justify-between">
+                          {selected.operatorName ??
+                            `Оператор #${selected.operatorId}`}
+                          {(() => {
+                            const operator = operators.find(
+                              (op) => op.id === selected.operatorId,
+                            );
+                            return operator ? (
+                              <div className="text-xs text-slate-500 mt-1">
+                                {operator.email}
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+
+                        <div className="text-xs text-slate-500 mt-1">
+                          Оператор уже назначен и не может быть изменен
+                        </div>
+                      </div>
+                    ) : (
+                      <ModernSelect
+                        // width={200}
+                        isFull
+                        height={44}
+                        dropdownMaxHeight={250}
+                        label="Оператор"
+                        options={[
+                          ...(operatorLoading
+                            ? ['Загрузка...']
+                            : [
+                                'Не назначен',
+                                ...operators.map(
+                                  (op) =>
+                                    `${op.firstName} ${op.lastName} (${op.email})`,
+                                ),
+                              ]),
+                        ]}
+                        value={(() => {
+                          if (operatorLoading) return 'Загрузка...';
+                          if (selectedOperatorId === null) return 'Не назначен';
+                          const found = operators.find(
+                            (op) => op.id === selectedOperatorId,
+                          );
+                          return found
+                            ? `${found.firstName} ${found.lastName} (${found.email})`
+                            : 'Не назначен';
+                        })()}
+                        onChange={(val) => {
+                          if (val === 'Не назначен' || val === 'Загрузка...') {
+                            setSelectedOperatorId(null);
+                          } else {
+                            const found = operators.find(
+                              (op) =>
+                                `${op.firstName} ${op.lastName} (${op.email})` ===
+                                val,
+                            );
+                            setSelectedOperatorId(found ? found.id : null);
+                          }
+                        }}
+                        disabled={
+                          operatorLoading || updatingId === selected.orderId
+                        }
+                        placeholder="Выберите оператора"
+                      />
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="text-xs text-slate-500">Текущий статус</div>
+                    <div className="mt-3">
+                      <div
+                        className={`inline-block px-3 py-2 rounded-full font-nekstmedium ${statusBadgeClass(pendingStatus ?? selected.status)}`}
+                        style={{ minWidth: 120, textAlign: 'center' }}
+                      >
+                        {STATUS_LABEL[
+                          (pendingStatus ?? selected.status ?? '').toLowerCase()
+                        ] ??
+                          pendingStatus ??
+                          selected.status ??
+                          '—'}
+                      </div>
                     </div>
                   </div>
+                </aside>
+              </div>
+
+              {/* Результаты обработки - full width */}
+              {selected.metadata?.processed && (
+                <div className="w-full mt-6">
+                  <div className="rounded-2xl bg-white p-3 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex flex-col gap-3 mb-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-nekstmedium text-slate-700">
+                          Результаты обработки
+                        </div>
+                      </div>
+                      {selected.metadata.latestInput?.createdAt && (
+                        <div className="text-xs text-slate-400 font-nekstregular">
+                          {new Date(
+                            selected.metadata.latestInput.createdAt,
+                          ).toLocaleString('ru-RU')}
+                        </div>
+                      )}
+                    </div>
+
+                    {loadingResults && (
+                      <div className="flex flex-col items-center justify-center py-8 sm:py-12 gap-2">
+                        <Loader size={32} />
+                        <span className="text-slate-600 text-xs sm:text-sm">
+                          Загрузка результатов...
+                        </span>
+                      </div>
+                    )}
+
+                    {!loadingResults &&
+                      selected.metadata.analyticsImages &&
+                      Object.keys(selected.metadata.analyticsImages).length >
+                        0 && (
+                        <div className="space-y-3">
+                          <div className="text-xs text-slate-500 uppercase tracking-wide">
+                            Изображения
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
+                            {Object.entries(
+                              selected.metadata.analyticsImages,
+                            ).map(([name, dataUrl]) => {
+                              if (!dataUrl) return null;
+                              return (
+                                <div
+                                  key={name}
+                                  className="relative group cursor-pointer rounded-xl overflow-hidden bg-slate-50 shadow-sm hover:shadow-md transition-all"
+                                  onClick={() => setModalImage(dataUrl)}
+                                >
+                                  <img
+                                    src={dataUrl}
+                                    alt={name}
+                                    className="w-full h-auto"
+                                  />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <svg
+                                      className="w-6 h-6 sm:w-8 sm:h-8 text-white"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                                      />
+                                    </svg>
+                                  </div>
+                                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 sm:p-2">
+                                    <div className="text-[10px] sm:text-xs text-white font-nekstmedium truncate">
+                                      {name
+                                        .replace(/([A-Z])/g, ' $1')
+                                        .replace(/Image$/, '')
+                                        .trim()}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                    {!loadingResults &&
+                      selected.metadata.analyticsTables &&
+                      (() => {
+                        const orderedTables = getOrderedTables(
+                          selected.metadata.analyticsTables,
+                        );
+                        return orderedTables.length > 0 ? (
+                          <div className="space-y-3 mt-4 sm:mt-5 pt-4 sm:pt-5 border-t border-slate-100">
+                            <div className="text-xs text-slate-500 uppercase tracking-wide">
+                              Таблицы данных
+                            </div>
+                            <div className="space-y-2 sm:space-y-3 max-w-full overflow-hidden">
+                              {orderedTables.map(([name, rows]) =>
+                                renderTableCard(name, rows),
+                              )}
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
+                  </div>
                 </div>
-              </aside>
+              )}
             </div>
 
             {/* footer */}
@@ -1394,6 +1963,41 @@ export default function FriendlyOrdersPanel() {
                   : 'Подтвердить'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Image zoom modal */}
+      {modalImage && (
+        <div
+          className="fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setModalImage(null)}
+        >
+          <div className="relative max-w-7xl max-h-full">
+            <button
+              onClick={() => setModalImage(null)}
+              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/80 hover:bg-white flex items-center justify-center text-slate-800 transition-colors shadow-lg z-10"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+            <img
+              src={modalImage}
+              alt="Увеличенное изображение"
+              className="max-w-full max-h-[90vh] rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
           </div>
         </div>
       )}
