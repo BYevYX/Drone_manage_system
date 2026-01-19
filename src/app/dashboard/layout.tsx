@@ -288,6 +288,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     notifications.filter((n) => !n.read).length,
   );
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = fullPathname ? fullPathname.replace('/dashboard/', '') : '';
   const [activeMenu, setActiveMenu] = useState(pathname);
   const [firstName, setFirstName] = useState('');
@@ -307,6 +308,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   // Синхронизируем activeMenu с изменениями pathname
   useEffect(() => {
     setActiveMenu(pathname);
+  }, [pathname]);
+
+  // Закрываем мобильное меню при изменении маршрута
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    if (typeof document !== 'undefined') {
+      document.body.style.overflow = '';
+    }
   }, [pathname]);
 
   useEffect(() => {
@@ -374,7 +383,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <ActiveMenuContext.Provider value={{ activeMenu, setActiveMenu }}>
       <div className="wrapper">
         <div className="flex min-h-[100vh] bg-gradient-to-br from-gray-50 to-gray-100 font-sans text-gray-900">
-          {/* Sidebar */}
+          {/* Desktop Sidebar - скрыт на мобилках */}
           <motion.aside
             initial={false}
             animate={{
@@ -382,11 +391,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               boxShadow: sidebarOpen
                 ? '0 6px 32px 0 rgba(31,38,135,0.17), 0 1.5px 8px 0 rgba(31,38,135,0.06)'
                 : '0 1px 2px 0 rgba(31,38,135,0.07)',
-              // borderRadius: sidebarOpen ? '0 2rem 2rem 0' : '0 2.3rem 2.3rem 0',
               margin: '0',
               background: 'white',
             }}
-            className={`border-r border-gray-200 flex flex-col transition-all duration-300 overflow-hidden`}
+            className={`hidden lg:flex border-r border-gray-200 flex-col transition-all duration-300 overflow-hidden`}
             style={{ minHeight: '100vh' }}
           >
             <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100">
@@ -479,12 +487,55 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </motion.aside>
 
           {/* Main */}
-          <main className="flex-1 flex flex-col overflow-hidden z-1000 pb-[130px]">
-            <header className="flex items-center justify-between h-16 px-6 bg-white border-b border-gray-100 shadow-sm py-[15px]">
-              <h2 className="text-xl font-semibold capitalize">
-                {roleData.menu.find((m) => m.id === activeMenu)?.label ??
-                  roleData.menu[0].label}
-              </h2>
+          <main className="flex-1 flex flex-col overflow-hidden pb-[130px]">
+            <header className="flex items-center justify-between h-16 px-4 lg:px-6 bg-white border-b border-gray-100 shadow-sm py-[15px]">
+              {/* Бургер кнопка для мобилок */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(!mobileMenuOpen);
+                    if (typeof document !== 'undefined') {
+                      document.body.style.overflow = mobileMenuOpen
+                        ? ''
+                        : 'hidden';
+                    }
+                  }}
+                  className="lg:hidden p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Открыть меню"
+                >
+                  <motion.div
+                    animate={mobileMenuOpen ? 'open' : 'closed'}
+                    className="w-6 h-5 flex flex-col justify-between"
+                  >
+                    <motion.span
+                      variants={{
+                        closed: { rotate: 0, y: 0 },
+                        open: { rotate: 45, y: 8 },
+                      }}
+                      className="w-full h-0.5 bg-gray-700 rounded transition-all"
+                    />
+                    <motion.span
+                      variants={{
+                        closed: { opacity: 1 },
+                        open: { opacity: 0 },
+                      }}
+                      className="w-full h-0.5 bg-gray-700 rounded transition-all"
+                    />
+                    <motion.span
+                      variants={{
+                        closed: { rotate: 0, y: 0 },
+                        open: { rotate: -45, y: -8 },
+                      }}
+                      className="w-full h-0.5 bg-gray-700 rounded transition-all"
+                    />
+                  </motion.div>
+                </button>
+
+                <h2 className="text-lg lg:text-xl font-nekstmedium capitalize">
+                  {roleData.menu.find((m) => m.id === activeMenu)?.label ??
+                    roleData.menu[0].label}
+                </h2>
+              </div>
 
               <div className="flex items-center gap-4">
                 {/* <div className="relative">
@@ -551,6 +602,119 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               {children}
             </section>
           </main>
+
+          {/* Mobile Sidebar - выдвижное меню */}
+          <AnimatePresence>
+            {mobileMenuOpen && (
+              <>
+                {/* Backdrop */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    if (typeof document !== 'undefined') {
+                      document.body.style.overflow = '';
+                    }
+                  }}
+                  className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9998] lg:hidden"
+                />
+
+                {/* Sidebar */}
+                <motion.aside
+                  initial={{ x: '-100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '-100%' }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                  className="fixed top-0 left-0 h-full w-[280px] bg-white shadow-2xl z-[9999] flex flex-col lg:hidden"
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100">
+                    <Link
+                      href="/"
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        if (typeof document !== 'undefined') {
+                          document.body.style.overflow = '';
+                        }
+                      }}
+                    >
+                      <h1 className="text-2xl font-extrabold text-emerald-600 font-nekstmedium">
+                        DroneAgro
+                      </h1>
+                    </Link>
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        if (typeof document !== 'undefined') {
+                          document.body.style.overflow = '';
+                        }
+                      }}
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      aria-label="Закрыть меню"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                  </div>
+
+                  {/* Navigation */}
+                  <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+                    {roleData.menu.map((item) => (
+                      <Link
+                        href={`/dashboard/${item.id}`}
+                        key={item.id}
+                        onClick={() => {
+                          setActiveMenu(item.id);
+                          setMobileMenuOpen(false);
+                          if (typeof document !== 'undefined') {
+                            document.body.style.overflow = '';
+                          }
+                        }}
+                      >
+                        <motion.button
+                          whileTap={{ scale: 0.98 }}
+                          className={`flex items-center w-full px-4 py-3 rounded-xl transition-all font-nekstmedium gap-3 ${
+                            activeMenu === item.id
+                              ? 'bg-emerald-500 text-white shadow-md'
+                              : 'text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          <span>{item.icon}</span>
+                          <span className="font-nekstregular">
+                            {item.label}
+                          </span>
+                        </motion.button>
+                      </Link>
+                    ))}
+                  </nav>
+
+                  {/* Footer info */}
+                  <div className="p-4 border-t border-gray-100">
+                    <div className="flex items-center gap-3 px-2">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                        <User size={20} className="text-emerald-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-nekstmedium text-gray-900 truncate">
+                          {firstName} {lastName}
+                        </div>
+                        <div className="text-xs text-gray-500 font-nekstregular capitalize">
+                          {roleKey === 'contractor'
+                            ? 'Заказчик'
+                            : roleKey === 'manager'
+                              ? 'Менеджер'
+                              : roleKey === 'operator'
+                                ? 'Оператор'
+                                : roleKey}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.aside>
+              </>
+            )}
+          </AnimatePresence>
         </div>
         <Footer />
       </div>

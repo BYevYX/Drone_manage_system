@@ -1145,10 +1145,10 @@ export default function FriendlyOrdersPanel() {
 
   // --- UI render
   return (
-    <div className="p-4 sm:p-6 space-y-6 bg-gradient-to-b from-slate-50 to-white min-h-screen">
-      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6 bg-gradient-to-b from-slate-50 to-white min-h-screen">
+      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
         <div>
-          <h1 className="text-2xl font-nekstmedium text-slate-900">
+          <h1 className="text-xl sm:text-2xl font-nekstmedium text-slate-900">
             Панель заказов — Менеджер
           </h1>
         </div>
@@ -1157,46 +1157,47 @@ export default function FriendlyOrdersPanel() {
           <button
             onClick={() => fetchOrders()}
             title="Обновить"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/70 shadow-sm hover:shadow-md transition"
+            className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-lg bg-white/70 shadow-sm hover:shadow-md transition text-sm md:text-base"
           >
-            <RefreshCw size={16} /> Обновить
+            <RefreshCw size={16} className="md:block" />{' '}
+            <span className="hidden sm:inline">Обновить</span>
           </button>
         </div>
       </header>
 
       <section aria-label="summary">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg">
-            <div className="text-xs text-slate-500 uppercase tracking-wide">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-3 md:p-5 shadow-lg">
+            <div className="text-[10px] md:text-xs text-slate-500 uppercase tracking-wide">
               Всего заказов
             </div>
-            <div className="text-3xl font-nekstmedium mt-3 text-slate-900">
+            <div className="text-xl md:text-3xl font-nekstmedium mt-2 md:mt-3 text-slate-900">
               {allOrders.length}
             </div>
-            <div className="text-xs text-slate-400 mt-2">
+            <div className="text-[10px] md:text-xs text-slate-400 mt-1 md:mt-2">
               Общее кол-во заказов
             </div>
           </div>
-          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg">
-            <div className="text-xs text-slate-500 uppercase tracking-wide">
+          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-3 md:p-5 shadow-lg">
+            <div className="text-[10px] md:text-xs text-slate-500 uppercase tracking-wide">
               Обработаны
             </div>
-            <div className="text-3xl font-nekstmedium mt-3 text-yellow-600">
+            <div className="text-xl md:text-3xl font-nekstmedium mt-2 md:mt-3 text-yellow-600">
               {
                 allOrders.filter(
                   (o) => (o.status ?? '').toLowerCase() === 'processed',
                 ).length
               }
             </div>
-            <div className="text-xs text-slate-400 mt-2">
+            <div className="text-[10px] md:text-xs text-slate-400 mt-1 md:mt-2">
               Обработанные оператором заказы
             </div>
           </div>
-          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg">
-            <div className="text-xs text-slate-500 uppercase tracking-wide">
+          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-3 md:p-5 shadow-lg">
+            <div className="text-[10px] md:text-xs text-slate-500 uppercase tracking-wide">
               В работе
             </div>
-            <div className="text-3xl font-nekstmedium mt-3 text-sky-600">
+            <div className="text-xl md:text-3xl font-nekstmedium mt-2 md:mt-3 text-sky-600">
               {
                 allOrders.filter((o) => {
                   const st = (o.status ?? '').toLowerCase();
@@ -1204,20 +1205,22 @@ export default function FriendlyOrdersPanel() {
                 }).length
               }
             </div>
-            <div className="text-xs text-slate-400 mt-2">Заказов в работе</div>
+            <div className="text-[10px] md:text-xs text-slate-400 mt-1 md:mt-2">
+              Заказов в работе
+            </div>
           </div>
-          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-5 shadow-lg flex flex-col justify-between">
-            <div className="text-xs text-slate-500 uppercase tracking-wide">
+          <div className="rounded-2xl bg-white/60 backdrop-blur-md p-3 md:p-5 shadow-lg flex flex-col justify-between">
+            <div className="text-[10px] md:text-xs text-slate-500 uppercase tracking-wide">
               Завершены
             </div>
-            <div className="text-3xl font-nekstmedium mt-3 text-green-600">
+            <div className="text-xl md:text-3xl font-nekstmedium mt-2 md:mt-3 text-green-600">
               {
                 allOrders.filter(
                   (o) => (o.status ?? '').toLowerCase() === 'completed',
                 ).length
               }
             </div>
-            <div className="text-xs text-slate-400 mt-2">
+            <div className="text-[10px] md:text-xs text-slate-400 mt-1 md:mt-2">
               Завершенные заказы
             </div>
           </div>
@@ -1244,9 +1247,9 @@ export default function FriendlyOrdersPanel() {
               </div>
 
               {/* Filters */}
-              <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <ModernSelect
-                  width={220}
+                  width="100%"
                   height={44}
                   label="Статус заказа"
                   options={STATUS_OPTIONS_RU}
@@ -1262,7 +1265,7 @@ export default function FriendlyOrdersPanel() {
                 />
 
                 <ModernSelect
-                  width={220}
+                  width="100%"
                   height={44}
                   label="Тип заказа"
                   options={ORDER_TYPE_OPTIONS}
@@ -1274,7 +1277,7 @@ export default function FriendlyOrdersPanel() {
                 />
 
                 <ModernSelect
-                  width={220}
+                  width="100%"
                   height={44}
                   label="Сортировка"
                   options={SORT_OPTIONS.map((opt) => opt.label)}
@@ -1310,14 +1313,14 @@ export default function FriendlyOrdersPanel() {
                   key={o.orderId}
                   className="group relative rounded-2xl bg-white/60 backdrop-blur-md shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-[2px] border border-white/20 overflow-hidden"
                 >
-                  <div className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  <div className="p-3 sm:p-4 md:p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-4">
                     {/* Left block */}
-                    <div className="flex items-start gap-4">
-                      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-900 flex flex-col items-center justify-center shadow-inner">
-                        <div className="text-[10px] uppercase tracking-wide">
+                    <div className="flex items-start gap-3 md:gap-4">
+                      <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-900 flex flex-col items-center justify-center shadow-inner">
+                        <div className="text-[8px] md:text-[10px] uppercase tracking-wide">
                           Заказ
                         </div>
-                        <div className="text-base font-nekstmedium">
+                        <div className="text-sm md:text-base font-nekstmedium">
                           #{o.orderId}
                         </div>
                       </div>
@@ -1339,23 +1342,23 @@ export default function FriendlyOrdersPanel() {
                     </div>
 
                     {/* Right block */}
-                    <div className="flex flex-wrap items-center gap-3 justify-end">
+                    <div className="flex flex-wrap items-center gap-2 md:gap-3 justify-end">
                       {/* Тип заказа */}
                       <div
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-nekstmedium backdrop-blur transition-all duration-200 hover:scale-105 ${
+                        className={`inline-flex items-center gap-1 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-nekstmedium backdrop-blur transition-all duration-200 hover:scale-105 ${
                           o.orderType === 'SPLIT'
                             ? 'bg-purple-100 text-purple-800'
                             : 'bg-blue-100 text-blue-800'
                         }`}
-                        style={{ minWidth: 100, justifyContent: 'center' }}
+                        style={{ minWidth: 80, justifyContent: 'center' }}
                       >
                         {o.orderType === 'SPLIT' ? 'Разбиение' : 'Обычный'}
                       </div>
 
                       {/* Статус */}
                       <div
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-nekstmedium backdrop-blur ${statusBadgeClass(o.status)} transition-all duration-200 hover:scale-105`}
-                        style={{ minWidth: 120, justifyContent: 'center' }}
+                        className={`inline-flex items-center gap-1 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-nekstmedium backdrop-blur ${statusBadgeClass(o.status)} transition-all duration-200 hover:scale-105`}
+                        style={{ minWidth: 90, justifyContent: 'center' }}
                       >
                         {statusBadgeIcon(o.status)}
                         {STATUS_LABEL_RU[o.status as string] ?? o.status ?? '—'}
@@ -1363,13 +1366,15 @@ export default function FriendlyOrdersPanel() {
 
                       <button
                         onClick={() => openModal(o)}
-                        className="px-4 py-2 rounded-xl bg-white shadow-sm hover:shadow-md font-nekstregular transition inline-flex items-center gap-2 min-w-[120px] justify-center"
+                        className="px-3 md:px-4 py-2 rounded-xl bg-white shadow-sm hover:shadow-md font-nekstregular transition inline-flex items-center gap-2 min-w-[100px] justify-center text-xs md:text-sm"
                         disabled={viewLoadingId === o.orderId}
                       >
                         {viewLoadingId === o.orderId ? (
                           <>
                             <Loader size={18} />
-                            Загрузка...
+                            <span className="hidden sm:inline">
+                              Загрузка...
+                            </span>
                           </>
                         ) : (
                           <>
@@ -1379,7 +1384,7 @@ export default function FriendlyOrdersPanel() {
                         )}
                       </button>
 
-                      <div className="relative">
+                      <div className="relative w-full sm:w-auto">
                         <button
                           onClick={(e) => {
                             const btn = e.currentTarget as HTMLElement;
@@ -1390,9 +1395,12 @@ export default function FriendlyOrdersPanel() {
                               openDropdownFor(o.orderId, btn);
                             }
                           }}
-                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-nekstregular shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/40 transition inline-flex items-center gap-2"
+                          className="px-3 md:px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-white font-nekstregular shadow-lg shadow-emerald-600/20 hover:shadow-emerald-600/40 transition inline-flex items-center gap-2 w-full sm:w-auto justify-center text-xs md:text-sm"
                         >
-                          Изменить статус
+                          <span className="hidden sm:inline">
+                            Изменить статус
+                          </span>
+                          <span className="sm:hidden">Статус</span>
                           <ChevronDown size={14} />
                         </button>
                       </div>
@@ -1442,8 +1450,8 @@ export default function FriendlyOrdersPanel() {
         >
           <div className="relative w-full max-w-5xl mx-auto flex flex-col bg-white/90 backdrop-blur-xl rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.18)] max-h-[90vh]">
             {/* header */}
-            <div className="flex items-center justify-between gap-4 px-6 py-4 bg-gradient-to-r rounded-3xl from-emerald-50/60 to-white/40 shadow-sm flex-shrink-0">
-              <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between gap-4 px-6 py-4 bg-gradient-to-r rounded-3xl from-emerald-50/60 to-white/40 shadow-sm min-w-0">
+              <div className="flex items-center gap-4 min-w-0 flex-1">
                 <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center text-2xl font-nekstmedium text-emerald-800 shadow">
                   {String(selected.orderId).slice(-2)}
                 </div>
@@ -1458,15 +1466,16 @@ export default function FriendlyOrdersPanel() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 md:gap-3 shrink-0">
                 <div
-                  className={`inline-flex items-center gap-1 px-3 py-2 rounded-full font-nekstregular text-sm ${statusBadgeClass(selected.status)}`}
-                  style={{ minWidth: 120, justifyContent: 'center' }}
+                  className={`inline-flex items-center gap-1 px-2 md:px-3 py-1.5 md:py-2 rounded-full font-nekstregular text-xs md:text-sm min-w-[60px] md:min-w-[80px] max-w-[110px] overflow-hidden justify-center ${statusBadgeClass(selected.status)}`}
                 >
                   {statusBadgeIcon(selected.status)}
-                  {STATUS_LABEL[(selected.status ?? '').toLowerCase()] ??
-                    selected.status ??
-                    '—'}
+                  <span className="truncate block">
+                    {STATUS_LABEL[(selected.status ?? '').toLowerCase()] ??
+                      selected.status ??
+                      '—'}
+                  </span>
                 </div>
                 <button
                   onClick={() => {
@@ -1474,7 +1483,7 @@ export default function FriendlyOrdersPanel() {
                     setPendingStatus(null);
                   }}
                   aria-label="Close"
-                  className="h-9 w-9 rounded-full bg-white/70 hover:bg-white shadow-md hover:shadow-lg transition inline-flex items-center justify-center"
+                  className="h-8 w-8 md:h-9 md:w-9 rounded-full bg-white/70 hover:bg-white shadow-md hover:shadow-lg transition inline-flex items-center justify-center"
                 >
                   ✕
                 </button>
@@ -1816,15 +1825,21 @@ export default function FriendlyOrdersPanel() {
                     <div className="text-xs text-slate-500">Текущий статус</div>
                     <div className="mt-3">
                       <div
-                        className={`inline-block px-3 py-2 rounded-full font-nekstmedium ${statusBadgeClass(pendingStatus ?? selected.status)}`}
-                        style={{ minWidth: 120, textAlign: 'center' }}
+                        className={`inline-block px-2 md:px-3 py-1.5 md:py-2 rounded-full font-nekstmedium text-xs md:text-sm ${statusBadgeClass(pendingStatus ?? selected.status)}`}
+                        style={{ minWidth: 80, textAlign: 'center' }}
                       >
-                        {STATUS_LABEL[
-                          (pendingStatus ?? selected.status ?? '').toLowerCase()
-                        ] ??
-                          pendingStatus ??
-                          selected.status ??
-                          '—'}
+                        <span className="truncate max-w-[150px] inline-block">
+                          {STATUS_LABEL[
+                            (
+                              pendingStatus ??
+                              selected.status ??
+                              ''
+                            ).toLowerCase()
+                          ] ??
+                            pendingStatus ??
+                            selected.status ??
+                            '—'}
+                        </span>
                       </div>
                     </div>
                   </div>

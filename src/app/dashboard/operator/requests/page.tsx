@@ -1480,13 +1480,13 @@ export default function OperatorOrdersWizard(): JSX.Element {
     );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-4">
         <div>
-          <h2 className="text-2xl font-nekstmedium">
+          <h2 className="text-xl md:text-2xl font-nekstmedium">
             Оперативная панель — Оператор процессов
           </h2>
-          <div className="text-sm text-gray-500 mt-1">
+          <div className="text-xs md:text-sm text-gray-500 mt-1">
             Пошаговый процесс обработки: загрузка → анализ → дроны → итог.
           </div>
         </div>
@@ -1495,15 +1495,16 @@ export default function OperatorOrdersWizard(): JSX.Element {
           {!selectedOrder ? (
             <button
               onClick={() => loadOrders()}
-              className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2  font-nekstregular"
+              className="px-3 md:px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2 font-nekstregular text-sm md:text-base"
               title="Обновить"
             >
-              <RefreshCw size={16} /> Обновить
+              <RefreshCw size={16} />{' '}
+              <span className="hidden sm:inline">Обновить</span>
             </button>
           ) : (
             <button
               onClick={closeSelected}
-              className="px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2"
+              className="px-3 md:px-4 py-2 bg-white rounded-xl border border-gray-100 shadow-sm flex items-center gap-2 text-sm md:text-base"
               title="Закрыть заявку"
             >
               <X size={16} /> Закрыть
@@ -1513,8 +1514,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
       </div>
 
       {selectedOrder && (
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
-          <div className="flex items-center gap-4">
+        <div className="bg-white p-3 md:p-4 rounded-2xl shadow-sm border border-gray-100">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-4">
             {stepTitles.map((t, i) => {
               const idx = (i + 1) as 1 | 2 | 3 | 4;
               const active = step === idx;
@@ -1527,7 +1528,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                 (isViewOnly && idx !== 2) ||
                 (isSplit && idx !== 1 && idx !== 4);
               return (
-                <div key={t} className="flex-1">
+                <div key={t} className="">
                   <button
                     onClick={() => {
                       if (disabled) return;
@@ -1538,20 +1539,22 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     aria-disabled={disabled}
                   >
                     <div
-                      className={`p-3 rounded-lg border ${active ? 'border-emerald-300 bg-emerald-50' : 'border-gray-100 bg-white'} flex items-center gap-3 ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      className={`p-2 md:p-3 rounded-lg border ${active ? 'border-emerald-300 bg-emerald-50' : 'border-gray-100 bg-white'} flex items-center gap-2 md:gap-3 ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center ${active ? 'bg-emerald-600 text-white' : done ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}
+                        className={`w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs md:text-base ${active ? 'bg-emerald-600 text-white' : done ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}
                       >
                         {done ? (
-                          <Check size={16} />
+                          <Check size={14} className="md:w-4 md:h-4" />
                         ) : (
                           <span className="font-medium">{idx}</span>
                         )}
                       </div>
-                      <div>
-                        <div className="text-sm font-medium">{t}</div>
-                        <div className="text-xs text-gray-500">
+                      <div className="min-w-0">
+                        <div className="text-xs md:text-sm font-medium truncate">
+                          {t}
+                        </div>
+                        <div className="hidden md:block text-xs text-gray-500 truncate">
                           {idx === 1
                             ? 'Загрузите JSON поля'
                             : idx === 2
@@ -1570,21 +1573,21 @@ export default function OperatorOrdersWizard(): JSX.Element {
         </div>
       )}
 
-      <div className="bg-white p-6 rounded-2xl shadow border border-gray-100">
+      <div className="bg-white p-3 md:p-4 lg:p-6 rounded-2xl shadow border border-gray-100">
         {!selectedOrder ? (
           <div>
-            <div className="mb-6">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div className="mb-4 md:mb-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-4">
                 <div>
-                  <h3 className="text-lg font-nekstmedium text-gray-800">
+                  <h3 className="text-base md:text-lg font-nekstmedium text-gray-800">
                     Список заявок
                   </h3>
-                  <p className="text-sm text-gray-500 mt-0.5">
+                  <p className="text-xs md:text-sm text-gray-500 mt-0.5">
                     Выберите заявку для обработки
                   </p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
                   <div className="flex items-center  gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200/50 shadow-sm">
                     <span className="text-xs font-nekstregular text-gray-600">
                       Показано:
@@ -1598,7 +1601,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-0 bg-white rounded-xl shadow-sm border border-gray-200">
+                  <div className="flex flex-wrap items-center gap-0 bg-white rounded-xl shadow-sm border border-gray-200 w-full sm:w-auto">
                     <FilterDropdown
                       icon={({ className }) => (
                         <svg
@@ -1632,7 +1635,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                       }}
                     />
 
-                    <div className="w-px h-6 bg-gray-200" />
+                    <div className="hidden sm:block w-px h-6 bg-gray-200" />
 
                     <div className="px-1 py-1 font-nekstmedium">
                       <FilterDropdown
@@ -1669,7 +1672,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                       />
                     </div>
 
-                    <div className="w-px h-6 bg-gray-200" />
+                    <div className="hidden sm:block w-px h-6 bg-gray-200" />
 
                     <div className="px-1 py-1 font-nekstmedium">
                       <FilterDropdown
@@ -1723,111 +1726,92 @@ export default function OperatorOrdersWizard(): JSX.Element {
                   </div>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 border-b border-gray-200">
-                        <th className="px-6 py-4 text-left">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
-                              ID заявки
-                            </span>
-                          </div>
-                        </th>
-                        <th className="px-6 py-4 text-left">
-                          <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
-                            Поле
-                          </span>
-                        </th>
-                        <th className="px-6 py-4 text-left">
-                          <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
-                            Дата создания
-                          </span>
-                        </th>
-                        <th className="px-6 py-4 text-left">
-                          <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
-                            Тип заявки
-                          </span>
-                        </th>
-                        <th className="px-6 py-4 text-left">
-                          <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
-                            Статус
-                          </span>
-                        </th>
-                        <th className="px-6 py-4 text-right">
-                          <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
-                            Действия
-                          </span>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
-                      {filteredOrders.map((o, i) => (
-                        <tr
-                          key={o.id}
-                          onClick={() => {
-                            if (o.metadata?.processed) {
-                              handleView(
-                                {
-                                  stopPropagation: () => {},
-                                } as React.MouseEvent,
-                                o,
-                              );
-                            } else {
-                              setSelectedOrder(o);
-                              setIsViewOnly(false);
-                              setStep(1);
-                            }
-                          }}
-                          className="group transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-50/50 hover:via-teal-50/30 hover:to-transparent hover:shadow-md cursor-pointer"
-                        >
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shadow-sm group-hover:shadow transition-all">
-                                <span className="text-sm font-nekstmedium text-gray-700">
-                                  {o.id}
-                                </span>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                              <span className="text-sm font-nekstregular text-gray-900">
-                                {o.fieldId ? `Field ID: ${o.fieldId}` : '—'}
-                              </span>
-                              {o.fieldId && (
-                                <span className="text-xs text-gray-400 mt-0.5">
-                                  Идентификатор поля
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
+                <>
+                  {/* Desktop: таблица */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-gradient-to-r from-gray-100 via-gray-50 to-gray-100 border-b border-gray-200">
+                          <th className="px-6 py-4 text-left">
                             <div className="flex items-center gap-2">
-                              <svg
-                                className="w-4 h-4 text-gray-400"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                />
-                              </svg>
-                              <span className="text-sm text-gray-600 font-nekstregular">
-                                {o.date}
+                              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                              <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                                ID заявки
                               </span>
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            {o.orderType === 'SPLIT' ? (
-                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-100 to-purple-50 border border-purple-200 shadow-sm">
+                          </th>
+                          <th className="px-6 py-4 text-left">
+                            <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                              Поле
+                            </span>
+                          </th>
+                          <th className="px-6 py-4 text-left">
+                            <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                              Дата создания
+                            </span>
+                          </th>
+                          <th className="px-6 py-4 text-left">
+                            <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                              Тип заявки
+                            </span>
+                          </th>
+                          <th className="px-6 py-4 text-left">
+                            <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                              Статус
+                            </span>
+                          </th>
+                          <th className="px-6 py-4 text-right">
+                            <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
+                              Действия
+                            </span>
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-100">
+                        {filteredOrders.map((o, i) => (
+                          <tr
+                            key={o.id}
+                            onClick={() => {
+                              if (o.metadata?.processed) {
+                                handleView(
+                                  {
+                                    stopPropagation: () => {},
+                                  } as React.MouseEvent,
+                                  o,
+                                );
+                              } else {
+                                setSelectedOrder(o);
+                                setIsViewOnly(false);
+                                setStep(1);
+                              }
+                            }}
+                            className="group transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-50/50 hover:via-teal-50/30 hover:to-transparent hover:shadow-md cursor-pointer"
+                          >
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shadow-sm group-hover:shadow transition-all">
+                                  <span className="text-sm font-nekstmedium text-gray-700">
+                                    {o.id}
+                                  </span>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col">
+                                <span className="text-sm font-nekstregular text-gray-900">
+                                  {o.fieldId ? `Field ID: ${o.fieldId}` : '—'}
+                                </span>
+                                {o.fieldId && (
+                                  <span className="text-xs text-gray-400 mt-0.5">
+                                    Идентификатор поля
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
                                 <svg
-                                  className="w-3.5 h-3.5 text-purple-600"
+                                  className="w-4 h-4 text-gray-400"
                                   fill="none"
                                   viewBox="0 0 24 24"
                                   stroke="currentColor"
@@ -1836,101 +1820,19 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     strokeWidth={2}
-                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                                   />
                                 </svg>
-                                <span className="text-xs font-nekstmedium text-purple-700">
-                                  Только разбиение
+                                <span className="text-sm text-gray-600 font-nekstregular">
+                                  {o.date}
                                 </span>
                               </div>
-                            ) : (
-                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-200 shadow-sm">
-                                <svg
-                                  className="w-3.5 h-3.5 text-blue-600"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                                  />
-                                </svg>
-                                <span className="text-xs font-nekstmedium text-blue-700">
-                                  Обычный
-                                </span>
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            {o.metadata?.processed ? (
-                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-50 border border-emerald-200 shadow-sm">
-                                <Clock size={14} className="text-emerald-600" />
-                                <span className="text-xs font-nekstmedium text-emerald-700">
-                                  Обработана
-                                </span>
-                              </div>
-                            ) : (
-                              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-200 shadow-sm">
-                                <Clock size={14} className="text-amber-600" />
-                                <span className="text-xs font-nekstmedium text-amber-700">
-                                  Ожидает
-                                </span>
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="inline-flex items-center gap-2">
-                              {o.metadata?.processed ? (
-                                <>
-                                  <button
-                                    onClick={(e) => handleView(e, o)}
-                                    title="Просмотреть результаты"
-                                    disabled={viewLoadingId === o.id}
-                                    className="group/btn inline-flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border border-blue-200 shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                  >
-                                    {viewLoadingId === o.id ? (
-                                      <>
-                                        <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                                        <span className="text-xs font-nekstregular text-blue-600">
-                                          Загрузка...
-                                        </span>
-                                      </>
-                                    ) : (
-                                      <Eye
-                                        size={16}
-                                        className="text-blue-600 group-hover/btn:scale-110 transition-transform"
-                                      />
-                                    )}
-                                  </button>
-                                  <button
-                                    onClick={(e) => handleEdit(e, o)}
-                                    title="Редактировать"
-                                    className="group/btn p-2.5 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border border-purple-200 shadow-sm hover:shadow-md transition-all duration-200"
-                                    onMouseDown={(e) => e.stopPropagation()}
-                                  >
-                                    <Edit2
-                                      size={16}
-                                      className="text-purple-600 group-hover/btn:scale-110 transition-transform"
-                                    />
-                                  </button>
-                                </>
-                              ) : (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedOrder(o);
-                                    setIsViewOnly(false);
-                                    setStep(1);
-                                  }}
-                                  className="group/btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 text-white text-xs font-nekstmedium shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-                                >
-                                  <span>Обработать</span>
+                            </td>
+                            <td className="px-6 py-4">
+                              {o.orderType === 'SPLIT' ? (
+                                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-purple-100 to-purple-50 border border-purple-200 shadow-sm">
                                   <svg
-                                    className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform"
+                                    className="w-3.5 h-3.5 text-purple-600"
                                     fill="none"
                                     viewBox="0 0 24 24"
                                     stroke="currentColor"
@@ -1939,33 +1841,312 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
                                       strokeWidth={2}
-                                      d="M13 7l5 5m0 0l-5 5m5-5H6"
+                                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                                     />
                                   </svg>
-                                </button>
+                                  <span className="text-xs font-nekstmedium text-purple-700">
+                                    Только разбиение
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-200 shadow-sm">
+                                  <svg
+                                    className="w-3.5 h-3.5 text-blue-600"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                    />
+                                  </svg>
+                                  <span className="text-xs font-nekstmedium text-blue-700">
+                                    Обычный
+                                  </span>
+                                </div>
                               )}
+                            </td>
+                            <td className="px-6 py-4">
+                              {o.metadata?.processed ? (
+                                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-50 border border-emerald-200 shadow-sm">
+                                  <Clock
+                                    size={14}
+                                    className="text-emerald-600"
+                                  />
+                                  <span className="text-xs font-nekstmedium text-emerald-700">
+                                    Обработана
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-200 shadow-sm">
+                                  <Clock size={14} className="text-amber-600" />
+                                  <span className="text-xs font-nekstmedium text-amber-700">
+                                    Ожидает
+                                  </span>
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="inline-flex items-center gap-2">
+                                {o.metadata?.processed ? (
+                                  <>
+                                    <button
+                                      onClick={(e) => handleView(e, o)}
+                                      title="Просмотреть результаты"
+                                      disabled={viewLoadingId === o.id}
+                                      className="group/btn inline-flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border border-blue-200 shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                    >
+                                      {viewLoadingId === o.id ? (
+                                        <>
+                                          <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                          <span className="text-xs font-nekstregular text-blue-600">
+                                            Загрузка...
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <Eye
+                                          size={16}
+                                          className="text-blue-600 group-hover/btn:scale-110 transition-transform"
+                                        />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={(e) => handleEdit(e, o)}
+                                      title="Редактировать"
+                                      className="group/btn p-2.5 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border border-purple-200 shadow-sm hover:shadow-md transition-all duration-200"
+                                      onMouseDown={(e) => e.stopPropagation()}
+                                    >
+                                      <Edit2
+                                        size={16}
+                                        className="text-purple-600 group-hover/btn:scale-110 transition-transform"
+                                      />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedOrder(o);
+                                      setIsViewOnly(false);
+                                      setStep(1);
+                                    }}
+                                    className="group/btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 text-white text-xs font-nekstmedium shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                                  >
+                                    <span>Обработать</span>
+                                    <svg
+                                      className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M13 7l5 5m0 0l-5 5m5-5H6"
+                                      />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Mobile: карточки */}
+                  <div className="md:hidden space-y-3 p-3">
+                    {filteredOrders.map((o) => (
+                      <div
+                        key={o.id}
+                        onClick={() => {
+                          if (o.metadata?.processed) {
+                            handleView(
+                              { stopPropagation: () => {} } as React.MouseEvent,
+                              o,
+                            );
+                          } else {
+                            setSelectedOrder(o);
+                            setIsViewOnly(false);
+                            setStep(1);
+                          }
+                        }}
+                        className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 active:scale-[0.98] transition-transform cursor-pointer"
+                      >
+                        {/* Header */}
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center shadow-sm">
+                              <span className="text-sm font-nekstmedium text-gray-700">
+                                {o.id}
+                              </span>
                             </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                            <div>
+                              <div className="text-sm font-nekstmedium text-gray-900">
+                                Заявка #{o.id}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                {o.date}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Info */}
+                        <div className="space-y-2 mb-3">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-500">Поле:</span>
+                            <span className="font-nekstregular text-gray-900">
+                              {o.fieldId ? `Field ID: ${o.fieldId}` : '—'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Badges */}
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          {o.orderType === 'SPLIT' ? (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-100 to-purple-50 border border-purple-200">
+                              <svg
+                                className="w-3 h-3 text-purple-600"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                />
+                              </svg>
+                              <span className="text-xs font-nekstmedium text-purple-700">
+                                Разбиение
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-200">
+                              <svg
+                                className="w-3 h-3 text-blue-600"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                />
+                              </svg>
+                              <span className="text-xs font-nekstmedium text-blue-700">
+                                Обычный
+                              </span>
+                            </div>
+                          )}
+
+                          {o.metadata?.processed ? (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-100 to-emerald-50 border border-emerald-200">
+                              <Clock size={12} className="text-emerald-600" />
+                              <span className="text-xs font-nekstmedium text-emerald-700">
+                                Обработана
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-200">
+                              <Clock size={12} className="text-amber-600" />
+                              <span className="text-xs font-nekstmedium text-amber-700">
+                                Ожидает
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                          {o.metadata?.processed ? (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleView(e, o);
+                                }}
+                                disabled={viewLoadingId === o.id}
+                                className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 text-blue-700 text-xs font-nekstmedium disabled:opacity-70"
+                              >
+                                {viewLoadingId === o.id ? (
+                                  <>
+                                    <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                    <span>Загрузка...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye size={14} />
+                                    <span>Просмотр</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(e, o);
+                                }}
+                                className="px-3 py-2 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 text-purple-700"
+                              >
+                                <Edit2 size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOrder(o);
+                                setIsViewOnly(false);
+                                setStep(1);
+                              }}
+                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-nekstmedium shadow-lg"
+                            >
+                              <span>Обработать</span>
+                              <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                                />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
           </div>
         ) : (
           <div>
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <div className="text-sm text-gray-500 flex items-center gap-2">
-                  <span>
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
+              <div className="min-w-0">
+                <div className="text-xs md:text-sm text-gray-500 flex flex-wrap items-center gap-2">
+                  <span className="break-all">
                     Заявка #{selectedOrder.id} • {selectedOrder.fieldName}
                   </span>
                   {selectedOrder.orderType === 'SPLIT' ? (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-100 to-purple-50 border border-purple-200 text-purple-700 text-xs font-nekstmedium">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-100 to-purple-50 border border-purple-200 text-purple-700 text-xs font-nekstmedium whitespace-nowrap">
                       <svg
-                        className="w-3 h-3"
+                        className="w-3 h-3 flex-shrink-0"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -1977,12 +2158,13 @@ export default function OperatorOrdersWizard(): JSX.Element {
                           d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                         />
                       </svg>
-                      Только разбиение
+                      <span className="hidden sm:inline">Только разбиение</span>
+                      <span className="sm:hidden">Разбиение</span>
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-200 text-blue-700 text-xs font-nekstmedium">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-200 text-blue-700 text-xs font-nekstmedium whitespace-nowrap">
                       <svg
-                        className="w-3 h-3"
+                        className="w-3 h-3 flex-shrink-0"
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -1998,7 +2180,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     </span>
                   )}
                 </div>
-                <div className="text-lg font-semibold mt-1">
+                <div className="text-base md:text-lg font-semibold mt-1">
                   {selectedOrder.orderType === 'SPLIT'
                     ? 'Разбиение поля'
                     : 'Пошаговая обработка поля'}

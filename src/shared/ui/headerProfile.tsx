@@ -420,7 +420,7 @@ export default function HeaderProfile({
         <>
           {/* backdrop */}
           <div
-            className={`fixed inset-0  bg-black/35 z-40 transition-opacity ${
+            className={`fixed inset-0   bg-black/35 z-40 transition-opacity ${
               isOpen
                 ? 'opacity-100 pointer-events-auto'
                 : 'opacity-0 pointer-events-none'
@@ -435,7 +435,7 @@ export default function HeaderProfile({
             role="dialog"
             aria-modal="true"
           >
-            <div className="p-4 border-b flex items-center  justify-between">
+            <div className="p-4 border-b border-black/30 flex items-center  justify-between">
               <div className="flex items-center gap-3 ">
                 <div
                   className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold"
@@ -519,25 +519,20 @@ export default function HeaderProfile({
                   </Link>
 
                   <Link
-                    href="/notifications"
+                    href="/settings"
                     onClick={() => setIsOpen(false)}
                     className="flex items-center gap-3 px-3 py-3 rounded-lg border border-gray-100 hover:bg-gray-50 transition text-sm text-gray-800"
                   >
                     <div className="p-2 bg-gray-50 rounded-md text-gray-600">
-                      <Bell size={16} />
+                      <Settings size={16} />
                     </div>
-                    Уведомления
-                    {notifications > 0 && (
-                      <div className="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-rose-500 text-white">
-                        {notifications}
-                      </div>
-                    )}
+                    Настройки
                   </Link>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 border-t flex items-center justify-between">
+            <div className="p-4 border-t border-black/30 flex items-center justify-between">
               <div>
                 <button
                   onClick={onSignOut}
@@ -545,18 +540,6 @@ export default function HeaderProfile({
                 >
                   <LogOut size={16} /> Выйти
                 </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Globe size={14} />
-                <select
-                  value={language}
-                  onChange={(e) => changeLanguage(e.target.value)}
-                  className="bg-white border border-gray-200 px-2 py-1 rounded-md text-xs text-gray-700"
-                >
-                  <option value="ru">Русский</option>
-                  <option value="en">English</option>
-                </select>
               </div>
             </div>
           </div>

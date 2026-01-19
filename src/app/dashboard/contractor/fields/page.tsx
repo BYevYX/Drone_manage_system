@@ -473,29 +473,32 @@ export default function FieldsManager() {
   // ------------------------------------------------
 
   return (
-    <div className="max-w-7xl mx-auto p-6 font-nekstregular">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 font-nekstregular">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4 mb-4 md:mb-6">
         <div>
-          <h2 className="text-2xl font-nekstmedium">Поля</h2>
-          <div className="text-sm text-gray-500 mt-1">
+          <h2 className="text-xl sm:text-2xl font-nekstmedium">Поля</h2>
+          <div className="text-xs sm:text-sm text-gray-500 mt-1">
             Управление реестром полей — загрузка карт, добавление и удаление.
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <button
             onClick={() => fetchList()}
-            className="px-3 py-2 rounded-xl bg-white shadow-sm hover:bg-gray-50 flex items-center gap-2"
+            className="px-3 py-2 rounded-xl bg-white shadow-sm hover:bg-gray-50 flex items-center gap-2 text-sm md:text-base"
             title="Обновить"
           >
-            <RefreshCw size={16} /> Обновить
+            <RefreshCw size={16} />{' '}
+            <span className="hidden sm:inline">Обновить</span>
           </button>
 
           <button
             onClick={() => setAddOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow"
+            className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-green-600 text-white shadow text-sm md:text-base"
           >
-            <Plus size={16} /> Добавить поле
+            <Plus size={16} />{' '}
+            <span className="hidden sm:inline">Добавить поле</span>
+            <span className="sm:hidden">Добавить</span>
           </button>
         </div>
       </div>
@@ -514,46 +517,46 @@ export default function FieldsManager() {
       </AnimatePresence>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {Array.from({ length: limit }).map((_, i) => (
             <div
               key={i}
-              className="animate-pulse rounded-3xl bg-white/60 p-6 h-72"
+              className="animate-pulse rounded-3xl bg-white/60 p-4 md:p-6 h-64 md:h-72"
             />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {fields.map((f) => (
             <div
               key={f.fieldId}
               onClick={() => setSelectedField(f)}
               role="button"
               tabIndex={0}
-              className="relative rounded-3xl bg-white p-6 shadow-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl transition-all duration-300"
+              className="relative rounded-2xl md:rounded-3xl bg-white p-4 md:p-6 shadow-lg flex flex-col justify-between cursor-pointer hover:shadow-2xl transition-all duration-300"
             >
               <div>
                 <div className="text-xs text-gray-400">
                   ID {f.localId ? `#${f.localId}` : getDisplayId(f.fieldId)}
                 </div>
-                <div className="text-xl font-nekstmedium mt-2">
+                <div className="text-base md:text-xl font-nekstmedium mt-2 break-all">
                   {f.cadastralNumber || '—'}
                 </div>
 
-                <div className="text-sm text-gray-600 mt-4">
+                <div className="text-sm text-gray-600 mt-3 md:mt-4">
                   {f.mapFile ? (
                     <img
                       src={f.mapFile}
                       alt={`map-${f.fieldId}`}
-                      className="w-full h-60 md:h-72 object-cover rounded-3xl shadow-sm"
+                      className="w-full h-40 sm:h-48 md:h-60 object-cover rounded-2xl md:rounded-3xl shadow-sm"
                     />
                   ) : (
-                    <div className="w-full h-50 md:h-72 rounded-3xl bg-gray-50 flex flex-col items-center justify-center text-gray-400 gap-2">
-                      <XCircle size={48} />
-                      <div className="font-medium">
+                    <div className="w-full h-40 sm:h-48 md:h-60 rounded-2xl md:rounded-3xl bg-gray-50 flex flex-col items-center justify-center text-gray-400 gap-2">
+                      <XCircle size={32} className="md:w-12 md:h-12" />
+                      <div className="font-medium text-sm md:text-base">
                         Изображение не загружено
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-gray-400 text-center px-4">
                         Нажмите "Редактировать", чтобы загрузить
                       </div>
                     </div>
@@ -561,9 +564,9 @@ export default function FieldsManager() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between mt-5">
+              <div className="flex items-center justify-between mt-4 md:mt-5">
                 <div className="text-xs text-gray-500">&nbsp;</div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 md:gap-3">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

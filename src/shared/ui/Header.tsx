@@ -136,9 +136,8 @@ export default function Header() {
 
   // Mobile menu state
   const [mobileOpen, setMobileOpen] = useState(false);
-  // For services mega menu alignment fix on desktop
+  // For services mega menu
   const servicesButtonRef = useRef<HTMLDivElement | null>(null);
-  const [servicesAlign, setServicesAlign] = useState<'left' | 'right'>('right');
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -146,28 +145,6 @@ export default function Header() {
     // ensure body overflow reset
     document.body.style.overflow = '';
   }, [pathname]);
-
-  // adjust services alignment to avoid overflow
-  const adjustServicesAlignment = useCallback(() => {
-    const btn = servicesButtonRef.current;
-    if (!btn || typeof window === 'undefined') return;
-    const rect = btn.getBoundingClientRect();
-    // menu tries to be 900px, but constrained to 96vw on smaller screens
-    const menuWidth = Math.min(900, window.innerWidth * 0.96);
-    // if placing menu with left aligned at rect.left would overflow, then align to right
-    if (rect.left + menuWidth > window.innerWidth - 8) {
-      setServicesAlign('right');
-    } else {
-      setServicesAlign('left');
-    }
-  }, []);
-
-  useEffect(() => {
-    // adjust on mount and resize
-    adjustServicesAlignment();
-    window.addEventListener('resize', adjustServicesAlignment);
-    return () => window.removeEventListener('resize', adjustServicesAlignment);
-  }, [adjustServicesAlignment]);
 
   // mobile accordion state for services
   const [openServiceIndex, setOpenServiceIndex] = useState<number | null>(1);
@@ -252,9 +229,9 @@ export default function Header() {
         </div>
 
         {/* NAV */}
-        <div className="flex items-center gap-0 ml-[30px] w-full justify-between">
+        <div className="flex items-center gap-0 ml-[50px] w-full justify-between pr-[15px]">
           {/* Hamburger for small screens */}
-          <div className="md:hidden flex items-center">
+          <div className="md:hidden flex items-center justify-end flex-1">
             <button
               aria-label={mobileOpen ? 'Закрыть меню' : 'Открыть меню'}
               aria-expanded={mobileOpen}
@@ -370,11 +347,7 @@ export default function Header() {
               </div>
 
               {/* Services mega menu with alignment + responsive content */}
-              <div
-                className="relative group"
-                ref={servicesButtonRef}
-                onMouseEnter={adjustServicesAlignment}
-              >
+              <div className="relative group" ref={servicesButtonRef}>
                 <button className="flex items-center gap-1 px-4 py-2 text-[20px] font-medium rounded-md hover:text-gray-300">
                   Услуги
                   <ChevronDown className="h-4 w-4 transition-transform duration-200 group-hover:rotate-180" />
@@ -382,20 +355,17 @@ export default function Header() {
 
                 {/* container adapts content depending on servicesVariant; always constrained to viewport and scrollable */}
                 <div
-                  className={`absolute top-full pt-5 max-w-[96vw] opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 ease-out bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 p-4 ${
-                    servicesAlign === 'left'
-                      ? 'left-0 origin-top-left'
-                      : 'right-0 origin-top-right'
-                  }`}
+                  className={`absolute min-w-[800px] overflow-y-auto top-full left-1/2 transform -translate-x-1/2 pt-2 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-200 ease-out bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 p-4 origin-top`}
                   style={{
                     willChange: 'transform, opacity',
-                    maxHeight: '80vh',
-                    overflow: 'auto',
+                    maxHeight: 'calc(100vh - 120px)',
+                    overflowY: 'auto',
+                    maxWidth: 'min(96vw, 900px)',
                   }}
                 >
                   {/* FULL - desktop: original grid, full descriptions */}
                   {servicesVariant === 'full' && (
-                    <div className="w-[900px] max-w-[96vw] grid lg:grid-cols-2 sm:grid-cols-2 gap-6 p-2">
+                    <div className="w-full grid lg:grid-cols-2 sm:grid-cols-2 gap-6 p-2">
                       {menuSections.map(({ title, links, icon }) => (
                         <section key={title}>
                           <div className="flex items-center mb-3">
@@ -436,7 +406,7 @@ export default function Header() {
 
                   {/* COMPACT - medium screens: labels with short descriptions, narrower layout */}
                   {servicesVariant === 'compact' && (
-                    <div className="w-[700px] max-w-[96vw] grid md:grid-cols-2 gap-4 p-2">
+                    <div className="w-full grid md:grid-cols-2 gap-4 p-2">
                       {menuSections.map(({ title, links, icon }) => (
                         <section key={title}>
                           <div className="flex items-center mb-2">
@@ -448,21 +418,18 @@ export default function Header() {
                             </h3>
                           </div>
                           <ul className="space-y-1">
-                            {links.map(({ label, description, icon }) => (
+                            {links.map(({ label, icon }) => (
                               <li key={label}>
                                 <button
                                   onClick={(e) => handleServiceClick(e, label)}
-                                  className="w-full text-left flex items-start p-2 rounded-lg hover:bg-gray-50 transition"
+                                  className="w-full text-left flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition"
                                 >
                                   <div className="mr-2 p-1 bg-gray-50 rounded text-gray-500">
                                     {icon}
                                   </div>
-                                  <div>
-                                    <p className="font-medium text-gray-900 text-sm">
+                                  <div className="flex-1">
+                                    <p className="font-medium text-gray-900 text-sm truncate">
                                       {label}
-                                    </p>
-                                    <p className="mt-0.5 text-[12px] text-gray-600">
-                                      {description}
                                     </p>
                                   </div>
                                 </button>
@@ -480,9 +447,6 @@ export default function Header() {
                             <h4 className="text-sm font-semibold text-gray-900 mb-0.5">
                               Спецпредложение
                             </h4>
-                            <p className="text-xs text-gray-600">
-                              При заказе 3+ услуг — скидка 15%
-                            </p>
                           </div>
                         </div>
                       </div>
@@ -491,7 +455,7 @@ export default function Header() {
 
                   {/* MINIMAL - small screens where megamenu should be tiny: just links */}
                   {servicesVariant === 'minimal' && (
-                    <div className="w-[300px] max-w-[96vw] p-2 space-y-2">
+                    <div className="w-full p-2 space-y-2">
                       {menuSections.map(({ title, links }) => (
                         <div key={title}>
                           <div className="font-semibold text-sm mb-1">
@@ -549,7 +513,7 @@ export default function Header() {
             {/* Profile avatar popover (for logged-in roles) */}
             {role === 'GUEST' ? (
               <div>
-                <div className="flex items-center gap-3 ml-[15px]">
+                <div className="hidden md:flex items-center gap-3 ml-[15px]">
                   <Link href="/login">
                     <button className="cssbuttons-io-button space-x-[10px]">
                       <LogIn className="w-5 h-5" />
@@ -588,7 +552,7 @@ export default function Header() {
       >
         {/* backdrop */}
         <div
-          className={`absolute inset-0 bg-gradient-to-b from-black/20 to-black/40 backdrop-blur-sm transition-opacity ${
+          className={`absolute inset-0 bg-gradient-to-br from-black/30 via-black/50 to-black/60 backdrop-blur-md transition-opacity duration-300 ${
             mobileOpen ? 'opacity-100' : 'opacity-0'
           }`}
           onClick={() => {
@@ -598,63 +562,71 @@ export default function Header() {
         />
 
         <aside
-          className={`absolute top-0 left-0 h-full w-[92vw] max-w-sm bg-white shadow-2xl transform transition-transform duration-300 ${
+          className={`absolute top-0 left-0 h-full w-[92vw] max-w-sm bg-gradient-to-br from-white via-gray-50 to-white shadow-2xl transform transition-all duration-500 ease-out ${
             mobileOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
           aria-label="Мобильное меню"
         >
           {/* header with avatar + close */}
-          <div className="p-4 border-b border-gray-300 border-solid flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                {/* if user has avatar use it, else icon */}
-                {globalUser?.avatar ? (
-                  <Image
-                    src={globalUser.avatar}
-                    alt="avatar"
-                    width={40}
-                    height={40}
-                  />
-                ) : (
-                  <UserIcon className="w-6 h-6 text-gray-500" />
-                )}
-              </div>
-              <div>
-                <div className="text-sm font-medium">
-                  {userInfo?.firstName || 'Гость'}
+          <div className="relative p-5 border-b border-gray-200 bg-gradient-to-r from-green-50 to-blue-50">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="relative w-12 h-12 rounded-full bg-gradient-to-br from-green-400 to-blue-500 flex items-center justify-center overflow-hidden shadow-lg ring-2 ring-white">
+                  {globalUser?.avatar ? (
+                    <Image
+                      src={globalUser.avatar}
+                      alt="avatar"
+                      width={48}
+                      height={48}
+                      className="object-cover"
+                    />
+                  ) : (
+                    <UserIcon className="w-6 h-6 text-white" />
+                  )}
                 </div>
-                <div className="text-[12px] text-gray-500">
-                  {role === 'GUEST' ? 'Войти' : role}
+                <div>
+                  <div className="text-base font-nekstmedium text-gray-800">
+                    {userInfo?.firstName || 'Гость'}
+                  </div>
+                  <div className="text-xs text-gray-600 font-nekstregular">
+                    {role === 'GUEST' ? 'Войти' : role}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <button
-              aria-label="Закрыть меню"
-              onClick={() => {
-                setMobileOpen(false);
-                document.body.style.overflow = '';
-              }}
-              className="p-2 rounded-md hover:bg-gray-100 transition"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
+              <button
+                aria-label="Закрыть меню"
+                onClick={() => {
+                  setMobileOpen(false);
+                  document.body.style.overflow = '';
+                }}
+                className="p-2 rounded-full hover:bg-white/60 active:scale-95 transition-all duration-200 shadow-sm"
+              >
+                <ChevronLeft className="w-5 h-5 text-gray-700" />
+              </button>
+            </div>
           </div>
 
-          <nav className="p-3 space-y-2 overflow-auto h-[calc(100%-84px)]">
-            {/* сommon links (workflow, drones...) */}
+          <nav className="p-4 space-y-1.5 overflow-auto h-[calc(100%-92px)]">
+            {/* common links */}
             <Link
               href="/workflow"
               onClick={() => {
                 setMobileOpen(false);
                 document.body.style.overflow = '';
               }}
-              className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition"
+              className="flex items-center gap-3 py-3 px-3 rounded-xl hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 transition-all duration-200 group"
             >
-              <Home className="w-5 h-5 text-green-600" />
-              <div>
-                <div className="text-sm font-medium">О платформе</div>
-                <div className="text-xs text-gray-500">Как это работает?</div>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                <Home className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-nekstmedium text-gray-800">
+                  О платформе
+                </div>
+                <div className="text-xs text-gray-500 font-nekstregular">
+                  Как это работает?
+                </div>
               </div>
             </Link>
 
@@ -664,39 +636,51 @@ export default function Header() {
                 setMobileOpen(false);
                 document.body.style.overflow = '';
               }}
-              className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition"
+              className="flex items-center gap-3 py-3 px-3 rounded-xl hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 transition-all duration-200 group"
             >
-              <MapPin className="w-5 h-5 text-blue-500" />
-              <div className="text-sm font-medium">Дроны</div>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                <MapPin className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-nekstmedium text-gray-800">
+                  Дроны
+                </div>
+              </div>
             </Link>
 
-            {/* Services accordion (mobile) */}
-            <div className="border border-transparent rounded-lg">
+            {/* Services accordion */}
+            <div className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm">
               <button
                 onClick={() => setOpenServiceIndex((i) => (i === 0 ? null : 0))}
-                className="w-full text-left py-2 px-2 flex items-center justify-between rounded-lg hover:bg-gray-50 transition"
+                className="w-full text-left py-3 px-3 flex items-center justify-between hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50 transition-all duration-200 group"
                 aria-expanded={openServiceIndex === 0}
               >
                 <div className="flex items-center gap-3">
-                  <Layers className="w-5 h-5 text-indigo-500" />
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                    <Layers className="w-5 h-5 text-white" />
+                  </div>
                   <div>
-                    <div className="text-sm font-medium">Услуги</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-sm font-nekstmedium text-gray-800">
+                      Услуги
+                    </div>
+                    <div className="text-xs text-gray-500 font-nekstregular">
                       Наши предложения
                     </div>
                   </div>
                 </div>
                 <ChevronDown
-                  className={`w-4 h-4 transition-transform ${openServiceIndex === 0 ? 'rotate-180' : ''}`}
+                  className={`w-5 h-5 text-gray-400 transition-transform duration-300 ${
+                    openServiceIndex === 0 ? 'rotate-180' : ''
+                  }`}
                 />
               </button>
 
               {openServiceIndex === 0 && (
-                <div className="mt-2 pl-2 pr-1 space-y-1">
+                <div className="px-3 pb-3 pt-1 space-y-2 bg-gradient-to-b from-gray-50 to-white">
                   {menuSections.map((section, sidx) => (
                     <div key={section.title} className="mb-2">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-1">
-                        <div className="p-1 bg-gray-100 rounded">
+                      <div className="flex items-center gap-2 text-xs font-nekstmedium text-gray-700 mb-2 px-2">
+                        <div className="p-1.5 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg shadow-sm">
                           {section.icon}
                         </div>
                         {section.title}
@@ -709,20 +693,20 @@ export default function Header() {
                               onClick={(e) => {
                                 handleServiceClick(e, link.label);
                               }}
-                              className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition w-full text-left"
+                              className="flex items-center gap-3 py-2.5 px-2.5 rounded-lg hover:bg-white hover:shadow-sm transition-all duration-200 w-full text-left group border border-transparent hover:border-gray-200"
                             >
-                              <div className="w-8 h-8 p-1 bg-gray-50 rounded-md flex items-center justify-center">
+                              <div className="w-9 h-9 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center group-hover:from-blue-50 group-hover:to-indigo-50 transition-all">
                                 {link.icon}
                               </div>
                               <div className="flex-1">
-                                <div className="text-sm font-medium">
+                                <div className="text-sm font-nekstmedium text-gray-800">
                                   {link.label}
                                 </div>
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-gray-500 font-nekstregular">
                                   {link.description}
                                 </div>
                               </div>
-                              <ArrowRight className="w-4 h-4 text-gray-400" />
+                              <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all" />
                             </button>
                           </li>
                         ))}
@@ -730,10 +714,12 @@ export default function Header() {
                     </div>
                   ))}
 
-                  <div className="mt-1 py-2 px-2 bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-100">
+                  <div className="mt-2 py-3 px-3 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 rounded-xl border border-blue-200 shadow-sm">
                     <div className="flex items-center gap-2">
-                      <Zap className="w-4 h-4 text-blue-600" />
-                      <div className="text-sm text-gray-700">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+                        <Zap className="w-4 h-4 text-white" />
+                      </div>
+                      <div className="text-sm text-gray-700 font-nekstregular">
                         Спецпредложение: скидка при заказе 3+ услуг
                       </div>
                     </div>
@@ -742,8 +728,7 @@ export default function Header() {
               )}
             </div>
 
-            {/* остальные пункты меню (permissions, contacts...) оставлены без изменений */}
-            <div className="h-px bg-gray-100 my-2" />
+            <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-3" />
 
             <Link
               href="/permissions"
@@ -751,10 +736,16 @@ export default function Header() {
                 setMobileOpen(false);
                 document.body.style.overflow = '';
               }}
-              className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition"
+              className="flex items-center gap-3 py-3 px-3 rounded-xl hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 transition-all duration-200 group"
             >
-              <CheckCircle2 className="w-5 h-5 text-teal-500" />
-              <div className="text-sm font-medium">Разрешения</div>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                <CheckCircle2 className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-nekstmedium text-gray-800">
+                  Разрешения
+                </div>
+              </div>
             </Link>
 
             <Link
@@ -763,10 +754,16 @@ export default function Header() {
                 setMobileOpen(false);
                 document.body.style.overflow = '';
               }}
-              className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition"
+              className="flex items-center gap-3 py-3 px-3 rounded-xl hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 transition-all duration-200 group"
             >
-              <ClipboardList className="w-5 h-5 text-orange-500" />
-              <div className="text-sm font-medium">Заказчику</div>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                <ClipboardList className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-nekstmedium text-gray-800">
+                  Заказчику
+                </div>
+              </div>
             </Link>
 
             <Link
@@ -775,15 +772,21 @@ export default function Header() {
                 setMobileOpen(false);
                 document.body.style.overflow = '';
               }}
-              className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-50 transition"
+              className="flex items-center gap-3 py-3 px-3 rounded-xl hover:bg-gradient-to-r hover:from-violet-50 hover:to-purple-50 transition-all duration-200 group"
             >
-              <MessageSquare className="w-5 h-5 text-violet-500" />
-              <div className="text-sm font-medium">Контакты</div>
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md group-hover:shadow-lg transition-shadow">
+                <MessageSquare className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-nekstmedium text-gray-800">
+                  Контакты
+                </div>
+              </div>
             </Link>
 
-            <div className="h-px bg-gray-100 my-2" />
+            <div className="h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent my-3" />
 
-            <div className="mt-2">
+            <div className="mt-3">
               {role === 'GUEST' ? (
                 <Link
                   href="/login"
@@ -791,7 +794,7 @@ export default function Header() {
                     setMobileOpen(false);
                     document.body.style.overflow = '';
                   }}
-                  className="inline-flex items-center gap-2 w-full justify-center px-4 py-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 text-white"
+                  className="inline-flex items-center gap-2 w-full justify-center px-5 py-3 rounded-xl bg-gradient-to-r from-green-500 via-emerald-500 to-green-600 text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 font-nekstmedium"
                 >
                   <LogIn className="w-5 h-5" />
                   Вход
@@ -800,8 +803,6 @@ export default function Header() {
                 <div className="space-y-2" />
               )}
             </div>
-
-            {/* small footer actions */}
           </nav>
         </aside>
       </div>
