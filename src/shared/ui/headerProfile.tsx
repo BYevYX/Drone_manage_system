@@ -532,7 +532,7 @@ export default function HeaderProfile({
               </div>
             </div>
 
-            <div className="p-4 border-t border-black/30 flex items-center justify-between">
+            <div className="p-3 border-t border-black/30 flex items-center justify-between">
               <div>
                 <button
                   onClick={onSignOut}

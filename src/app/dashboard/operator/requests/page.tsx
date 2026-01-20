@@ -1740,11 +1740,11 @@ export default function OperatorOrdersWizard(): JSX.Element {
                               </span>
                             </div>
                           </th>
-                          <th className="px-6 py-4 text-left">
+                          {/* <th className="px-6 py-4 text-left">
                             <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
                               Поле
                             </span>
-                          </th>
+                          </th> */}
                           <th className="px-6 py-4 text-left">
                             <span className="text-xs font-nekstmedium text-gray-700 uppercase tracking-wider">
                               Дата создания
@@ -1796,7 +1796,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-6 py-4">
+                            {/* <td className="px-6 py-4">
                               <div className="flex flex-col">
                                 <span className="text-sm font-nekstregular text-gray-900">
                                   {o.fieldId ? `Field ID: ${o.fieldId}` : '—'}
@@ -1807,7 +1807,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                   </span>
                                 )}
                               </div>
-                            </td>
+                            </td> */}
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
                                 <svg
@@ -2140,9 +2140,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
               <div className="min-w-0">
                 <div className="text-xs md:text-sm text-gray-500 flex flex-wrap items-center gap-2">
-                  <span className="break-all">
-                    Заявка #{selectedOrder.id} • {selectedOrder.fieldName}
-                  </span>
+                  <span className="break-all">Заявка #{selectedOrder.id}</span>
                   {selectedOrder.orderType === 'SPLIT' ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-purple-100 to-purple-50 border border-purple-200 text-purple-700 text-xs font-nekstmedium whitespace-nowrap">
                       <svg
@@ -2196,12 +2194,12 @@ export default function OperatorOrdersWizard(): JSX.Element {
                   <>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 z-100">
                       <div className="lg:col-span-1 space-y-4">
-                        <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                        {/* <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
                           <div className="text-sm text-gray-500">Поле</div>
                           <div className="text-lg font-medium mt-1">
                             {selectedOrder.fieldName}
                           </div>
-                        </div>
+                        </div> */}
                         <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
                           <div className="text-sm text-gray-500">
                             Тип заявки
@@ -2311,12 +2309,12 @@ export default function OperatorOrdersWizard(): JSX.Element {
               step === 1 && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 z-100">
                   <div className="lg:col-span-1 space-y-4">
-                    <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
+                    {/* <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
                       <div className="text-sm text-gray-500">Поле</div>
                       <div className="text-lg font-medium mt-1">
                         {selectedOrder.fieldName}
                       </div>
-                    </div>
+                    </div> */}
                     <div className="rounded-2xl p-4 bg-white border border-gray-100 shadow-sm">
                       <div className="text-sm text-gray-500">Тип заявки</div>
                       <div className="mt-2">

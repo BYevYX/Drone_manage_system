@@ -6,6 +6,8 @@ import axios from 'axios';
 import {
   Step1,
   CustomerForm,
+  CustomerFormPart1,
+  CustomerFormPart2,
   StepFio,
   Step3,
   EmailVerification,
@@ -152,7 +154,7 @@ export default function MultiStepSignup() {
       return ok;
     }
 
-    // Шаг 2: валидация юридических данных
+    // Шаг 2: валидация основных юридических данных (Название, ИНН, КПП)
     if (s === 2) {
       const errs: Record<string, string> = {};
       let ok = true;
@@ -182,6 +184,15 @@ export default function MultiStepSignup() {
         }
       }
 
+      setCustomerErrors(errs);
+      return ok;
+    }
+
+    // Шаг 3: валидация дополнительных данных (ОКПО, адреса) - всегда проходит, необязательные поля
+    if (s === 3) {
+      const errs: Record<string, string> = {};
+      let ok = true;
+
       // Валидация ОКПО (если заполнено)
       if (customerData.okpo) {
         const okpoValidation = validateOKPO(customerData.okpo);
@@ -191,61 +202,12 @@ export default function MultiStepSignup() {
         }
       }
 
-      // Валидация контактного лица (если указан)
-      if (customerData.contactPerson) {
-        if (customerData.contact.phone) {
-          const contactPhoneValidation = validatePhone(
-            customerData.contact.phone,
-          );
-          if (!contactPhoneValidation.isValid) {
-            errs['contact.phone'] =
-              contactPhoneValidation.error || 'Некорректный телефон';
-            ok = false;
-          }
-        }
-
-        if (customerData.contact.email) {
-          const contactEmailValidation = validateEmail(
-            customerData.contact.email,
-          );
-          if (!contactEmailValidation.isValid) {
-            errs['contact.email'] =
-              contactEmailValidation.error || 'Некорректный email';
-            ok = false;
-          }
-        }
-
-        if (customerData.contact.lastName) {
-          const lastNameValidation = validateName(
-            customerData.contact.lastName,
-            'Фамилия',
-          );
-          if (!lastNameValidation.isValid) {
-            errs['contact.lastName'] =
-              lastNameValidation.error || 'Некорректная фамилия';
-            ok = false;
-          }
-        }
-
-        if (customerData.contact.firstName) {
-          const firstNameValidation = validateName(
-            customerData.contact.firstName,
-            'Имя',
-          );
-          if (!firstNameValidation.isValid) {
-            errs['contact.firstName'] =
-              firstNameValidation.error || 'Некорректное имя';
-            ok = false;
-          }
-        }
-      }
-
       setCustomerErrors(errs);
       return ok;
     }
 
-    // шаг 3: ФИО
-    if (s === 3) {
+    // шаг 4: ФИО
+    if (s === 4) {
       const errs = { lastName: '', firstName: '' };
       let ok = true;
 
@@ -265,8 +227,8 @@ export default function MultiStepSignup() {
       return ok;
     }
 
-    // шаг 4: пароль
-    if (s === 4) {
+    // шаг 5: пароль
+    if (s === 5) {
       const passwordValidation = validatePassword(password);
       if (!passwordValidation.isValid) {
         setPasswordError(passwordValidation.error || 'Некорректный пароль');
@@ -306,10 +268,10 @@ export default function MultiStepSignup() {
     return true;
   };
 
-  // Теперь все роли — единый поток: 5 шагов (контакт -> роль-форма(юридич) -> ФИО -> пароль -> верификация)
+  // Теперь все роли — единый поток: 6 шагов (контакт -> юр.часть1 -> юр.часть2 -> ФИО -> пароль -> верификация)
   const getTotalSteps = () => {
     if (!role) return 1;
-    return 5;
+    return 6;
   };
 
   const handleNext = () => {
@@ -491,7 +453,7 @@ export default function MultiStepSignup() {
       );
     }
 
-    // Step 2: теперь для всех ролей используем CustomerForm (одинаковые поля)
+    // Step 2: основные юридические данные (Название, ИНН, КПП)
     if (
       step === 2 &&
       (role === 'customer' ||
@@ -500,7 +462,7 @@ export default function MultiStepSignup() {
         role === 'material_supplier')
     ) {
       return (
-        <CustomerForm
+        <CustomerFormPart1
           data={customerData}
           setData={mergeState(setCustomerData)}
           errors={customerErrors}
@@ -508,9 +470,26 @@ export default function MultiStepSignup() {
       );
     }
 
-    // Step 3: ФИО
+    // Step 3: дополнительные юридические данные (ОКПО, адреса)
     if (
       step === 3 &&
+      (role === 'customer' ||
+        role === 'manager' ||
+        role === 'drone_supplier' ||
+        role === 'material_supplier')
+    ) {
+      return (
+        <CustomerFormPart2
+          data={customerData}
+          setData={mergeState(setCustomerData)}
+          errors={customerErrors}
+        />
+      );
+    }
+
+    // Step 4: ФИО
+    if (
+      step === 4 &&
       (role === 'customer' ||
         role === 'manager' ||
         role === 'drone_supplier' ||
@@ -519,9 +498,9 @@ export default function MultiStepSignup() {
       return <StepFio data={fioData} setData={setFioData} errors={fioErrors} />;
     }
 
-    // Step 4: пароль
+    // Step 5: пароль
     if (
-      step === 4 &&
+      step === 5 &&
       (role === 'customer' ||
         role === 'manager' ||
         role === 'drone_supplier' ||
@@ -540,9 +519,9 @@ export default function MultiStepSignup() {
       );
     }
 
-    // Step 5: верификация
+    // Step 6: верификация
     if (
-      step === 5 &&
+      step === 6 &&
       (role === 'customer' ||
         role === 'manager' ||
         role === 'drone_supplier' ||
@@ -573,9 +552,13 @@ export default function MultiStepSignup() {
       ? 'Подтверждение почты'
       : step === totalSteps - 1
         ? 'Пароль и подтверждение'
-        : step === 3
+        : step === 4
           ? 'Личные данные'
-          : 'Основная информация';
+          : step === 2
+            ? 'Основные данные организации'
+            : step === 3
+              ? 'Дополнительные данные'
+              : 'Основная информация';
 
   return (
     <div className="w-full lg:w-1/2 rounded-2xl p-8">
@@ -597,18 +580,16 @@ export default function MultiStepSignup() {
           </div>
         )}
 
-        <div className="flex items-center justify-between mt-4">
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-4">
           {/* Back button only when step > 1 */}
-          {step > 1 ? (
+          {step > 1 && (
             <button
               type="button"
               onClick={handleBack}
-              className="flex items-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-black font-nekstmedium hover:bg-gray-100 transition"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 rounded-[20px] border border-gray-400 text-black font-nekstmedium hover:bg-gray-100 transition"
             >
               Назад
             </button>
-          ) : (
-            <div />
           )}
 
           {/* Right-side controls */}
@@ -616,7 +597,7 @@ export default function MultiStepSignup() {
             <button
               type="button"
               onClick={handleNext}
-              className="flex items-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-700 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-700 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
             >
               Далее
             </button>
@@ -626,13 +607,11 @@ export default function MultiStepSignup() {
             <button
               type="button"
               onClick={() => handleSubmit()}
-              className="flex items-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-700 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-10 py-3 rounded-[20px] bg-gradient-to-r from-green-500 to-green-700 text-white font-nekstmedium hover:from-green-600 hover:to-green-700 transition-transform hover:scale-105 duration-300 shadow-lg text-[18px]"
             >
               Зарегистрироваться
             </button>
           )}
-
-          {step === totalSteps && <div />}
         </div>
       </form>
 

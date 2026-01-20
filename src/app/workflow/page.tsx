@@ -292,11 +292,11 @@ export default function HowItWorks() {
       </section>
 
       {/* Call to Action */}
-      <section className="bg-gradient-to-r from-[#868484] to-[#82a6a6] py-12 flex flex-col items-center">
-        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 font-nekstregular">
+      <section className="bg-gradient-to-r from-[#868484] to-[#82a6a6] py-12 px-4 sm:px-6 flex flex-col items-center">
+        <h2 className="text-2xl md:text-3xl font-bold text-white mb-2 font-nekstregular text-center">
           Готовы к цифровой трансформации вашего агробизнеса?
         </h2>
-        <p className="text-white/90 mb-6 text-[16px] text-center max-w-xl font-nekstregular">
+        <p className="text-white/90 mb-6 text-sm sm:text-base text-center max-w-xl font-nekstregular px-2">
           Присоединяйтесь к платформе, чтобы управлять парком дронов,
           автоматизировать процессы и повышать урожайность с заботой об
           экологии.

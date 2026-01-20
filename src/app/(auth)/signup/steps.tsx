@@ -172,7 +172,7 @@ export function CustomerForm({
 }) {
   return (
     <>
-      <div className="flex gap-2 mb-6 justify-center">
+      <div className="flex flex-wrap gap-2 mb-6 justify-center">
         {[
           { label: 'Компания', value: 'COMPANY' },
           { label: 'ИП', value: 'INDIVIDUAL' },
@@ -184,7 +184,7 @@ export function CustomerForm({
             onClick={() =>
               setData((prev) => ({ ...prev, type: value as Step2Data['type'] }))
             }
-            className={`px-4 py-2 rounded-full font-nekstmedium ${
+            className={`px-3 sm:px-4 py-2 rounded-full font-nekstmedium text-sm sm:text-base flex-1 min-w-[90px] ${
               data.type === value
                 ? 'bg-gradient-to-r from-green-500 to-green-700 text-white'
                 : 'bg-transparent border text-gray-600 border-gray-600 '
@@ -274,6 +274,145 @@ export function CustomerForm({
             setData((prev) => ({ ...prev, factAddres: e.target.value }))
           }
           id="fact_addres"
+          error={Boolean(errors.factAddres)}
+        />
+      </div>
+    </>
+  );
+}
+
+/* ================= CustomerFormPart1 - Основные данные ================= */
+export function CustomerFormPart1({
+  data,
+  setData,
+  errors = {},
+}: {
+  data: Step2Data;
+  setData: React.Dispatch<React.SetStateAction<Step2Data>>;
+  errors?: Record<string, string>;
+}) {
+  return (
+    <>
+      <div className="flex flex-wrap gap-2 mb-6 justify-center">
+        {[
+          { label: 'Компания', value: 'COMPANY' },
+          { label: 'ИП', value: 'INDIVIDUAL' },
+          { label: 'Физ лицо', value: 'PERSON' },
+        ].map(({ label, value }) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() =>
+              setData((prev) => ({ ...prev, type: value as Step2Data['type'] }))
+            }
+            className={`px-3 sm:px-4 py-2 rounded-full font-nekstmedium text-sm sm:text-base flex-1 min-w-[90px] ${
+              data.type === value
+                ? 'bg-gradient-to-r from-green-500 to-green-700 text-white'
+                : 'bg-transparent border text-gray-600 border-gray-600 '
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        {data.type !== 'PERSON' && (
+          <Input
+            label={
+              <>
+                Название компании <span className="text-red-500">*</span>
+              </>
+            }
+            value={data.nameCompany}
+            onChange={(e: any) =>
+              setData((prev) => ({ ...prev, nameCompany: e.target.value }))
+            }
+            id="name_company_p1"
+            icon={<Building size={20} />}
+            error={Boolean(errors.nameCompany)}
+            errorMessage={errors.nameCompany}
+          />
+        )}
+
+        <Input
+          label={
+            <>
+              ИНН{' '}
+              {data.type === 'COMPANY' && (
+                <span className="text-red-500">*</span>
+              )}
+            </>
+          }
+          value={data.inn}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, inn: e.target.value }))
+          }
+          id="inn_p1"
+          filter="digits"
+          maxLength={12}
+          error={Boolean(errors.inn)}
+          errorMessage={errors.inn}
+        />
+
+        <Input
+          label="КПП"
+          value={data.kpp}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, kpp: e.target.value }))
+          }
+          id="kpp_p1"
+          filter="digits"
+          maxLength={9}
+          error={Boolean(errors.kpp)}
+          errorMessage={errors.kpp}
+        />
+      </div>
+    </>
+  );
+}
+
+/* ================= CustomerFormPart2 - Дополнительные данные ================= */
+export function CustomerFormPart2({
+  data,
+  setData,
+  errors = {},
+}: {
+  data: Step2Data;
+  setData: React.Dispatch<React.SetStateAction<Step2Data>>;
+  errors?: Record<string, string>;
+}) {
+  return (
+    <>
+      <div className="grid grid-cols-1 gap-4">
+        <Input
+          label="Код по ОКПО"
+          value={data.okpo}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, okpo: e.target.value }))
+          }
+          id="okpo_p2"
+          filter="digits"
+          maxLength={10}
+          error={Boolean(errors.okpo)}
+          errorMessage={errors.okpo}
+        />
+        <Input
+          label="Юридический адрес"
+          value={data.urAddres}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, urAddres: e.target.value }))
+          }
+          id="ur_addres_p2"
+          error={Boolean(errors.urAddres)}
+        />
+        <Input
+          label="Фактический адрес"
+          value={data.factAddres}
+          onChange={(e: any) =>
+            setData((prev) => ({ ...prev, factAddres: e.target.value }))
+          }
+          id="fact_addres_p2"
           error={Boolean(errors.factAddres)}
         />
       </div>
@@ -793,10 +932,22 @@ export function Step3({
         id="confirm-password"
         placeholder="••••••••"
         type={showConfirm ? 'text' : 'password'}
+        icon={<Lock size={20} />}
         value={confirm}
         onChange={(e: any) => setConfirm(e.target.value)}
         onFocus={() => setIsPasswordFocused(true)}
         onBlur={() => setIsPasswordFocused(false)}
+        rightIcon={
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShowConfirm((v) => !v)}
+            className="focus:outline-none"
+            aria-label={showConfirm ? 'Скрыть пароль' : 'Показать пароль'}
+          >
+            {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        }
         error={Boolean(confirmError)}
         errorMessage={confirmError}
       />
@@ -877,10 +1028,6 @@ export function EmailVerification({
 
       <div>
         <label className="relative block font-medium mb-2">
-          <span className="font-nekstregular">
-            Код подтверждения{' '}
-            <span className="text-red-500 font-nekstregular">*</span>
-          </span>
           {codeError && (
             <span className="absolute right-0 top-0 text-red-600 text-sm font-nekstregular">
               {codeError}

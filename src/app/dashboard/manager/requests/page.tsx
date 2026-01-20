@@ -368,6 +368,9 @@ export default function FriendlyOrdersPanel() {
   } | null>(null);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
+  // inline mobile-expanded status menu (expands card height)
+  const [expandedCardId, setExpandedCardId] = useState<number | null>(null);
+
   // status selector dropdown inside modal
   const [statusOpen, setStatusOpen] = useState(false);
   const statusRef = useRef<HTMLDivElement | null>(null);
@@ -1073,6 +1076,7 @@ export default function FriendlyOrdersPanel() {
     const handler = () => {
       setOpenDropdownId(null);
       setDropdownPos(null);
+      setExpandedCardId(null);
     };
     window.addEventListener('resize', handler);
     window.addEventListener('scroll', handler, true);
@@ -1081,6 +1085,39 @@ export default function FriendlyOrdersPanel() {
       window.removeEventListener('scroll', handler, true);
     };
   }, []);
+
+  // helper to open dropdown via event target and compute portal position
+  const openDropdownFor = (orderId: number, buttonEl: HTMLElement | null) => {
+    if (!buttonEl) {
+      setOpenDropdownId(null);
+      setDropdownPos(null);
+      return;
+    }
+
+    const rect = buttonEl.getBoundingClientRect();
+    const dropdownWidth = 208;
+    const itemHeight = 40;
+    const dropdownHeight = STATUS_OPTIONS.length * itemHeight + 16;
+    const margin = 8;
+    let top = rect.bottom + margin;
+    let up = false;
+    if (rect.bottom + dropdownHeight + margin > window.innerHeight) {
+      top = rect.top - dropdownHeight - margin;
+      up = true;
+      if (top < 8) top = 8;
+    }
+    let left = rect.right - dropdownWidth;
+    if (left < 8) left = 8;
+    if (left + dropdownWidth > window.innerWidth - 8)
+      left = Math.max(8, window.innerWidth - dropdownWidth - 8);
+    setOpenDropdownId(orderId);
+    setDropdownPos({
+      top: Math.round(top),
+      left: Math.round(left),
+      alignRight: true,
+      up,
+    });
+  };
 
   // Close image zoom modal on ESC
   useEffect(() => {
@@ -1313,7 +1350,7 @@ export default function FriendlyOrdersPanel() {
                   key={o.orderId}
                   className="group relative rounded-2xl bg-white/60 backdrop-blur-md shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-[2px] border border-white/20 overflow-hidden"
                 >
-                  <div className="p-3 sm:p-4 md:p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 md:gap-4">
+                  <div className="p-3 sm:p-4 md:p-5 flex flex-col lg:grid lg:grid-cols-[1fr_auto] lg:items-center gap-3 md:gap-4">
                     {/* Left block */}
                     <div className="flex items-start gap-3 md:gap-4">
                       <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-200 text-emerald-900 flex flex-col items-center justify-center shadow-inner">
@@ -1342,23 +1379,21 @@ export default function FriendlyOrdersPanel() {
                     </div>
 
                     {/* Right block */}
-                    <div className="flex flex-wrap items-center gap-2 md:gap-3 justify-end">
+                    <div className="flex flex-wrap items-center gap-2 md:gap-3 justify-start">
                       {/* Тип заказа */}
                       <div
-                        className={`inline-flex items-center gap-1 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-nekstmedium backdrop-blur transition-all duration-200 hover:scale-105 ${
+                        className={`inline-flex items-center gap-1 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-nekstmedium backdrop-blur transition-all duration-200 hover:scale-105 min-w-[110px] justify-center ${
                           o.orderType === 'SPLIT'
                             ? 'bg-purple-100 text-purple-800'
                             : 'bg-blue-100 text-blue-800'
                         }`}
-                        style={{ minWidth: 80, justifyContent: 'center' }}
                       >
                         {o.orderType === 'SPLIT' ? 'Разбиение' : 'Обычный'}
                       </div>
 
                       {/* Статус */}
                       <div
-                        className={`inline-flex items-center gap-1 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-nekstmedium backdrop-blur ${statusBadgeClass(o.status)} transition-all duration-200 hover:scale-105`}
-                        style={{ minWidth: 90, justifyContent: 'center' }}
+                        className={`inline-flex items-center gap-1 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-nekstmedium backdrop-blur ${statusBadgeClass(o.status)} transition-all duration-200 hover:scale-105 min-w-[110px] justify-center`}
                       >
                         {statusBadgeIcon(o.status)}
                         {STATUS_LABEL_RU[o.status as string] ?? o.status ?? '—'}
@@ -1366,8 +1401,9 @@ export default function FriendlyOrdersPanel() {
 
                       <button
                         onClick={() => openModal(o)}
-                        className="px-3 md:px-4 py-2 rounded-xl bg-white shadow-sm hover:shadow-md font-nekstregular transition inline-flex items-center gap-2 min-w-[100px] justify-center text-xs md:text-sm"
+                        className="px-3 md:px-4 py-2 rounded-xl bg-white border border-gray-200 shadow hover:shadow-md font-nekstregular transition inline-flex items-center gap-2 w-full sm:w-auto justify-center text-xs md:text-sm text-slate-900"
                         disabled={viewLoadingId === o.orderId}
+                        aria-label={`Просмотр заказа ${o.orderId}`}
                       >
                         {viewLoadingId === o.orderId ? (
                           <>
@@ -1388,6 +1424,19 @@ export default function FriendlyOrdersPanel() {
                         <button
                           onClick={(e) => {
                             const btn = e.currentTarget as HTMLElement;
+                            // mobile: expand inline menu
+                            if (
+                              typeof window !== 'undefined' &&
+                              window.innerWidth < 640
+                            ) {
+                              setExpandedCardId((prev) =>
+                                prev === o.orderId ? null : o.orderId,
+                              );
+                              // ensure portal dropdown closed
+                              setOpenDropdownId(null);
+                              setDropdownPos(null);
+                              return;
+                            }
                             if (openDropdownId === o.orderId) {
                               setOpenDropdownId(null);
                               setDropdownPos(null);
@@ -1401,9 +1450,45 @@ export default function FriendlyOrdersPanel() {
                             Изменить статус
                           </span>
                           <span className="sm:hidden">Статус</span>
-                          <ChevronDown size={14} />
+                          <ChevronDown
+                            size={14}
+                            className={`transition-transform duration-200 ${expandedCardId === o.orderId ? 'rotate-180' : ''}`}
+                          />
                         </button>
                       </div>
+
+                      {/* Mobile inline expanded status menu */}
+                      {expandedCardId === o.orderId && (
+                        <div className="sm:hidden w-full pb-4">
+                          <div className="mt-3 bg-white border border-gray-100 rounded-lg shadow-sm overflow-hidden w-full">
+                            <div className="grid gap-2 py-2">
+                              {STATUS_OPTIONS.map((opt) => (
+                                <button
+                                  key={opt.value}
+                                  onClick={async () => {
+                                    if (opt.value === 'Cancelled') {
+                                      if (
+                                        !confirm(
+                                          `Отменить заказ #${o.orderId}?`,
+                                        )
+                                      )
+                                        return;
+                                    }
+                                    await updateOrderStatusApi(
+                                      o.orderId,
+                                      opt.value,
+                                    );
+                                    setExpandedCardId(null);
+                                  }}
+                                  className="w-full text-left px-3 py-2 rounded-md bg-slate-50 hover:bg-slate-100 text-sm font-nekstregular"
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

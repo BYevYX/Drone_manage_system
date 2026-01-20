@@ -30,6 +30,16 @@
   --foreground: #171717;
 }
 
+html {
+  color-scheme: light;
+}
+
+html,
+body {
+  background-color: #fff !important;
+  color: #000 !important;
+}
+
 @theme inline {
   --font-nekstmedium: 'Nekst-Medium', 'Arial';
   --font-nekstlight: 'Nekst-Light', 'Arial';

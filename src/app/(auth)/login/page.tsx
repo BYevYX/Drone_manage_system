@@ -324,10 +324,10 @@ export default function LoginPage() {
             <LogIn size={20} /> {loading ? 'Входим...' : 'Войти'}
           </button>
 
-          <div className="mt-4 flex items-center justify-between">
+          <div className="mt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <a
               href="/signup"
-              className="flex items-center gap-2 text-blue-700 font-medium hover:underline hover:scale-105 transition font-nekstmedium text-[18px]"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 text-blue-700 font-medium hover:underline hover:scale-105 transition font-nekstmedium text-[18px] py-2 rounded-lg"
             >
               Зарегистрироваться
             </a>
@@ -335,7 +335,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={openForgot}
-              className="flex items-center gap-2 text-blue-700 font-medium hover:underline hover:scale-105 transition font-nekstmedium text-[16px]"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 text-blue-700 font-medium hover:underline hover:scale-105 transition font-nekstmedium text-[16px] py-2 rounded-lg"
             >
               Забыли пароль?
             </button>

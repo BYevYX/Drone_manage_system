@@ -345,7 +345,7 @@ export default function ServicesModernPage() {
                     onClick={() => handleServiceClick(selectedService.href)}
                     className="w-full py-4 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-nekstmedium text-lg shadow-lg hover:shadow-xl transition-all duration-200 hover:-translate-y-0.5"
                   >
-                    Подробнее и оформить заявку
+                    Оформить заявку
                   </button>
                 </div>
               </div>
@@ -355,18 +355,19 @@ export default function ServicesModernPage() {
       ) : (
         // Каталог услуг
         <section className="container mx-auto max-w-6xl px-4 py-10">
-          <div className="bg-white rounded-2xl p-6 shadow-md flex items-center justify-between gap-6 mb-8">
-            <div>
+          <div className="bg-white rounded-2xl p-6 shadow-md flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+            <div className="w-full">
               <h1 className="text-3xl font-nekstmedium text-black">
                 Услуги платформы
               </h1>
               <p className="text-gray-600 mt-1">
-                Выберите услугу. Переход ведёт в раздел заявок вашего кабинета —
-                доступность зависит от роли.
+                {' '}
+                Ознакомьтесь с доступными услугами и выберите подходящую для
+                вашей задачи.
               </p>
             </div>
 
-            <div className="w-full max-w-md">
+            <div className="w-full   mt-4 md:mt-0">
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-200">
                   <Search size={16} />
