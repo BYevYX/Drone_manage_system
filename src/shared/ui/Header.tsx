@@ -71,13 +71,29 @@ export default function Header() {
     setRole(userInfo?.userRole ?? '');
   }, [userInfo?.userRole]);
 
-  const router = useRouter();
-
-  // track hovered drone item to show its popup only when directly hovered
+  // Управление hover-состоянием для меню дронов
   const [hoveredDroneIndex, setHoveredDroneIndex] = useState<number | null>(
     null,
   );
   const [dronesOpen, setDronesOpen] = useState(false);
+  const dronesCloseTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const cancelDronesClose = () => {
+    if (dronesCloseTimerRef.current) {
+      clearTimeout(dronesCloseTimerRef.current);
+      dronesCloseTimerRef.current = null;
+    }
+  };
+
+  const startDronesClose = (delay = 150) => {
+    cancelDronesClose();
+    dronesCloseTimerRef.current = setTimeout(() => {
+      setDronesOpen(false);
+      setHoveredDroneIndex(null);
+    }, delay);
+  };
+
+  const router = useRouter();
 
   const headerStyles = {
     '/': 'bg-white text-black p-5',
@@ -299,11 +315,11 @@ export default function Header() {
               {/* Drones menu - on small screens we will simply navigate to /drones; on desktop keep hover submenu */}
               <div
                 className="relative"
-                onMouseEnter={() => setDronesOpen(true)}
-                onMouseLeave={() => {
-                  setDronesOpen(false);
-                  setHoveredDroneIndex(null);
+                onMouseEnter={() => {
+                  cancelDronesClose();
+                  setDronesOpen(true);
                 }}
+                onMouseLeave={() => startDronesClose()}
               >
                 <div className="flex items-center gap-2 text-[20px] px-2 py-1 hover:text-gray-300 cursor-pointer">
                   <Link
@@ -325,13 +341,18 @@ export default function Header() {
                       ? 'opacity-100 scale-100 pointer-events-auto'
                       : 'opacity-0 scale-95 pointer-events-none'
                   }`}
+                  onMouseEnter={cancelDronesClose}
+                  onMouseLeave={() => startDronesClose()}
                 >
                   {dronesList.map((drone: any, index: number) => (
                     <div
                       key={index}
                       className="relative"
-                      onMouseEnter={() => setHoveredDroneIndex(index)}
-                      onMouseLeave={() => setHoveredDroneIndex(null)}
+                      onMouseEnter={() => {
+                        cancelDronesClose();
+                        setHoveredDroneIndex(index);
+                      }}
+                      onMouseLeave={() => startDronesClose()}
                     >
                       <Link
                         href={`/drones/${drone.id}`}
@@ -343,8 +364,11 @@ export default function Header() {
                       <div
                         className="absolute top-0 left-full w-[6px] h-full z-40"
                         aria-hidden
-                        onMouseEnter={() => setHoveredDroneIndex(index)}
-                        onMouseLeave={() => setHoveredDroneIndex(null)}
+                        onMouseEnter={() => {
+                          cancelDronesClose();
+                          setHoveredDroneIndex(index);
+                        }}
+                        onMouseLeave={() => startDronesClose()}
                       />
 
                       <div
@@ -354,6 +378,11 @@ export default function Header() {
                             : 'opacity-0 scale-95 pointer-events-none'
                         }`}
                         style={{ left: 'calc(100% + 6px)' }}
+                        onMouseEnter={() => {
+                          cancelDronesClose();
+                          setHoveredDroneIndex(index);
+                        }}
+                        onMouseLeave={() => startDronesClose()}
                       >
                         <h4 className="font-semibold text-[18px] mb-2">
                           {drone.name}
