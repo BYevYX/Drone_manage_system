@@ -1,10 +1,11 @@
 'use client';
 
 import { MessageSquare, Plus } from 'lucide-react';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 
 import { useGlobalContext } from '../../GlobalContext';
 import { createReview, deleteReview, getReviews, updateReview } from '../api';
+import { apiClient } from '@/src/shared/api/client';
 import type { Review } from '../types';
 import { AddReviewModal } from './AddReviewModal';
 import { EditReviewModal } from './EditReviewModal';
@@ -25,16 +26,52 @@ export const ReviewsSection: React.FC = () => {
 
   // Get current user ID from GlobalContext
   const currentUserId = userInfo.userId;
+  const userCacheRef = useRef<Record<number, string>>({});
 
   const loadReviews = useCallback(async (page = 1, append = false) => {
     try {
       setLoading(true);
       const response = await getReviews({ page, limit: 10 });
 
+      // Use persistent cache (userCacheRef) and populate from response if available
+      const existingIds = response.reviews
+        .map((r: any) => r.userId)
+        .filter((v: any) => v !== undefined && v !== null);
+      const uniqueIds = Array.from(new Set(existingIds));
+
+      // prefill cache from response if backend already provided userName
+      response.reviews.forEach((r: any) => {
+        if (r.userId && r.userName) userCacheRef.current[r.userId] = r.userName;
+      });
+
+      // Find ids that we need to fetch
+      const toFetch = uniqueIds.filter((id) => !userCacheRef.current[id]);
+      if (toFetch.length) {
+        await Promise.all(
+          toFetch.map(async (id) => {
+            try {
+              const data: any = await apiClient.get(`/api/users/${id}`);
+              const fn = (data?.firstName ?? '').trim();
+              const ln = (data?.lastName ?? '').trim();
+              const full = `${fn} ${ln}`.trim();
+              userCacheRef.current[id] = full || `Пользователь #${id}`;
+            } catch (e) {
+              userCacheRef.current[id] = `Пользователь #${id}`;
+            }
+          }),
+        );
+      }
+
+      // Attach userName to reviews from persistent cache
+      const reviewsWithNames = response.reviews.map((r: any) => ({
+        ...r,
+        userName: userCacheRef.current[r.userId] ?? undefined,
+      }));
+
       if (append) {
-        setReviews((prev) => [...prev, ...response.reviews]);
+        setReviews((prev) => [...prev, ...reviewsWithNames]);
       } else {
-        setReviews(response.reviews);
+        setReviews(reviewsWithNames);
       }
 
       setHasMore(response.reviews.length === 10);

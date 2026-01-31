@@ -5,6 +5,7 @@
 export interface Review {
   reviewId: number;
   userId: number;
+  userName?: string;
   text: string;
   createdAt?: string;
   updatedAt?: string;

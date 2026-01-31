@@ -1,10 +1,9 @@
 'use client';
 
 import { Edit, Trash2, User } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
 import { useGlobalContext } from '../../GlobalContext';
-import { apiClient } from '@/src/shared/api/client';
 import type { Review } from '../types';
 
 interface ReviewCardProps {
@@ -21,8 +20,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
   currentUserId,
 }) => {
   const { userRole } = useGlobalContext();
-
-  const [authorName, setAuthorName] = useState<string | null>(null);
 
   const canEdit =
     userRole !== 'GUEST' &&
@@ -45,25 +42,11 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
     }
   };
 
-  useEffect(() => {
-    let mounted = true;
-    const fetchUser = async () => {
-      try {
-        if (review.userId === undefined || review.userId === null) return;
-        const data: any = await apiClient.get(`/api/users/${review.userId}`);
-        const fn = (data?.firstName ?? '').trim();
-        const ln = (data?.lastName ?? '').trim();
-        const full = `${fn} ${ln}`.trim();
-        if (mounted) setAuthorName(full || `Пользователь #${review.userId}`);
-      } catch (e) {
-        if (mounted) setAuthorName(`Пользователь #${review.userId}`);
-      }
-    };
-    fetchUser();
-    return () => {
-      mounted = false;
-    };
-  }, [review.userId]);
+  // use review.userName if provided by parent; fallback to id string
+  const displayName =
+    currentUserId !== undefined && currentUserId === review.userId
+      ? 'Я'
+      : (review.userName ?? `Пользователь #${review.userId}`);
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover:shadow-lg transition-shadow">
@@ -74,15 +57,13 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
           </div>
           <div>
             <p
-              className={`text-m font-nekstmedium ${
+              className={`text-sm ${
                 currentUserId !== undefined && currentUserId === review.userId
                   ? 'text-green-600 font-medium'
                   : 'text-gray-500'
               }`}
             >
-              {currentUserId !== undefined && currentUserId === review.userId
-                ? 'Я'
-                : (authorName ?? `Пользователь #${review.userId}`)}
+              {displayName}
             </p>
             {review.createdAt && (
               <p className="text-xs font-nekstregular text-gray-400">
