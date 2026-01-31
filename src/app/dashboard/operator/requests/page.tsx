@@ -472,6 +472,7 @@ interface Order {
   date: string;
   fieldName: string;
   fieldId?: number;
+  typeProcessId?: number;
   coords?: [number, number][];
   status: OrderStatus;
   orderType?: 'DEFAULT' | 'SPLIT';
@@ -498,6 +499,9 @@ export default function OperatorOrdersWizard(): JSX.Element {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [processingTypes, setProcessingTypes] = useState<
+    Array<{ typeId: number; typeName: string; typeDescription: string }>
+  >([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [orderTypeFilter, setOrderTypeFilter] = useState<string>('all');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
@@ -513,9 +517,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
     Record<number, number>
   >({});
 
-  const [processingMode, setProcessingMode] = useState<
-    'spraying' | 'spreading'
-  >('spraying');
+  const [processingMode, setProcessingMode] = useState<string>('spraying');
   const isJsonUploaded = Boolean(selectedOrder?.metadata?.uploadedJson);
 
   const isAnalyzeDisabled = calcInProgress || !isJsonUploaded;
@@ -539,10 +541,30 @@ export default function OperatorOrdersWizard(): JSX.Element {
   };
 
   useEffect(() => {
-    loadOrders();
-    loadDrones();
+    // Загружаем дроны параллельно с заказами (типы загружаются внутри loadOrders)
+    Promise.all([loadOrders(), loadDrones()]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Устанавливаем processingMode на основе typeProcessId выбранного заказа
+  useEffect(() => {
+    if (
+      selectedOrder &&
+      selectedOrder.typeProcessId &&
+      processingTypes.length > 0
+    ) {
+      const typeInfo = processingTypes.find(
+        (t) => t.typeId === selectedOrder.typeProcessId,
+      );
+      if (typeInfo && typeInfo.typeName) {
+        // Используем typeName напрямую как processingMode
+        setProcessingMode(typeInfo.typeName);
+      }
+    } else if (selectedOrder && !selectedOrder.typeProcessId) {
+      // Если typeProcessId не задан, используем дефолтное значение
+      setProcessingMode('spraying');
+    }
+  }, [selectedOrder, processingTypes]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -599,6 +621,22 @@ export default function OperatorOrdersWizard(): JSX.Element {
     }
   };
 
+  const loadProcessingTypes = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/api/processing-types`);
+      if (!res.ok) {
+        console.error('[loadProcessingTypes] Ошибка загрузки типов обработки');
+        return;
+      }
+      const data = await res.json();
+      if (data && data.types) {
+        setProcessingTypes(data.types);
+      }
+    } catch (err) {
+      console.error('[loadProcessingTypes] Ошибка:', err);
+    }
+  };
+
   const loadOrders = async () => {
     setLoadingOrders(true);
     try {
@@ -610,7 +648,13 @@ export default function OperatorOrdersWizard(): JSX.Element {
         setLoadingOrders(false);
         return;
       }
-      const res = await authFetch(`${API_BASE}/api/orders/operator/${userId}`);
+
+      // Загружаем типы и заказы параллельно
+      const [res] = await Promise.all([
+        authFetch(`${API_BASE}/api/orders/operator/${userId}`),
+        loadProcessingTypes(),
+      ]);
+
       if (!res.ok) {
         setOrders([]);
         setLoadingOrders(false);
@@ -666,6 +710,9 @@ export default function OperatorOrdersWizard(): JSX.Element {
               .slice(0, 10),
             fieldName: o.fieldName ?? `ID:${o.id ?? o.orderId}`,
             fieldId,
+            typeProcessId: o.typeProcessId
+              ? Number(o.typeProcessId)
+              : undefined,
             status: normalizeStatus(o.status ?? 'new'),
             orderType: (o.orderType ?? 'DEFAULT') as 'DEFAULT' | 'SPLIT',
             preview: { fieldPhoto: null },
@@ -1622,15 +1669,25 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         orderTypeFilter === 'all'
                           ? 'Все типы'
                           : orderTypeFilter === 'DEFAULT'
-                            ? 'Обычные'
-                            : 'Только разбиение'
+                            ? 'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
+                            : 'Разбиение поля на участки без учета вегетационных индексов'
                       }
-                      options={['Все типы', 'Обычные', 'Только разбиение']}
+                      options={[
+                        'Все типы',
+                        'Прокладывание маршрутов для дронов с учетом вегетационных индексов',
+                        'Разбиение поля на участки без учета вегетационных индексов',
+                      ]}
                       onChange={(val) => {
                         if (val === 'Все типы') setOrderTypeFilter('all');
-                        else if (val === 'Обычные')
+                        else if (
+                          val ===
+                          'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
+                        )
                           setOrderTypeFilter('DEFAULT');
-                        else if (val === 'Только разбиение')
+                        else if (
+                          val ===
+                          'Разбиение поля на участки без учета вегетационных индексов'
+                        )
                           setOrderTypeFilter('SPLIT');
                       }}
                     />
@@ -1845,7 +1902,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                     />
                                   </svg>
                                   <span className="text-xs font-nekstmedium text-purple-700">
-                                    Только разбиение
+                                    Разбиение поля на участки без учета
+                                    вегетационных индексов
                                   </span>
                                 </div>
                               ) : (
@@ -1864,7 +1922,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                     />
                                   </svg>
                                   <span className="text-xs font-nekstmedium text-blue-700">
-                                    Обычный
+                                    Прокладывание маршрутов для дронов с учетом
+                                    вегетационных индексов
                                   </span>
                                 </div>
                               )}
@@ -2026,7 +2085,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                 />
                               </svg>
                               <span className="text-xs font-nekstmedium text-purple-700">
-                                Разбиение
+                                Разбиение поля на участки без учета
+                                вегетационных индексов
                               </span>
                             </div>
                           ) : (
@@ -2045,7 +2105,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                 />
                               </svg>
                               <span className="text-xs font-nekstmedium text-blue-700">
-                                Обычный
+                                Прокладывание маршрутов для дронов с учетом
+                                вегетационных индексов
                               </span>
                             </div>
                           )}
@@ -2156,8 +2217,11 @@ export default function OperatorOrdersWizard(): JSX.Element {
                           d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                         />
                       </svg>
-                      <span className="hidden sm:inline">Только разбиение</span>
-                      <span className="sm:hidden">Разбиение</span>
+                      <span className="hidden sm:inline">
+                        Разбиение поля на участки без учета вегетационных
+                        индексов
+                      </span>
+                      <span className="sm:hidden">Разбиение поля</span>
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-100 to-blue-50 border border-blue-200 text-blue-700 text-xs font-nekstmedium whitespace-nowrap">
@@ -2174,7 +2238,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
                           d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
                         />
                       </svg>
-                      Обычный
+                      Прокладывание маршрутов для дронов с учетом вегетационных
+                      индексов
                     </span>
                   )}
                 </div>
@@ -2219,9 +2284,12 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                 />
                               </svg>
                               <span className="text-purple-700 text-xs">
-                                <strong>Только разбиение:</strong> Генерация
-                                карты разбиения поля на участки без анализа и
-                                построения маршрутов
+                                <strong>
+                                  Разбиение поля на участки без учета
+                                  вегетационных индексов:
+                                </strong>{' '}
+                                Генерация карты разбиения поля на участки без
+                                анализа и построения маршрутов
                               </span>
                             </div>
                           </div>
@@ -2333,9 +2401,12 @@ export default function OperatorOrdersWizard(): JSX.Element {
                               />
                             </svg>
                             <span className="text-purple-700 text-xs">
-                              <strong>Только разбиение:</strong> Генерация карты
-                              разбиения поля на участки без анализа и построения
-                              маршрутов
+                              <strong>
+                                Разбиение поля на участки без учета
+                                вегетационных индексов:
+                              </strong>{' '}
+                              Генерация карты разбиения поля на участки без
+                              анализа и построения маршрутов
                             </span>
                           </div>
                         ) : (
@@ -2353,9 +2424,12 @@ export default function OperatorOrdersWizard(): JSX.Element {
                               />
                             </svg>
                             <span className="text-blue-700 text-xs">
-                              <strong>Обычный:</strong> Полный цикл обработки —
-                              анализ поля, построение маршрутов дронов,
-                              опрыскивание и отчёты
+                              <strong>
+                                Прокладывание маршрутов для дронов с учетом
+                                вегетационных индексов:
+                              </strong>{' '}
+                              Полный цикл обработки — анализ поля, построение
+                              маршрутов дронов, опрыскивание и отчёты
                             </span>
                           </div>
                         )}
@@ -2399,8 +2473,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
                             />
                           </svg>
                           <span className="text-purple-700 text-xs">
-                            Для типа "Только разбиение" выбор индекса не
-                            требуется
+                            Для типа "Разбиение поля на участки без учета
+                            вегетационных индексов" выбор индекса не требуется
                           </span>
                         </div>
                       )}

@@ -88,7 +88,7 @@ export default function page() {
             ></motion.div>
 
             {/* Контейнер с фиксированной высотой для typing effect */}
-            <div className="h-40 md:h-40 flex items-center justify-center w-full mb-4">
+            <div className="h-25 md:h-25 flex items-center justify-center w-full mb-4">
               <motion.div
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -102,7 +102,7 @@ export default function page() {
                 <TypingEffect
                   strings={[
                     'ДронАгро',
-                    'Интеллектуальная платформа для агробизнеса',
+                    'Иновационная платформа для агробизнеса',
                     'Будущее сельского хозяйства уже здесь!',
                   ]}
                   typeSpeed={50}
@@ -117,7 +117,7 @@ export default function page() {
             </div>
 
             {/* Подзаголовок */}
-            <motion.div
+            {/* <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.8, delay: 0.6 }}
@@ -125,7 +125,7 @@ export default function page() {
             >
               Платформа для автоматизации сельскохозяйственных процессов с
               использованием БПЛА
-            </motion.div>
+            </motion.div> */}
 
             {/* Кнопки */}
             <motion.div
@@ -241,7 +241,7 @@ export default function page() {
                     вашего агробизнеса с использованием современных дронов и
                     технологий анализа данных.
                   </p>
-                  <ul className="space-y-4 text-[16px] ">
+                  <ul className="space-y-4 font-nekstregular text-[16px] ">
                     {[
                       'Автоматическое планирование маршрутов',
                       'Реальный мониторинг выполнения работ',
@@ -288,7 +288,7 @@ export default function page() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 ">
+            <div className="grid grid-cols-1 font-nekstregular md:grid-cols-3 gap-8 ">
               {[
                 {
                   title: 'Орошение полей',

@@ -269,11 +269,8 @@ const STATUS_LABEL: Record<string, string> = {
   clarify: 'Нужна доработка',
 };
 
-const TYPE_LABEL: Record<number, string> = {
-  0: 'Опрыскивание',
-  1: 'Внесение удобрений',
-  2: 'Картографирование',
-};
+// Типы обработки будут загружаться из API
+const TYPE_LABEL: Record<number, string> = {};
 
 const STATUS_OPTIONS = [
   { value: 'In progress', label: 'В работе' },
@@ -332,6 +329,9 @@ export default function FriendlyOrdersPanel() {
   const API_BASE = 'https://api.droneagro.xyz';
 
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [processingTypes, setProcessingTypes] = useState<
+    Array<{ typeId: number; typeName: string; typeDescription: string }>
+  >([]);
 
   const [allOrders, setAllOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(false);
@@ -565,12 +565,52 @@ export default function FriendlyOrdersPanel() {
     }
   };
 
+  // --- Загрузка типов обработки
+  const loadProcessingTypes = useCallback(async (): Promise<
+    Array<{ typeId: number; typeName: string; typeDescription: string }>
+  > => {
+    try {
+      const res = await authFetch(`${API_BASE}/api/processing-types`);
+      if (!res.ok) {
+        console.error('[loadProcessingTypes] Ошибка загрузки типов обработки');
+        return [];
+      }
+      const data = await res.json();
+      if (data && data.types) {
+        setProcessingTypes(data.types);
+        // Обновляем TYPE_LABEL
+        data.types.forEach((type: any) => {
+          TYPE_LABEL[type.typeId] = type.typeName;
+        });
+        return data.types;
+      }
+      return [];
+    } catch (err) {
+      console.error('[loadProcessingTypes] Ошибка:', err);
+      return [];
+    }
+  }, [API_BASE]);
+
   // --- fetchOrders
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await authFetch(`${API_BASE}/api/orders?limit=1000`);
+
+      // Загружаем типы и заказы параллельно для ускорения
+      const [types, res] = await Promise.all([
+        loadProcessingTypes(),
+        authFetch(`${API_BASE}/api/orders?limit=1000`),
+      ]);
+
+      // Локальная функция для получения имени типа
+      const getTypeLabel = (typeProcessId: number | undefined): string => {
+        if (typeProcessId === undefined || typeProcessId === null) {
+          return 'Тип не указан';
+        }
+        const type = types.find((t) => t.typeId === typeProcessId);
+        return type ? type.typeName : `Тип #${typeProcessId}`;
+      };
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
         throw new Error(`Ошибка получения заказов: ${res.status} ${txt}`);
@@ -622,8 +662,8 @@ export default function FriendlyOrdersPanel() {
   }, [API_BASE]);
 
   useEffect(() => {
-    fetchOrders();
-    fetchOperators();
+    // Загружаем заказы и операторов параллельно
+    Promise.all([fetchOrders(), fetchOperators()]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1162,16 +1202,22 @@ export default function FriendlyOrdersPanel() {
   ];
 
   // Опции для типа заказа
-  const ORDER_TYPE_OPTIONS = ['Все', 'Обычный', 'Разбиение'];
+  const ORDER_TYPE_OPTIONS = [
+    'Все',
+    'Прокладывание маршрутов для дронов с учетом вегетационных индексов',
+    'Разбиение поля на участки без учета вегетационных индексов',
+  ];
   const ORDER_TYPE_MAP: Record<string, string> = {
     Все: 'all',
-    Обычный: 'DEFAULT',
-    Разбиение: 'SPLIT',
+    'Прокладывание маршрутов для дронов с учетом вегетационных индексов':
+      'DEFAULT',
+    'Разбиение поля на участки без учета вегетационных индексов': 'SPLIT',
   };
   const ORDER_TYPE_LABEL: Record<string, string> = {
     all: 'Все',
-    DEFAULT: 'Обычный',
-    SPLIT: 'Разбиение',
+    DEFAULT:
+      'Прокладывание маршрутов для дронов с учетом вегетационных индексов',
+    SPLIT: 'Разбиение поля на участки без учета вегетационных индексов',
   };
 
   // Сортировка
@@ -1381,15 +1427,17 @@ export default function FriendlyOrdersPanel() {
                     {/* Right block */}
                     <div className="flex flex-wrap items-center gap-2 md:gap-3 justify-start">
                       {/* Тип заказа */}
-                      <div
+                      {/* <div
                         className={`inline-flex items-center gap-1 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-nekstmedium backdrop-blur transition-all duration-200 hover:scale-105 min-w-[110px] justify-center ${
                           o.orderType === 'SPLIT'
                             ? 'bg-purple-100 text-purple-800'
                             : 'bg-blue-100 text-blue-800'
                         }`}
                       >
-                        {o.orderType === 'SPLIT' ? 'Разбиение' : 'Обычный'}
-                      </div>
+                        {o.orderType === 'SPLIT'
+                          ? 'Разбиение поля на участки без учета вегетационных индексов'
+                          : 'Прокладывание маршрутов для дронов с учетом вегетационных индексов'}
+                      </div> */}
 
                       {/* Статус */}
                       <div
@@ -1638,8 +1686,8 @@ export default function FriendlyOrdersPanel() {
                             }`}
                           >
                             {selected.orderType === 'SPLIT'
-                              ? 'Разбиение'
-                              : 'Обычный'}
+                              ? 'Разбиение поля на участки без учета вегетационных индексов'
+                              : 'Прокладывание маршрутов для дронов с учетом вегетационных индексов'}
                           </span>
                         </div>
                       </div>

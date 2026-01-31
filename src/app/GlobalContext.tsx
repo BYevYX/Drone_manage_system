@@ -74,23 +74,23 @@ const normalizeRole = (role: string | null): UserRole => {
 export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
   const [dronesList] = useState<DroneType[]>([
     {
-      id: 18,
+      id: 4,
       manufacturer: 'ADGY',
       name: 'AGDY 40',
       description:
         'Агродрон AgDy 40 — это сельскохозяйственный беспилотник, используемый для осуществления мониторинга урожая, внесения удобрений, стимуляторов роста и средств защиты растений.',
       photo_url: '/header/drones/drone_2.png',
     },
+    // {
+    //   id: 17,
+    //   name: 'AgDy',
+    //   manufacturer: 'ADGY',
+    //   description:
+    //     'Агродрон AgDy — это сельскохозяйственный беспилотник, предназначенный для быстрого и эффективного внесения химических составов в почву. Его использование значительно сокращает финансовые затраты и повышает урожайность.',
+    //   photo_url: '/header/drones/drone_1.png',
+    // },
     {
-      id: 17,
-      name: 'AgDy',
-      manufacturer: 'ADGY',
-      description:
-        'Агродрон AgDy — это сельскохозяйственный беспилотник, предназначенный для быстрого и эффективного внесения химических составов в почву. Его использование значительно сокращает финансовые затраты и повышает урожайность.',
-      photo_url: '/header/drones/drone_1.png',
-    },
-    {
-      id: 15,
+      id: 3,
       name: 'DJI Agras T50 ',
       manufacturer: 'DJI Agras',
       description:
@@ -98,7 +98,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
       photo_url: '/header/drones/drone_3.png',
     },
     {
-      id: 19,
+      id: 6,
       manufacturer: 'JOYANCE',
       name: 'JOYANCE JT30L-606',
       description:
@@ -232,7 +232,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     const normalizedRole = normalizeRole(role);
     setUserRoleState(normalizedRole);
     setToLocalStorage('userRole', normalizedRole);
-    
+
     // Обновляем userInfo тоже
     setUserInfo((prev) => ({
       ...prev,
@@ -261,7 +261,7 @@ export const RoleProvider = ({ children }: { children: React.ReactNode }) => {
     setToLocalStorage('lastName', normalizedUserInfo.lastName);
     setToLocalStorage('surname', normalizedUserInfo.surname);
     setToLocalStorage('userRole', normalizedUserInfo.userRole);
-    
+
     if (normalizedUserInfo.userId) {
       setToLocalStorage('userId', normalizedUserInfo.userId.toString());
     }

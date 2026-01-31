@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Loader } from '../../operator/requests/spinner';
 import {
   CheckCircle,
@@ -45,6 +45,7 @@ interface Request {
   fieldLocalId?: number;
   crop?: string;
   type: string;
+  typeProcessId?: number;
   area?: number;
   status: 'in_progress' | 'processed' | 'completed' | 'cancelled';
   coords?: [number, number][];
@@ -104,9 +105,7 @@ const statusOptions = [
 ];
 const treatmentOptions = [
   { value: 'all', label: 'Все' },
-  { value: 'spraying', label: 'Опрыскивание' },
-  { value: 'fertilization', label: 'Внесение удобрений' },
-  { value: 'mapping', label: 'Картографирование' },
+  // Остальные опции будут загружены динамически из API
 ];
 
 /** small helper */
@@ -289,6 +288,9 @@ export default function RequestsWithEditor({
   const [dateTo, setDateTo] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [requests, setRequests] = useState<Request[]>([]);
+  const [processingTypes, setProcessingTypes] = useState<
+    Array<{ typeId: number; typeName: string; typeDescription: string }>
+  >([]);
   const [loading, setLoading] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingRequest, setEditingRequest] = useState<Request | null>(null);
@@ -406,20 +408,13 @@ export default function RequestsWithEditor({
     else result = 'in_progress';
     return result;
   };
-  const typeProcessIdToLabel = (id?: number) =>
-    id === 1
-      ? 'Опрыскивание'
-      : id === 2
-        ? 'Внесение удобрений'
-        : id === 3
-          ? 'Картографирование'
-          : 'Неизвестно';
+  const typeProcessIdToLabel = (id?: number) => {
+    const type = processingTypes.find((t) => t.typeId === id);
+    return type ? type.typeName : 'Неизвестно';
+  };
   const typeToId = (typeLabel: string) => {
-    const n = typeLabel.toLowerCase();
-    if (/опрыс/i.test(n)) return 1;
-    if (/внес/i.test(n)) return 2;
-    if (/картограф/i.test(n)) return 3;
-    return 0;
+    const type = processingTypes.find((t) => t.typeName === typeLabel);
+    return type ? type.typeId : (processingTypes[0]?.typeId ?? 0);
   };
 
   const renderStatusBadge = (st: Request['status']) => {
@@ -471,6 +466,26 @@ export default function RequestsWithEditor({
     };
   };
   // API helpers
+  // Загрузка типов обработки
+  const loadProcessingTypes = async () => {
+    try {
+      const res = await authFetch(`${API_BASE}/api/processing-types`);
+      if (!res.ok) {
+        console.error('[loadProcessingTypes] Ошибка загрузки типов обработки');
+        return [];
+      }
+      const data = await res.json();
+      if (data && data.types) {
+        setProcessingTypes(data.types);
+        return data.types;
+      }
+      return [];
+    } catch (err) {
+      console.error('[loadProcessingTypes] Ошибка:', err);
+      return [];
+    }
+  };
+
   const fetchFields = async () => {
     try {
       const userId = localStorage.getItem('userId');
@@ -531,10 +546,22 @@ export default function RequestsWithEditor({
       setLoading(true);
       const userId = localStorage.getItem('userId');
 
-      // Сначала получаем актуальный список полей
-      const fieldsRes = await authFetch(
-        `${API_BASE}/api/fields-by-user?userId=${userId}`,
-      );
+      // Загружаем типы и поля параллельно для ускорения
+      const [types, fieldsRes] = await Promise.all([
+        loadProcessingTypes(),
+        authFetch(`${API_BASE}/api/fields-by-user?userId=${userId}`),
+      ]);
+
+      // Локальная функция для получения имени типа
+      const getTypeLabel = (typeProcessId: number | undefined): string => {
+        if (typeProcessId === undefined || typeProcessId === null) {
+          return 'Тип не указан';
+        }
+        const type = types.find((t) => t.typeId === typeProcessId);
+        return type ? type.typeName : `Тип #${typeProcessId}`;
+      };
+
+      // Обрабатываем список полей
       let currentFieldsList: FieldModel[] = [];
       if (fieldsRes.ok) {
         const fieldsData = await fieldsRes.json();
@@ -574,9 +601,9 @@ export default function RequestsWithEditor({
           ? new Date(rawDateEnd).toISOString().slice(0, 10)
           : dateFromIso;
         const dateIso = dateFromIso; // для обратной совместимости
-        const typeLabel = o.typeProcessId
-          ? typeProcessIdToLabel(Number(o.typeProcessId))
-          : (o.type ?? 'Неизвестно');
+        const typeLabel = getTypeLabel(
+          o.typeProcessId ? Number(o.typeProcessId) : undefined,
+        );
         const stat = mapStatus(o.status);
         const previewObj =
           o.preview ??
@@ -599,6 +626,7 @@ export default function RequestsWithEditor({
           field: initialFieldName,
           fieldLocalId: undefined,
           type: typeLabel,
+          typeProcessId: o.typeProcessId ? Number(o.typeProcessId) : undefined,
           status: stat,
           coords,
           contactPhone: o.contactPhone ?? undefined,
@@ -891,12 +919,8 @@ export default function RequestsWithEditor({
 
   useEffect(() => {
     (async () => {
-      // Сначала загружаем поля, потом заявки (чтобы fieldsList был заполнен)
-      await fetchFields();
-      await fetchContractorFromLocalStorage();
-      // Небольшая задержка, чтобы state успел обновиться
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      await fetchOrders();
+      // Загружаем профиль и заказы параллельно (типы и поля загружаются внутри fetchOrders)
+      await Promise.all([fetchContractorFromLocalStorage(), fetchOrders()]);
       // checkInputsForOrders вызывается внутри fetchOrders после загрузки заявок
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -938,36 +962,38 @@ export default function RequestsWithEditor({
     }
   }, [editingRequest, editorOpen]);
 
-  const filtered = requests.filter((r) => {
-    // Приводим статус к внутреннему формату ('in_progress', 'processed', ...)
-    const normalizedStatus = mapStatus(r.status);
-    if (status !== 'all' && normalizedStatus !== status) return false;
-    if (orderTypeFilter !== 'all') {
-      if ((r.orderType ?? 'DEFAULT') !== orderTypeFilter) return false;
-    }
-    if (treatmentType !== 'all') {
-      if (treatmentType === 'spraying' && !/опрыс/i.test(r.type.toLowerCase()))
-        return false;
-      if (
-        treatmentType === 'fertilization' &&
-        !/внес/i.test(r.type.toLowerCase())
-      )
-        return false;
-      if (
-        treatmentType === 'mapping' &&
-        !/картограф/i.test(r.type.toLowerCase())
-      )
-        return false;
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      if (!String(r.id).includes(q) && !r.field.toLowerCase().includes(q))
-        return false;
-    }
-    if (dateFrom && new Date(r.date) < new Date(dateFrom)) return false;
-    if (dateTo && new Date(r.date) > new Date(dateTo)) return false;
-    return true;
-  });
+  const filtered = useMemo(() => {
+    return requests.filter((r) => {
+      // Приводим статус к внутреннему формату ('in_progress', 'processed', ...)
+      const normalizedStatus = mapStatus(r.status);
+      if (status !== 'all' && normalizedStatus !== status) return false;
+      if (orderTypeFilter !== 'all') {
+        if ((r.orderType ?? 'DEFAULT') !== orderTypeFilter) return false;
+      }
+      if (treatmentType !== 'all') {
+        // Сравниваем по typeProcessId, если он есть
+        if (r.typeProcessId && String(r.typeProcessId) !== treatmentType) {
+          return false;
+        }
+      }
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        if (!String(r.id).includes(q) && !r.field.toLowerCase().includes(q))
+          return false;
+      }
+      if (dateFrom && new Date(r.date) < new Date(dateFrom)) return false;
+      if (dateTo && new Date(r.date) > new Date(dateTo)) return false;
+      return true;
+    });
+  }, [
+    requests,
+    status,
+    orderTypeFilter,
+    treatmentType,
+    searchQuery,
+    dateFrom,
+    dateTo,
+  ]);
 
   // Логирование для отладки
   console.log('[filtered] Всего заявок:', requests.length);
@@ -1278,14 +1304,23 @@ export default function RequestsWithEditor({
               </label>
               <ModernSelect
                 isFull
-                options={treatmentOptions.map((o) => o.label)}
+                options={['Все', ...processingTypes.map((t) => t.typeName)]}
                 value={
-                  treatmentOptions.find((o) => o.value === treatmentType)
-                    ?.label || 'Все'
+                  treatmentType === 'all'
+                    ? 'Все'
+                    : processingTypes.find(
+                        (t) => String(t.typeId) === treatmentType,
+                      )?.typeName || 'Все'
                 }
                 onChange={(label) => {
-                  const opt = treatmentOptions.find((o) => o.label === label);
-                  if (opt) setTreatmentType(opt.value);
+                  if (label === 'Все') {
+                    setTreatmentType('all');
+                  } else {
+                    const type = processingTypes.find(
+                      (t) => t.typeName === label,
+                    );
+                    if (type) setTreatmentType(String(type.typeId));
+                  }
                 }}
               />
             </div>
@@ -1296,18 +1331,30 @@ export default function RequestsWithEditor({
               </label>
               <ModernSelect
                 isFull
-                options={['Все', 'Обычный', 'Разбиение']}
+                options={[
+                  'Все',
+                  'Прокладывание маршрутов для дронов с учетом вегетационных индексов',
+                  'Разбиение поля на участки без учета вегетационных индексов',
+                ]}
                 value={
                   orderTypeFilter === 'all'
                     ? 'Все'
                     : orderTypeFilter === 'DEFAULT'
-                      ? 'Обычный'
-                      : 'Разбиение'
+                      ? 'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
+                      : 'Разбиение поля на участки без учета вегетационных индексов'
                 }
                 onChange={(label) => {
                   if (label === 'Все') setOrderTypeFilter('all');
-                  else if (label === 'Обычный') setOrderTypeFilter('DEFAULT');
-                  else if (label === 'Разбиение') setOrderTypeFilter('SPLIT');
+                  else if (
+                    label ===
+                    'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
+                  )
+                    setOrderTypeFilter('DEFAULT');
+                  else if (
+                    label ===
+                    'Разбиение поля на участки без учета вегетационных индексов'
+                  )
+                    setOrderTypeFilter('SPLIT');
                 }}
               />
             </div>
@@ -1770,8 +1817,9 @@ export default function RequestsWithEditor({
                               Тип заявки
                             </div>
                             <div className="mt-1">
-                              <span className="px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800">
-                                Обычный
+                              <span className="px-0 py-1 rounded-full text-sm  text-gray-800">
+                                Прокладывание маршрутов для дронов с учетом
+                                вегетационных индексов
                               </span>
                             </div>
                           </div>
@@ -2186,11 +2234,7 @@ export default function RequestsWithEditor({
                         <ModernSelect
                           isFull
                           label={undefined}
-                          options={[
-                            'Опрыскивание',
-                            // 'Внесение удобрений',
-                            // 'Картографирование',
-                          ]}
+                          options={processingTypes.map((t) => t.typeName)}
                           value={
                             form.type && form.type !== 'Выберите тип обработки'
                               ? form.type
@@ -2245,17 +2289,23 @@ export default function RequestsWithEditor({
                           <ModernSelect
                             isFull
                             label={undefined}
-                            options={['Обычный', 'Только разбиение']}
+                            options={[
+                              'Прокладывание маршрутов для дронов с учетом вегетационных индексов',
+                              'Разбиение поля на участки без учета вегетационных индексов',
+                            ]}
                             value={
                               form.orderType === 'DEFAULT'
-                                ? 'Обычный'
-                                : 'Только разбиение'
+                                ? 'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
+                                : 'Разбиение поля на участки без учета вегетационных индексов'
                             }
                             onChange={(val) => {
                               setForm((s) => ({
                                 ...s,
                                 orderType:
-                                  val === 'Обычный' ? 'DEFAULT' : 'SPLIT',
+                                  val ===
+                                  'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
+                                    ? 'DEFAULT'
+                                    : 'SPLIT',
                               }));
                             }}
                           />
@@ -2263,8 +2313,8 @@ export default function RequestsWithEditor({
                           <div className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-100 rounded-xl shadow-none border border-gray-200 cursor-not-allowed opacity-70">
                             <span className="text-gray-600 font-nekstregular">
                               {form.orderType === 'DEFAULT'
-                                ? 'Обычный'
-                                : 'Только разбиение'}
+                                ? 'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
+                                : 'Разбиение поля на участки без учета вегетационных индексов'}
                             </span>
                             <Lock size={16} className="text-gray-400" />
                           </div>
@@ -2285,9 +2335,12 @@ export default function RequestsWithEditor({
                                 />
                               </svg>
                               <span className="text-blue-700">
-                                <strong>Обычный:</strong> Полный цикл обработки
-                                — анализ поля, построение маршрутов дронов,
-                                опрыскивание и отчёты
+                                <strong>
+                                  Прокладывание маршрутов для дронов с учетом
+                                  вегетационных индексов:
+                                </strong>{' '}
+                                Полный цикл обработки — анализ поля, построение
+                                маршрутов дронов, опрыскивание и отчёты
                               </span>
                             </div>
                           ) : (
@@ -2305,9 +2358,12 @@ export default function RequestsWithEditor({
                                 />
                               </svg>
                               <span className="text-purple-700">
-                                <strong>Только разбиение:</strong> Генерация
-                                карты разбиения поля на участки без анализа и
-                                построения маршрутов
+                                <strong>
+                                  Разбиение поля на участки без учета
+                                  вегетационных индексов:
+                                </strong>{' '}
+                                Генерация карты разбиения поля на участки без
+                                анализа и построения маршрутов
                               </span>
                             </div>
                           )}

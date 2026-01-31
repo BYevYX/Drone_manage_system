@@ -1,9 +1,10 @@
 'use client';
 
 import { Edit, Trash2, User } from 'lucide-react';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { useGlobalContext } from '../../GlobalContext';
+import { apiClient } from '@/src/shared/api/client';
 import type { Review } from '../types';
 
 interface ReviewCardProps {
@@ -20,6 +21,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
   currentUserId,
 }) => {
   const { userRole } = useGlobalContext();
+
+  const [authorName, setAuthorName] = useState<string | null>(null);
 
   const canEdit =
     userRole !== 'GUEST' &&
@@ -42,6 +45,26 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
     }
   };
 
+  useEffect(() => {
+    let mounted = true;
+    const fetchUser = async () => {
+      try {
+        if (review.userId === undefined || review.userId === null) return;
+        const data: any = await apiClient.get(`/api/users/${review.userId}`);
+        const fn = (data?.firstName ?? '').trim();
+        const ln = (data?.lastName ?? '').trim();
+        const full = `${fn} ${ln}`.trim();
+        if (mounted) setAuthorName(full || `Пользователь #${review.userId}`);
+      } catch (e) {
+        if (mounted) setAuthorName(`Пользователь #${review.userId}`);
+      }
+    };
+    fetchUser();
+    return () => {
+      mounted = false;
+    };
+  }, [review.userId]);
+
   return (
     <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover:shadow-lg transition-shadow">
       <div className="flex items-start justify-between mb-4">
@@ -51,7 +74,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
           </div>
           <div>
             <p
-              className={`text-sm ${
+              className={`text-m font-nekstmedium ${
                 currentUserId !== undefined && currentUserId === review.userId
                   ? 'text-green-600 font-medium'
                   : 'text-gray-500'
@@ -59,10 +82,10 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
             >
               {currentUserId !== undefined && currentUserId === review.userId
                 ? 'Я'
-                : `Пользователь #${review.userId}`}
+                : (authorName ?? `Пользователь #${review.userId}`)}
             </p>
             {review.createdAt && (
-              <p className="text-xs text-gray-400">
+              <p className="text-xs font-nekstregular text-gray-400">
                 {new Date(review.createdAt).toLocaleDateString('ru-RU')}
               </p>
             )}
@@ -93,7 +116,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({
         )}
       </div>
 
-      <div className="text-gray-700 leading-relaxed">{review.text}</div>
+      <div className="text-gray-700  leading-relaxed">{review.text}</div>
 
       {review.updatedAt && review.updatedAt !== review.createdAt && (
         <div className="mt-4 pt-3 border-t border-gray-100">

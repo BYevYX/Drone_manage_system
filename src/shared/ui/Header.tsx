@@ -73,6 +73,12 @@ export default function Header() {
 
   const router = useRouter();
 
+  // track hovered drone item to show its popup only when directly hovered
+  const [hoveredDroneIndex, setHoveredDroneIndex] = useState<number | null>(
+    null,
+  );
+  const [dronesOpen, setDronesOpen] = useState(false);
+
   const headerStyles = {
     '/': 'bg-white text-black p-5',
     '/drones': 'bg-white text-black p-3',
@@ -291,7 +297,14 @@ export default function Header() {
               </div>
 
               {/* Drones menu - on small screens we will simply navigate to /drones; on desktop keep hover submenu */}
-              <div className="relative group">
+              <div
+                className="relative"
+                onMouseEnter={() => setDronesOpen(true)}
+                onMouseLeave={() => {
+                  setDronesOpen(false);
+                  setHoveredDroneIndex(null);
+                }}
+              >
                 <div className="flex items-center gap-2 text-[20px] px-2 py-1 hover:text-gray-300 cursor-pointer">
                   <Link
                     href={'/drones'}
@@ -299,21 +312,49 @@ export default function Header() {
                     className="flex items-center"
                   >
                     Дроны
-                    <ChevronDown className="h-4 w-4 transition-transform transform group-hover:rotate-180" />
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform transform ${dronesOpen ? 'rotate-180' : ''}`}
+                    />
                   </Link>
                 </div>
 
                 {/* hide submenu on small screens (md:block only) */}
-                <div className="absolute left-0 top-full mt-0 w-64 opacity-0 scale-95 pointer-events-none group-hover:opacity-100 group-hover:scale-100 group-hover:pointer-events-auto transition-all duration-300 ease-out bg-white border-[#e5e5e5] border-[1px] rounded-lg shadow z-50 md:block hidden">
+                <div
+                  className={`absolute left-0 top-full mt-0 w-64 transition-all duration-300 ease-out bg-white border-[#e5e5e5] border-[1px] rounded-lg shadow z-50 md:block hidden ${
+                    dronesOpen || hoveredDroneIndex !== null
+                      ? 'opacity-100 scale-100 pointer-events-auto'
+                      : 'opacity-0 scale-95 pointer-events-none'
+                  }`}
+                >
                   {dronesList.map((drone: any, index: number) => (
-                    <div key={index} className="relative group/drone">
+                    <div
+                      key={index}
+                      className="relative"
+                      onMouseEnter={() => setHoveredDroneIndex(index)}
+                      onMouseLeave={() => setHoveredDroneIndex(null)}
+                    >
                       <Link
                         href={`/drones/${drone.id}`}
                         className="block px-4 py-3 hover:bg-[#efefef]"
                       >
                         {drone.name}
                       </Link>
-                      <div className="absolute top-0 left-full ml-[6px] opacity-0 scale-95 group-hover/drone:opacity-100 group-hover/drone:scale-100 transition-all duration-300 ease-out bg-white p-4 rounded-xl shadow-xl min-w-[28vw] z-50 pointer-events-none group-hover/drone:pointer-events-auto">
+                      {/* invisible spacer to keep 6px gap while preserving hover area */}
+                      <div
+                        className="absolute top-0 left-full w-[6px] h-full z-40"
+                        aria-hidden
+                        onMouseEnter={() => setHoveredDroneIndex(index)}
+                        onMouseLeave={() => setHoveredDroneIndex(null)}
+                      />
+
+                      <div
+                        className={`absolute top-0 transition-all duration-300 ease-out bg-white p-4 rounded-xl shadow-xl min-w-[28vw] z-50 ${
+                          hoveredDroneIndex === index
+                            ? 'opacity-100 scale-100 pointer-events-auto'
+                            : 'opacity-0 scale-95 pointer-events-none'
+                        }`}
+                        style={{ left: 'calc(100% + 6px)' }}
+                      >
                         <h4 className="font-semibold text-[18px] mb-2">
                           {drone.name}
                         </h4>

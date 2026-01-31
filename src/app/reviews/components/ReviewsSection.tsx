@@ -125,16 +125,16 @@ export const ReviewsSection: React.FC = () => {
               Отзывы клиентов
             </h2>
           </div>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
+          <p className="text-xl text-gray-600 font-nekstregular max-w-3xl mx-auto mb-8">
             Узнайте, что говорят о нас наши клиенты
           </p>
 
           {userRole !== 'GUEST' && (
             <button
               onClick={() => setIsAddModalOpen(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              className="inline-flex font-nekstmedium items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-5 h-5 " />
               Оставить отзыв
             </button>
           )}
