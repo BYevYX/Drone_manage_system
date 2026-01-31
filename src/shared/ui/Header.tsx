@@ -410,6 +410,8 @@ export default function Header() {
                   <Link
                     href={`/drones`}
                     className="block px-4 rounded-b-[5px] py-3 bg-[#f3f3f3] hover:bg-[#eaeaea]"
+                    onMouseEnter={cancelDronesClose}
+                    onMouseLeave={() => startDronesClose()}
                   >
                     Каталог дронов →
                   </Link>
