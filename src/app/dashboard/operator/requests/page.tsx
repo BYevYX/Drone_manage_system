@@ -431,6 +431,15 @@ interface Drone {
   quantity: number;
 }
 
+// Локализация типов обработки
+function localizeProcessingMode(mode: string): string {
+  const modeMap: Record<string, string> = {
+    spraying: 'Опрыскивание',
+    spreading: 'Разбрасывание',
+  };
+  return modeMap[mode.toLowerCase()] || mode;
+}
+
 function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
   if (!tables) return [] as [string, any[] | null][];
   const preferred = [
@@ -439,14 +448,21 @@ function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
     'segmentsDf',
     'segmentSummaryDf',
   ];
+  // Маппинг английских названий на русские
+  const nameMap: Record<string, string> = {
+    clusterStatsDf: 'Статистика по кластерам',
+    dronesDf: 'Информация о дронах',
+    segmentsDf: 'Сегменты',
+    segmentSummaryDf: 'Сводка по сегментам',
+  };
   const present: [string, any[] | null][] = [];
   preferred.forEach((k) => {
-    if (k in tables) present.push([k, tables[k]]);
+    if (k in tables) present.push([nameMap[k] || k, tables[k]]);
   });
   Object.keys(tables)
     .sort()
     .forEach((k) => {
-      if (!preferred.includes(k)) present.push([k, tables[k]]);
+      if (!preferred.includes(k)) present.push([nameMap[k] || k, tables[k]]);
     });
   return present;
 }
@@ -511,6 +527,18 @@ export default function OperatorOrdersWizard(): JSX.Element {
   const [calcInProgress, setCalcInProgress] = useState(false);
   const [calcProgress, setCalcProgress] = useState(0);
   const [modalImage, setModalImage] = useState<string | null>(null);
+  // Prevent background scroll when modal image is open and ensure overlay covers full viewport
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (modalImage) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prev || '';
+      };
+    }
+    return;
+  }, [modalImage]);
   const [availableDrones, setAvailableDrones] = useState<Drone[]>([]);
   const [loadingDrones, setLoadingDrones] = useState(false);
   const [droneQuantities, setDroneQuantities] = useState<
@@ -1213,18 +1241,21 @@ export default function OperatorOrdersWizard(): JSX.Element {
       });
       const existingTables = selectedOrder.metadata?.analyticsTables ?? {};
       const newTables: Record<string, any[] | null> = { ...existingTables };
-      ['clusterStatsDf', 'dronesDf', 'segmentsDf', 'segmentSummaryDf'].forEach(
-        (k) => {
-          const v = out?.[k];
-          if (v !== undefined && v !== null) {
-            try {
-              newTables[k] = typeof v === 'string' ? JSON.parse(v) : v;
-            } catch {
-              newTables[k] = null;
-            }
+      [
+        'Статистика по кластерам',
+        'Информация о дронах',
+        'Сегменты',
+        'Сводка по сегментам',
+      ].forEach((k) => {
+        const v = out?.[k];
+        if (v !== undefined && v !== null) {
+          try {
+            newTables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+          } catch {
+            newTables[k] = null;
           }
-        },
-      );
+        }
+      });
       // --- Обновление selectedOrder и orders — теперь помечаем как processed и ставим статус processed ---
       setSelectedOrder((so) =>
         so
@@ -2556,10 +2587,10 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     const label =
                       (
                         {
-                          originalImage: 'Original',
-                          indexImage: 'Index',
-                          areasWithFullIdsImage: 'Areas with Full IDs',
-                          indexWithBoundsImage: 'Index with Bounds',
+                          originalImage: 'Оригинальное изображение',
+                          indexImage: 'Индексное изображение',
+                          areasWithFullIdsImage: 'Карта участков',
+                          indexWithBoundsImage: 'Индекс с границами',
                         } as Record<string, string>
                       )[k] ?? k;
                     return (
@@ -2701,9 +2732,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                   <div className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm">
-                    <div className="text-sm font-medium mb-2">
-                      Области (Areas with Full IDs)
-                    </div>
+                    <div className="text-sm font-medium mb-2">Области</div>
                     <div
                       className="rounded overflow-hidden flex items-center justify-center 
                 h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130"
@@ -2724,9 +2753,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                   </div>
 
                   <div className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm">
-                    <div className="text-sm font-medium mb-2">
-                      Индексы (Index with Bounds)
-                    </div>
+                    <div className="text-sm font-medium mb-2">Индексы</div>
                     <div className=" rounded overflow-hidden flex items-center justify-center h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130">
                       {indexBoundsImg ? (
                         <img
@@ -3070,12 +3097,11 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         const label =
                           (
                             {
-                              originalImage: 'Original',
-                              indexImage: 'Index',
-                              areasWithFullIdsImage: 'Areas with Full IDs',
-                              indexWithBoundsImage: 'Index with Bounds',
-                              areasWithSegmentsAndFullIds:
-                                'Areas with Segments and Full IDs',
+                              originalImage: 'Оригинальное изображение',
+                              indexImage: 'Индексное изображение',
+                              areasWithFullIdsImage: 'Карта участков',
+                              indexWithBoundsImage: 'Индекс с границами',
+                              areasWithSegmentsAndFullIds: 'Сегменты с ID',
                             } as Record<string, string>
                           )[k] ?? k;
                         return (
@@ -3149,14 +3175,14 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
       {modalImage && (
         <div
-          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 h-screen min-h-[100dvh] z-[99999] flex items-center justify-center bg-black/95"
           onClick={(e) => {
             if (e.target === e.currentTarget) setModalImage(null);
           }}
           role="dialog"
           aria-modal="true"
         >
-          <div className="relative w-full max-w-[calc(100vw-64px)] max-h-[calc(100vh-64px)]">
+          <div className="relative w-full max-w-[calc(100vw-64px)] max-h-[calc(100vh-64px)] p-4">
             <button
               onClick={() => setModalImage(null)}
               className="absolute -right-2 -top-2 z-[210] bg-white hover:bg-gray-100 rounded-full p-2 shadow-lg transition-colors"

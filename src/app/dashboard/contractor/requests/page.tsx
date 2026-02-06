@@ -235,6 +235,14 @@ function renderTableCard(name: string, rows: any[] | null): JSX.Element {
   );
 }
 
+function localizeProcessingMode(mode: string): string {
+  const modeMap: Record<string, string> = {
+    spraying: 'Опрыскивание',
+    spreading: 'Разбрасывание',
+  };
+  return modeMap[mode.toLowerCase()] || mode;
+}
+
 function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
   if (!tables) return [] as [string, any[] | null][];
   const preferred = [
@@ -243,14 +251,21 @@ function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
     'segmentsDf',
     'segmentSummaryDf',
   ];
+  // Маппинг английских названий на русские
+  const nameMap: Record<string, string> = {
+    clusterStatsDf: 'Статистика по кластерам',
+    dronesDf: 'Информация о дронах',
+    segmentsDf: 'Сегменты',
+    segmentSummaryDf: 'Сводка по сегментам',
+  };
   const present: [string, any[] | null][] = [];
   preferred.forEach((k) => {
-    if (k in tables) present.push([k, tables[k]]);
+    if (k in tables) present.push([nameMap[k] || k, tables[k]]);
   });
   Object.keys(tables)
     .sort()
     .forEach((k) => {
-      if (!preferred.includes(k)) present.push([k, tables[k]]);
+      if (!preferred.includes(k)) present.push([nameMap[k] || k, tables[k]]);
     });
   return present;
 }
@@ -410,7 +425,7 @@ export default function RequestsWithEditor({
   };
   const typeProcessIdToLabel = (id?: number) => {
     const type = processingTypes.find((t) => t.typeId === id);
-    return type ? type.typeName : 'Неизвестно';
+    return type ? localizeProcessingMode(type.typeName) : 'Неизвестно';
   };
   const typeToId = (typeLabel: string) => {
     const type = processingTypes.find((t) => t.typeName === typeLabel);
@@ -558,7 +573,9 @@ export default function RequestsWithEditor({
           return 'Тип не указан';
         }
         const type = types.find((t) => t.typeId === typeProcessId);
-        return type ? type.typeName : `Тип #${typeProcessId}`;
+        return type
+          ? localizeProcessingMode(type.typeName)
+          : `Тип #${typeProcessId}`;
       };
 
       // Обрабатываем список полей
@@ -1304,20 +1321,27 @@ export default function RequestsWithEditor({
               </label>
               <ModernSelect
                 isFull
-                options={['Все', ...processingTypes.map((t) => t.typeName)]}
+                options={[
+                  'Все',
+                  ...processingTypes.map((t) =>
+                    localizeProcessingMode(t.typeName),
+                  ),
+                ]}
                 value={
                   treatmentType === 'all'
                     ? 'Все'
-                    : processingTypes.find(
-                        (t) => String(t.typeId) === treatmentType,
-                      )?.typeName || 'Все'
+                    : localizeProcessingMode(
+                        processingTypes.find(
+                          (t) => String(t.typeId) === treatmentType,
+                        )?.typeName || '',
+                      ) || 'Все'
                 }
                 onChange={(label) => {
                   if (label === 'Все') {
                     setTreatmentType('all');
                   } else {
                     const type = processingTypes.find(
-                      (t) => t.typeName === label,
+                      (t) => localizeProcessingMode(t.typeName) === label,
                     );
                     if (type) setTreatmentType(String(type.typeId));
                   }
@@ -1984,18 +2008,7 @@ export default function RequestsWithEditor({
                                     viewRequest.metadata.analyticsTables,
                                   ).map(([name, rows]) => (
                                     <div key={name}>
-                                      {renderTableCard(
-                                        name === 'clusterStatsDf'
-                                          ? 'Статистика по кластерам'
-                                          : name === 'dronesDf'
-                                            ? 'Информация о дронах'
-                                            : name === 'segmentsDf'
-                                              ? 'Сегменты'
-                                              : name === 'segmentSummaryDf'
-                                                ? 'Сводка по сегментам'
-                                                : name,
-                                        rows,
-                                      )}
+                                      {renderTableCard(name, rows)}
                                     </div>
                                   ))}
                                 </div>
@@ -2234,7 +2247,9 @@ export default function RequestsWithEditor({
                         <ModernSelect
                           isFull
                           label={undefined}
-                          options={processingTypes.map((t) => t.typeName)}
+                          options={processingTypes.map((t) =>
+                            localizeProcessingMode(t.typeName),
+                          )}
                           value={
                             form.type && form.type !== 'Выберите тип обработки'
                               ? form.type

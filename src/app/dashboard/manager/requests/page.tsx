@@ -191,6 +191,14 @@ function renderTableCard(name: string, rows: any[] | null): JSX.Element {
   );
 }
 
+function localizeProcessingMode(mode: string): string {
+  const modeMap: Record<string, string> = {
+    spraying: 'Опрыскивание',
+    spreading: 'Разбрасывание',
+  };
+  return modeMap[mode.toLowerCase()] || mode;
+}
+
 function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
   if (!tables) return [] as [string, any[] | null][];
   const preferred = [
@@ -199,14 +207,21 @@ function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
     'segmentsDf',
     'segmentSummaryDf',
   ];
+  // Маппинг английских названий на русские
+  const nameMap: Record<string, string> = {
+    clusterStatsDf: 'Статистика по кластерам',
+    dronesDf: 'Информация о дронах',
+    segmentsDf: 'Сегменты',
+    segmentSummaryDf: 'Сводка по сегментам',
+  };
   const present: [string, any[] | null][] = [];
   preferred.forEach((k) => {
-    if (k in tables) present.push([k, tables[k]]);
+    if (k in tables) present.push([nameMap[k] || k, tables[k]]);
   });
   Object.keys(tables)
     .sort()
     .forEach((k) => {
-      if (!preferred.includes(k)) present.push([k, tables[k]]);
+      if (!preferred.includes(k)) present.push([nameMap[k] || k, tables[k]]);
     });
   return present;
 }
@@ -357,6 +372,10 @@ export default function FriendlyOrdersPanel() {
   const [loadingResults, setLoadingResults] = useState(false);
   const [modalImage, setModalImage] = useState<string | null>(null);
   const loadingCancelledRef = useRef(false);
+
+  // Для даты выезда (визуально, без бэкенда)
+  const [departureDate, setDepartureDate] = useState<string>('');
+  const [departureDateConfirmed, setDepartureDateConfirmed] = useState(false);
 
   // dropdown portal state for row actions
   const [openDropdownId, setOpenDropdownId] = useState<number | null>(null);
@@ -578,9 +597,9 @@ export default function FriendlyOrdersPanel() {
       const data = await res.json();
       if (data && data.types) {
         setProcessingTypes(data.types);
-        // Обновляем TYPE_LABEL
+        // Обновляем TYPE_LABEL (с локализацией)
         data.types.forEach((type: any) => {
-          TYPE_LABEL[type.typeId] = type.typeName;
+          TYPE_LABEL[type.typeId] = localizeProcessingMode(type.typeName);
         });
         return data.types;
       }
@@ -609,7 +628,9 @@ export default function FriendlyOrdersPanel() {
           return 'Тип не указан';
         }
         const type = types.find((t) => t.typeId === typeProcessId);
-        return type ? type.typeName : `Тип #${typeProcessId}`;
+        return type
+          ? localizeProcessingMode(type.typeName)
+          : `Тип #${typeProcessId}`;
       };
       if (!res.ok) {
         const txt = await res.text().catch(() => '');
@@ -936,6 +957,8 @@ export default function FriendlyOrdersPanel() {
     setViewLoadingId(o.orderId);
     setSelectedOperatorId(o.operatorId ?? null);
     setStatusOpen(false);
+    setDepartureDate('');
+    setDepartureDateConfirmed(false);
 
     try {
       let contractorDetails = null;
@@ -1954,6 +1977,60 @@ export default function FriendlyOrdersPanel() {
                     )}
                   </div>
 
+                  {/* Блок выбора даты выезда */}
+                  <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-xs text-slate-500">
+                        Дата выезда сотрудников
+                      </div>
+                      {departureDateConfirmed && (
+                        <div className="text-xs text-emerald-600 font-nekstmedium">
+                          Подтверждена
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <input
+                        type="date"
+                        value={departureDate}
+                        onChange={(e) => setDepartureDate(e.target.value)}
+                        disabled={departureDateConfirmed}
+                        className={`w-full px-3 py-3 rounded-xl border text-sm transition-all ${
+                          departureDateConfirmed
+                            ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
+                            : 'bg-white border-slate-300 text-slate-700 hover:border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200'
+                        }`}
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+
+                      {!departureDateConfirmed && departureDate && (
+                        <button
+                          onClick={() => setDepartureDateConfirmed(true)}
+                          className="w-full px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-sm font-medium shadow-sm hover:shadow-md transition-all duration-200"
+                        >
+                          Подтвердить дату
+                        </button>
+                      )}
+
+                      {departureDateConfirmed && (
+                        <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">
+                          Дата выбрана и подтверждена:{' '}
+                          <span className="font-medium text-slate-700">
+                            {new Date(departureDate).toLocaleDateString(
+                              'ru-RU',
+                              {
+                                day: 'numeric',
+                                month: 'long',
+                                year: 'numeric',
+                              },
+                            )}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="rounded-2xl bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
                     <div className="text-xs text-slate-500">Текущий статус</div>
                     <div className="mt-3">
@@ -2048,10 +2125,20 @@ export default function FriendlyOrdersPanel() {
                                   </div>
                                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 sm:p-2">
                                     <div className="text-[10px] sm:text-xs text-white font-nekstmedium truncate">
-                                      {name
-                                        .replace(/([A-Z])/g, ' $1')
-                                        .replace(/Image$/, '')
-                                        .trim()}
+                                      {{
+                                        originalImage:
+                                          'Оригинальное изображение',
+                                        indexImage: 'Индексное изображение',
+                                        areasWithFullIdsImage: 'Карта участков',
+                                        indexWithBoundsImage:
+                                          'Индекс с границами',
+                                        areasWithSegmentsAndFullIds:
+                                          'Сегменты с ID',
+                                      }[name] ||
+                                        name
+                                          .replace(/([A-Z])/g, ' $1')
+                                          .replace(/Image$/, '')
+                                          .trim()}
                                     </div>
                                   </div>
                                 </div>
@@ -2118,7 +2205,7 @@ export default function FriendlyOrdersPanel() {
       {/* Image zoom modal */}
       {modalImage && (
         <div
-          className="fixed inset-0 z-[10000] bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[10000] bg-black/80 flex items-center justify-center p-4 backdrop-blur-sm"
           onClick={() => setModalImage(null)}
         >
           <div className="relative max-w-7xl max-h-full">
