@@ -139,6 +139,10 @@ export function AddDroneModal({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null;
     if (!f) return;
+    if (f.type !== 'image/jpeg' && f.type !== 'image/png') {
+      alert('Пожалуйста, выберите файл в формате JPG или PNG');
+      return;
+    }
     setSelectedFile(f);
   };
 
@@ -547,7 +551,7 @@ export function AddDroneModal({
                     </span>
                     <input
                       type="file"
-                      accept="image/jpeg"
+                      accept="image/jpeg,image/png"
                       onChange={handleFileSelect}
                       className="hidden"
                     />
@@ -565,7 +569,7 @@ export function AddDroneModal({
                 </div>
 
                 <div className="text-xs text-slate-600 mt-2 min-w-0">
-                  Поддерживается JPG. Максимум 5MB.
+                  Поддерживается JPG и PNG. Максимум 5MB.
                   {selectedFile && (
                     <div className="mt-1 text-slate-700 font-nekstregular truncate">
                       Выбран:{' '}

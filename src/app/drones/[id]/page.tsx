@@ -186,7 +186,7 @@ const DronePage = ({ params }: { params: Promise<{ id: string }> }) => {
             {drone.imageKey ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={drone.imageKey}
+                src={`${drone.imageKey}?t=${Date.now()}`}
                 alt={drone.droneName ?? 'drone'}
                 className="w-full h-[420px] object-cover"
               />

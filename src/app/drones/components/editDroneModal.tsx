@@ -12,6 +12,7 @@ interface EditDroneModalProps {
   drone: Drone;
   onClose: () => void;
   onSubmit: (data: CreateDroneRequest) => void;
+  onImageUploaded?: () => void;
   sending: boolean;
 }
 
@@ -23,6 +24,7 @@ export function EditDroneModal({
   drone,
   onClose,
   onSubmit,
+  onImageUploaded,
   sending,
 }: EditDroneModalProps) {
   const [droneName, setDroneName] = useState(drone.droneName);
@@ -97,7 +99,7 @@ export function EditDroneModal({
   // Image upload functions
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && file.type === 'image/jpeg') {
+    if (file && (file.type === 'image/jpeg' || file.type === 'image/png')) {
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -105,7 +107,7 @@ export function EditDroneModal({
       };
       reader.readAsDataURL(file);
     } else {
-      alert('Пожалуйста, выберите файл в формате JPG');
+      alert('Пожалуйста, выберите файл в формате JPG или PNG');
     }
   };
 
@@ -631,7 +633,7 @@ export function EditDroneModal({
                     </span>
                     <input
                       type="file"
-                      accept="image/jpeg"
+                      accept="image/jpeg,image/png"
                       onChange={handleFileSelect}
                       className="hidden"
                     />
@@ -649,7 +651,7 @@ export function EditDroneModal({
                 </div>
 
                 <div className="text-xs text-slate-600 mt-2">
-                  Поддерживается JPG. Максимальный размер: 5MB.
+                  Поддерживается JPG и PNG. Максимальный размер: 5MB.
                   {selectedFile && (
                     <div className="mt-1 text-slate-700 font-nekstregular">
                       Выбран:{' '}
@@ -726,6 +728,10 @@ export function EditDroneModal({
               if (selectedFile) {
                 try {
                   await uploadImageAfterSave(drone.droneId);
+                  // После успешной загрузки изображения перезагружаем дрона
+                  if (onImageUploaded) {
+                    onImageUploaded();
+                  }
                 } catch (error) {
                   console.error('Image upload failed:', error);
                   alert(

@@ -628,11 +628,7 @@ export default function DronesPage() {
                             >
                               {d.imageKey ? (
                                 <img
-                                  src={
-                                    d.imageKey.startsWith('http')
-                                      ? d.imageKey
-                                      : `${API_BASE}/api/drones-download?droneId=${d.droneId}`
-                                  }
+                                  src={`${d.imageKey}?t=${Date.now()}`}
                                   alt={d.droneName || 'drone'}
                                   className="w-full h-full object-cover"
                                   onError={(e) => {
@@ -864,6 +860,41 @@ export default function DronesPage() {
               setEditingDrone(null);
             }}
             onSubmit={(payload) => updateDrone(editingDrone.droneId, payload)}
+            onImageUploaded={async () => {
+              // Перезагружаем дрона из API после загрузки изображения
+              try {
+                const token =
+                  typeof window !== 'undefined'
+                    ? localStorage.getItem('accessToken')
+                    : null;
+                const res = await fetch(
+                  `${API_BASE}/api/drones/${editingDrone.droneId}`,
+                  {
+                    headers: {
+                      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                    },
+                  },
+                );
+                if (res.ok) {
+                  const updated = await res.json();
+                  setDrones((prev) =>
+                    prev.map((d) =>
+                      d.droneId === editingDrone.droneId ? updated : d,
+                    ),
+                  );
+                  setMyDrones((prev) =>
+                    prev.map((d) =>
+                      d.droneId === editingDrone.droneId ? updated : d,
+                    ),
+                  );
+                }
+              } catch (error) {
+                console.error(
+                  'Failed to reload drone after image upload:',
+                  error,
+                );
+              }
+            }}
             sending={sending}
           />
         )}
