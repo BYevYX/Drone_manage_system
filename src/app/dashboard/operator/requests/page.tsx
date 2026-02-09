@@ -302,7 +302,6 @@ const ensureDataUrl = (s: string | null | undefined) => {
 function translateCol(col: string) {
   const map: Record<string, string> = {
     cluster_id: 'Кластер',
-    size_pixels: 'Пиксели',
     area_percentage: '% площади',
     NDVI_min: 'NDVI мин',
     NDVI_max: 'NDVI макс',
@@ -310,8 +309,6 @@ function translateCol(col: string) {
     NDVI_std: 'NDVI стд',
     NDVI_variance: 'NDVI вар',
     coefficient_of_variation: 'Коэф вар',
-    centroid_x: 'Центроид X',
-    centroid_y: 'Центроид Y',
     droneId: 'ID дрона',
     drone_id: 'ID дрона',
     droneName: 'Дрон',
@@ -327,8 +324,8 @@ function translateCol(col: string) {
     charge_time: 'Время зарядки',
     segment_id: 'ID сегмента',
     segment_number: 'Номер сегмента',
-    'battery_remaining_after error': 'Остаток батареи после ошибки',
     segment_index: 'Индекс сегмента',
+    size_pixels: 'Размер (пиксели)',
     field_count: 'Количество полей',
     drone_count: 'Количество дронов',
     parallel_total_time: 'Параллельное общее время',
@@ -364,6 +361,9 @@ function renderTableCard(name: string, rows: any[] | null): JSX.Element {
       Object.keys(r || {}).forEach((k) => acc.add(k));
       return acc;
     }, new Set<string>()),
+  ).filter(
+    (col) =>
+      !['centroid_x', 'centroid_y', 'battery_remaining_after'].includes(col),
   );
   const isMainTable = name === 'Основная таблица';
   return (
@@ -2587,10 +2587,14 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     const label =
                       (
                         {
-                          originalImage: 'Оригинальное изображение',
-                          indexImage: 'Индексное изображение',
-                          areasWithFullIdsImage: 'Карта участков',
-                          indexWithBoundsImage: 'Индекс с границами',
+                          originalImage:
+                            'RGB-представление данных спектральных измерений поля',
+                          indexImage:
+                            'Карта вегетационного индекса поля на основе спектральных измерений',
+                          areasWithFullIdsImage:
+                            'Карта поля в RGB-представлении, показывающая кластеры, выделенные по вегетационному индексу c обозначенными зонами для дифференцированной обработки',
+                          indexWithBoundsImage:
+                            'Карта полученного вегетационного индекса поля с наложенными границами кластеров и зон для дифференцированной обработки',
                         } as Record<string, string>
                       )[k] ?? k;
                     return (
@@ -3032,7 +3036,10 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                 Результат разбиения поля
                               </h3>
                               <p className="text-sm text-emerald-700 mt-0.5">
-                                Карта участков успешно сгенерирована
+                                Карта поля в RGB-представлении, показывающая
+                                кластеры, выделенные по вегетационному индексу c
+                                обозначенными зонами для дифференцированной
+                                обработки успешно сгенерирована
                               </p>
                             </div>
                           </div>
@@ -3097,11 +3104,16 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         const label =
                           (
                             {
-                              originalImage: 'Оригинальное изображение',
-                              indexImage: 'Индексное изображение',
-                              areasWithFullIdsImage: 'Карта участков',
-                              indexWithBoundsImage: 'Индекс с границами',
-                              areasWithSegmentsAndFullIds: 'Сегменты с ID',
+                              originalImage:
+                                'RGB-представление данных спектральных измерений поля',
+                              indexImage:
+                                'Карта вегетационного индекса поля на основе спектральных измерений',
+                              areasWithFullIdsImage:
+                                'Карта поля в RGB-представлении, показывающая кластеры, выделенные по вегетационному индексу c обозначенными зонами для дифференцированной обработки',
+                              indexWithBoundsImage:
+                                'Карта полученного вегетационного индекса поля с наложенными границами кластеров и зон для дифференцированной обработки',
+                              areasWithSegmentsAndFullIds:
+                                'Карта маршрутов дронов для дифференцированной обработки поля по предварительно выделенным зонам',
                             } as Record<string, string>
                           )[k] ?? k;
                         return (

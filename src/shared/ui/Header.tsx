@@ -292,7 +292,7 @@ export default function Header() {
             <nav className="hidden md:flex items-center gap-4">
               {/* About */}
               <div className="relative group">
-                <div className="flex items-center gap-1 px-2 hover:text-gray-300 cursor-pointer text-[22px]">
+                <div className="flex items-center gap-1 px-2 py-1 hover:text-gray-300 cursor-pointer text-[20px]">
                   О платформе
                   <ChevronDown className="h-4 w-4" />
                 </div>
@@ -420,7 +420,7 @@ export default function Header() {
 
               {/* Services mega menu with alignment + responsive content */}
               <div className="relative group" ref={servicesButtonRef}>
-                <button className="flex items-center gap-1 px-4 py-2 text-[20px] font-medium rounded-md hover:text-gray-300">
+                <button className="flex items-center gap-1 px-2 py-1 text-[20px] hover:text-gray-300">
                   Услуги
                   <ChevronDown className="h-4 w-4 transition-transform duration-200 group-hover:rotate-180" />
                 </button>
@@ -564,19 +564,19 @@ export default function Header() {
 
               <Link
                 href="/permissions"
-                className="px-2 text-[20px] hover:text-gray-300"
+                className="px-2 py-1 text-[20px] hover:text-gray-300"
               >
                 Разрешения
               </Link>
               <Link
                 href="/to-the-customer"
-                className="px-2 text-[20px] hover:text-gray-300"
+                className="px-2 py-1 text-[20px] hover:text-gray-300"
               >
                 Заказчику
               </Link>
               <Link
                 href="/contacts"
-                className="px-2 text-[20px] hover:text-gray-300"
+                className="px-2 py-1 text-[20px] hover:text-gray-300"
               >
                 Контакты
               </Link>

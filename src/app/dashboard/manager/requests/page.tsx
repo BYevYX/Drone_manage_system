@@ -84,7 +84,6 @@ const ensureDataUrl = (s: string | null | undefined) => {
 function translateCol(col: string) {
   const map: Record<string, string> = {
     cluster_id: 'Кластер',
-    size_pixels: 'Пиксели',
     area_percentage: '% площади',
     NDVI_min: 'NDVI мин',
     NDVI_max: 'NDVI макс',
@@ -92,8 +91,6 @@ function translateCol(col: string) {
     NDVI_std: 'NDVI стд',
     NDVI_variance: 'NDVI вар',
     coefficient_of_variation: 'Коэф вар',
-    centroid_x: 'Центроид X',
-    centroid_y: 'Центроид Y',
     droneId: 'ID дрона',
     drone_id: 'ID дрона',
     droneName: 'Дрон',
@@ -109,8 +106,8 @@ function translateCol(col: string) {
     charge_time: 'Время зарядки',
     segment_id: 'ID сегмента',
     segment_number: 'Номер сегмента',
-    battery_remaining_after_error: 'Остаток батареи после ошибки',
     segment_index: 'Индекс сегмента',
+    size_pixels: 'Размер (пиксели)',
     field_count: 'Количество полей',
     drone_count: 'Количество дронов',
     parallel_total_time: 'Параллельное общее время',
@@ -146,6 +143,9 @@ function renderTableCard(name: string, rows: any[] | null): JSX.Element {
       Object.keys(r || {}).forEach((k) => acc.add(k));
       return acc;
     }, new Set<string>()),
+  ).filter(
+    (col) =>
+      !['centroid_x', 'centroid_y', 'battery_remaining_after'].includes(col),
   );
   const isMainTable = name === 'Основная таблица';
   return (
@@ -2124,16 +2124,18 @@ export default function FriendlyOrdersPanel() {
                                     </svg>
                                   </div>
                                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 sm:p-2">
-                                    <div className="text-[10px] sm:text-xs text-white font-nekstmedium truncate">
+                                    <div className="text-[10px] sm:text-xs text-white font-nekstmedium break-words">
                                       {{
                                         originalImage:
-                                          'Оригинальное изображение',
-                                        indexImage: 'Индексное изображение',
-                                        areasWithFullIdsImage: 'Карта участков',
+                                          'RGB-представление данных спектральных измерений поля',
+                                        indexImage:
+                                          'Карта вегетационного индекса поля на основе спектральных измерений',
+                                        areasWithFullIdsImage:
+                                          'Карта поля в RGB-представлении, показывающая кластеры, выделенные по вегетационному индексу c обозначенными зонами для дифференцированной обработки',
                                         indexWithBoundsImage:
-                                          'Индекс с границами',
+                                          'Карта полученного вегетационного индекса поля с наложенными границами кластеров и зон для дифференцированной обработки',
                                         areasWithSegmentsAndFullIds:
-                                          'Сегменты с ID',
+                                          'Карта маршрутов дронов для дифференцированной обработки поля по предварительно выделенным зонам',
                                       }[name] ||
                                         name
                                           .replace(/([A-Z])/g, ' $1')

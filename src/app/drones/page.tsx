@@ -105,6 +105,11 @@ export default function DronesPage() {
     [userRole],
   );
 
+  const canEdit = useMemo(
+    () => isSupplier || userRole === 'MANAGER',
+    [isSupplier, userRole],
+  );
+
   const showToast = useCallback((kind: 'success' | 'error', text: string) => {
     setToast({ kind, text });
     window.setTimeout(() => setToast(null), 4200);
@@ -227,7 +232,75 @@ export default function DronesPage() {
 
   const refresh = useCallback(() => setPage((p) => p), []);
 
-  async function createDrone(payload: CreateDroneRequest) {
+  // Universal image upload function
+  async function uploadImage(
+    droneId: number,
+    file: File,
+    token: string | null,
+  ) {
+    // Step 1: Get upload URL
+    const uploadUrlRes = await fetch(
+      `${API_BASE}/api/drones-upload?droneId=${droneId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      },
+    );
+
+    if (!uploadUrlRes.ok) {
+      const errorText = await uploadUrlRes.text().catch(() => 'Unknown error');
+      throw new Error(
+        `Не удалось получить URL загрузки (${uploadUrlRes.status}): ${errorText}`,
+      );
+    }
+
+    const uploadUrlData = await uploadUrlRes.json();
+    const uploadUrl = uploadUrlData.url;
+
+    if (!uploadUrl) {
+      throw new Error('URL для загрузки не найден');
+    }
+
+    // Step 2: Upload file to presigned URL
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type || 'image/jpeg',
+      },
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error(`Не удалось загрузить файл (${uploadRes.status})`);
+    }
+
+    // Step 3: Confirm upload
+    const confirmRes = await fetch(
+      `${API_BASE}/api/drones-confirm-upload?droneId=${droneId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      },
+    );
+
+    if (!confirmRes.ok) {
+      const errorText = await confirmRes.text().catch(() => 'Unknown error');
+      throw new Error(
+        `Не удалось подтвердить загрузку (${confirmRes.status}): ${errorText}`,
+      );
+    }
+  }
+
+  async function createDrone(
+    payload: CreateDroneRequest,
+    imageFile?: File | null,
+  ) {
     setSending(true);
     try {
       const token =
@@ -249,7 +322,26 @@ export default function DronesPage() {
         throw new Error(body?.message || `Ошибка ${res.status}`);
       }
       const created = await res.json();
-      showToast('success', 'Дрон успешно создан');
+
+      // Upload image if provided
+      if (imageFile && created && created.droneId) {
+        try {
+          await uploadImage(created.droneId, imageFile, token);
+          showToast('success', 'Дрон и изображение успешно загружены');
+        } catch (uploadError) {
+          console.error('Image upload failed:', uploadError);
+          showToast(
+            'error',
+            'Дрон создан, но изображение не загружено: ' +
+              (uploadError instanceof Error
+                ? uploadError.message
+                : 'Неизвестная ошибка'),
+          );
+        }
+      } else {
+        showToast('success', 'Дрон успешно создан');
+      }
+
       if (created && typeof created.droneId !== 'undefined')
         setDrones((s) => [created, ...s]);
       else refresh();
@@ -408,7 +500,7 @@ export default function DronesPage() {
               <span className="text-sm text-slate-700">Обновить</span>
             </button>
 
-            {isSupplier && (
+            {canEdit && (
               <button
                 onClick={() => setAddOpen(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-600 text-white font-medium shadow-lg hover:scale-[1.04] transition-transform"
@@ -536,19 +628,33 @@ export default function DronesPage() {
                             >
                               {d.imageKey ? (
                                 <img
-                                  src={d.imageKey}
+                                  src={
+                                    d.imageKey.startsWith('http')
+                                      ? d.imageKey
+                                      : `${API_BASE}/api/drones-download?droneId=${d.droneId}`
+                                  }
                                   alt={d.droneName || 'drone'}
-                                  loading="lazy"
                                   className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    // Если изображение не загрузилось, показываем иконку
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    if (target.nextSibling) {
+                                      (
+                                        target.nextSibling as HTMLElement
+                                      ).style.display = 'flex';
+                                    }
+                                  }}
                                 />
-                              ) : (
-                                <div className="w-full h-full flex items-center justify-center">
-                                  <Camera
-                                    size={28}
-                                    className="text-slate-300"
-                                  />
-                                </div>
-                              )}
+                              ) : null}
+                              <div
+                                className="w-full h-full flex items-center justify-center"
+                                style={{
+                                  display: d.imageKey ? 'none' : 'flex',
+                                }}
+                              >
+                                <Camera size={28} className="text-slate-300" />
+                              </div>
                             </div>
 
                             {/* Info — RIGHT */}
@@ -633,7 +739,7 @@ export default function DronesPage() {
                           </div>
 
                           {/* Actions */}
-                          {isSupplier ? (
+                          {canEdit ? (
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={(e) => {
@@ -740,7 +846,7 @@ export default function DronesPage() {
       </main>
 
       <AnimatePresence>
-        {addOpen && isSupplier && (
+        {addOpen && canEdit && (
           <AddDroneModal
             open={addOpen}
             onClose={() => setAddOpen(false)}
@@ -749,7 +855,7 @@ export default function DronesPage() {
           />
         )}
 
-        {editOpen && isSupplier && editingDrone && (
+        {editOpen && canEdit && editingDrone && (
           <EditDroneModal
             open={editOpen}
             drone={editingDrone}

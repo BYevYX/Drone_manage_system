@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Camera } from 'lucide-react';
 
+// API base URL
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE || 'https://api.droneagro.xyz';
+
 /* -------------------- EditDroneModal -------------------- */
 interface EditDroneModalProps {
   open: boolean;
@@ -12,7 +16,7 @@ interface EditDroneModalProps {
 }
 
 // Типы дронов и пропсов
-import { CreateDroneRequest } from '../types';
+import { CreateDroneRequest, Drone } from '../types';
 // import { EditDroneModalProps } from './types';
 
 export function EditDroneModal({
@@ -77,7 +81,11 @@ export function EditDroneModal({
   // Image upload state
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(
-    drone.imageKey,
+    drone.imageKey
+      ? drone.imageKey.startsWith('http')
+        ? drone.imageKey
+        : `${API_BASE}/api/drones-download?droneId=${drone.droneId}`
+      : null,
   );
 
   const canSend =
@@ -103,7 +111,13 @@ export function EditDroneModal({
 
   const handleRemoveFile = () => {
     setSelectedFile(null);
-    setImagePreview(drone.imageKey);
+    setImagePreview(
+      drone.imageKey
+        ? drone.imageKey.startsWith('http')
+          ? drone.imageKey
+          : `${API_BASE}/api/drones-download?droneId=${drone.droneId}`
+        : null,
+    );
   };
 
   const uploadImageAfterSave = async (droneId: number) => {
@@ -115,57 +129,19 @@ export function EditDroneModal({
           ? localStorage.getItem('accessToken')
           : null;
 
-      // Step 1: Get upload URL using the correct endpoint
+      // Step 1: Get upload URL
       console.log('Starting image upload for drone:', droneId);
-      console.log('API_BASE:', API_BASE);
-      console.log('Token available:', !!token);
-      console.log(
-        'Request URL:',
+
+      const uploadUrlRes = await fetch(
         `${API_BASE}/api/drones-upload?droneId=${droneId}`,
-      );
-
-      let uploadUrlRes;
-      try {
-        uploadUrlRes = await fetch(
-          `${API_BASE}/api/drones-upload?droneId=${droneId}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-        );
-      } catch (fetchError) {
-        console.error('Detailed fetch error:', {
-          error: fetchError,
-          message: fetchError instanceof Error ? fetchError.message : 'Unknown',
-          name: fetchError instanceof Error ? fetchError.name : 'Unknown',
-          stack: fetchError instanceof Error ? fetchError.stack : 'No stack',
-        });
-
-        // Более детальная диагностика
-        if (fetchError instanceof TypeError) {
-          if (fetchError.message.includes('Failed to fetch')) {
-            throw new Error(
-              'Ошибка "Failed to fetch" - возможные причины:\n' +
-                '• CORS блокировка (проверьте настройки сервера)\n' +
-                '• HTTPS/HTTP конфликт (смешанный контент)\n' +
-                '• Блокировка браузером (проверьте консоль браузера)\n' +
-                '• Неверный домен или порт в API_BASE\n' +
-                '• Сервер не отвечает на запросы\n' +
-                `• Текущий API_BASE: ${API_BASE}`,
-            );
-          }
-          if (fetchError.message.includes('NetworkError')) {
-            throw new Error('Сетевая ошибка: проверьте доступность сервера');
-          }
-        }
-
-        throw new Error(
-          `Неизвестная ошибка при запросе: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`,
-        );
-      }
+        },
+      );
 
       if (!uploadUrlRes.ok) {
         const errorText = await uploadUrlRes
@@ -189,165 +165,37 @@ export function EditDroneModal({
         throw new Error('URL для загрузки не найден в ответе сервера');
       }
 
-      // Step 2: Convert file to ArrayBuffer and upload
-      console.log('Converting file to ArrayBuffer, size:', selectedFile.size);
-      const fileBuffer = await selectedFile.arrayBuffer();
-      console.log('File converted, buffer size:', fileBuffer.byteLength);
+      // Step 2: Upload file to presigned URL
+      console.log('Uploading file to storage...');
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: selectedFile,
+        headers: {
+          'Content-Type': selectedFile.type || 'image/jpeg',
+        },
+      });
 
-      let uploadRes;
-      try {
-        console.log('Uploading to URL:', uploadUrl);
-        console.log('File buffer size:', fileBuffer.byteLength);
-        console.log('File type:', selectedFile.type);
-        console.log('File name:', selectedFile.name);
-
-        // Попробуем разные методы загрузки для решения CORS проблем
-        console.log('Method 1: File object with no-cors mode');
-        uploadRes = await fetch(uploadUrl, {
-          method: 'PUT',
-          mode: 'no-cors',
-          body: selectedFile,
-        });
-
-        // no-cors всегда возвращает opaque response, поэтому проверяем по-другому
-        if (uploadRes.type === 'opaque') {
-          console.log('Upload completed with no-cors mode (opaque response)');
-        } else if (!uploadRes.ok) {
-          console.log(
-            'Method 1 failed, trying method 2: ArrayBuffer with no-cors',
-          );
-          uploadRes = await fetch(uploadUrl, {
-            method: 'PUT',
-            mode: 'no-cors',
-            body: fileBuffer,
-          });
-        }
-
-        if (uploadRes.type !== 'opaque' && !uploadRes.ok) {
-          console.log(
-            'Method 2 failed, trying method 3: File with CORS headers',
-          );
-          uploadRes = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': selectedFile.type || 'image/jpeg',
-            },
-            body: selectedFile,
-          });
-        }
-
-        if (uploadRes.type !== 'opaque' && !uploadRes.ok) {
-          console.log(
-            'Method 3 failed, trying method 4: ArrayBuffer with CORS headers',
-          );
-          uploadRes = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'image/jpeg',
-            },
-            body: fileBuffer,
-          });
-        }
-      } catch (fetchError) {
-        console.error('Detailed upload error:', {
-          error: fetchError,
-          message: fetchError instanceof Error ? fetchError.message : 'Unknown',
-          uploadUrl: uploadUrl,
-          fileSize: fileBuffer.byteLength,
-          fileName: selectedFile.name,
-          fileType: selectedFile.type,
-        });
-
-        // Попробуем XMLHttpRequest как альтернативу fetch
-        console.log('Fetch failed, trying XMLHttpRequest as fallback');
-
-        try {
-          uploadRes = await new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-
-            xhr.open('PUT', uploadUrl, true);
-            xhr.setRequestHeader('Content-Type', 'image/jpeg');
-
-            xhr.onload = () => {
-              resolve({
-                ok: xhr.status >= 200 && xhr.status < 300,
-                status: xhr.status,
-                statusText: xhr.statusText,
-                text: () => Promise.resolve(xhr.responseText),
-              });
-            };
-
-            xhr.onerror = () => {
-              reject(
-                new Error(
-                  `XMLHttpRequest failed: ${xhr.status} ${xhr.statusText}`,
-                ),
-              );
-            };
-
-            xhr.send(fileBuffer);
-          });
-
-          console.log('XMLHttpRequest succeeded where fetch failed!');
-        } catch (xhrError) {
-          console.error('XMLHttpRequest also failed:', xhrError);
-
-          if (
-            fetchError instanceof TypeError &&
-            fetchError.message.includes('Failed to fetch')
-          ) {
-            throw new Error(
-              'Ошибка загрузки в объектное хранилище (все методы не сработали):\n' +
-                '• URL объектного хранилища недоступен\n' +
-                '• CORS блокировка для внешнего домена\n' +
-                '• Файл слишком большой для загрузки\n' +
-                '• Истек срок действия подписанного URL\n' +
-                '• Различия в обработке заголовков между curl и браузером\n' +
-                `• URL: ${uploadUrl}\n` +
-                `• Размер файла: ${fileBuffer.byteLength} байт\n` +
-                `• Тип файла: ${selectedFile.type}\n` +
-                `• Имя файла: ${selectedFile.name}`,
-            );
-          }
-
-          throw new Error(
-            `Все методы загрузки не сработали. Fetch: ${fetchError instanceof Error ? fetchError.message : 'Unknown'}. XHR: ${xhrError instanceof Error ? xhrError.message : 'Unknown'}`,
-          );
-        }
-      }
-
-      // Проверяем успешность загрузки с учетом no-cors режима
-      if (uploadRes.type === 'opaque') {
-        console.log('File uploaded successfully (no-cors opaque response)');
-      } else if (!uploadRes.ok) {
+      if (!uploadRes.ok) {
         const errorText = await uploadRes.text().catch(() => 'Unknown error');
         console.error('File upload failed:', uploadRes.status, errorText);
         throw new Error(
           `Ошибка загрузки файла в объектное хранилище (${uploadRes.status}): ${errorText}`,
         );
-      } else {
-        console.log('File uploaded successfully');
       }
 
+      console.log('File uploaded successfully');
+
       // Step 3: Confirm upload
-      let confirmRes;
-      try {
-        confirmRes = await fetch(
-          `${API_BASE}/api/drones-confirm-upload?droneId=${droneId}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
+      const confirmRes = await fetch(
+        `${API_BASE}/api/drones-confirm-upload?droneId=${droneId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
-        );
-      } catch (fetchError) {
-        console.error('Network error confirming upload:', fetchError);
-        throw new Error(
-          'Сетевая ошибка при подтверждении загрузки. Проверьте подключение к интернету.',
-        );
-      }
+        },
+      );
 
       if (!confirmRes.ok) {
         const errorText = await confirmRes.text().catch(() => 'Unknown error');
@@ -364,27 +212,10 @@ export function EditDroneModal({
       console.log('Upload confirmed successfully');
 
       setSelectedFile(null);
+      console.log('Image uploaded successfully!');
     } catch (error) {
-      console.error('Upload error details:', error);
-
-      // Provide more specific error messages for common network issues
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error(
-          'Ошибка сети: не удается подключиться к серверу. Проверьте подключение к интернету и попробуйте снова.',
-        );
-      }
-
-      if (error instanceof Error && error.message.includes('Failed to fetch')) {
-        throw new Error(
-          'Ошибка сети: не удается подключиться к серверу. Возможные причины:\n' +
-            '• Отсутствует подключение к интернету\n' +
-            '• Сервер временно недоступен\n' +
-            '• Блокировка CORS или файрволом\n' +
-            '• Неверный URL сервера',
-        );
-      }
-
-      throw error; // Re-throw to handle in the calling function
+      console.error('Upload error:', error);
+      throw error;
     }
   };
 

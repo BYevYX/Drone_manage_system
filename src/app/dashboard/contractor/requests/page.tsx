@@ -128,7 +128,6 @@ const ensureDataUrl = (s: string | null | undefined) => {
 function translateCol(col: string) {
   const map: Record<string, string> = {
     cluster_id: 'Кластер',
-    size_pixels: 'Пиксели',
     area_percentage: '% площади',
     NDVI_min: 'NDVI мин',
     NDVI_max: 'NDVI макс',
@@ -136,8 +135,6 @@ function translateCol(col: string) {
     NDVI_std: 'NDVI стд',
     NDVI_variance: 'NDVI вар',
     coefficient_of_variation: 'Коэф вар',
-    centroid_x: 'Центроид X',
-    centroid_y: 'Центроид Y',
     droneId: 'ID дрона',
     drone_id: 'ID дрона',
     droneName: 'Дрон',
@@ -153,8 +150,8 @@ function translateCol(col: string) {
     charge_time: 'Время зарядки',
     segment_id: 'ID сегмента',
     segment_number: 'Номер сегмента',
-    battery_remaining_after_error: 'Остаток батареи после ошибки',
     segment_index: 'Индекс сегмента',
+    size_pixels: 'Размер (пиксели)',
     field_count: 'Количество полей',
     drone_count: 'Количество дронов',
     parallel_total_time: 'Параллельное общее время',
@@ -190,6 +187,9 @@ function renderTableCard(name: string, rows: any[] | null): JSX.Element {
       Object.keys(r || {}).forEach((k) => acc.add(k));
       return acc;
     }, new Set<string>()),
+  ).filter(
+    (col) =>
+      !['centroid_x', 'centroid_y', 'battery_remaining_after'].includes(col),
   );
   const isMainTable = name === 'Основная таблица';
   return (
@@ -321,6 +321,13 @@ export default function RequestsWithEditor({
     new Set(),
   );
 
+  // Состояния для материалов
+  const [availableMaterials, setAvailableMaterials] = useState<any[]>([]);
+  const [selectedMaterials, setSelectedMaterials] = useState<
+    Array<{ materialId: number; quantity: number; name: string }>
+  >([]);
+  const [loadingMaterials, setLoadingMaterials] = useState(false);
+
   const [form, setForm] = useState({
     id: 0,
     date: '',
@@ -397,7 +404,8 @@ export default function RequestsWithEditor({
     form.type &&
     form.type !== 'Выберите тип обработки' &&
     form.dateFrom &&
-    form.dateTo;
+    form.dateTo &&
+    (form.materialsProvided || selectedMaterials.length > 0);
 
   // helpers
   const mapStatus = (s?: string): Request['status'] => {
@@ -430,6 +438,14 @@ export default function RequestsWithEditor({
   const typeToId = (typeLabel: string) => {
     const type = processingTypes.find((t) => t.typeName === typeLabel);
     return type ? type.typeId : (processingTypes[0]?.typeId ?? 0);
+  };
+
+  // Получить typeName из локализованного названия типа обработки
+  const getProcessingTypeName = (localizedType: string): string | null => {
+    // Обратная локализация
+    if (localizedType === 'Опрыскивание') return 'spraying';
+    if (localizedType === 'Разбрасывание') return 'spreading';
+    return null;
   };
 
   const renderStatusBadge = (st: Request['status']) => {
@@ -498,6 +514,118 @@ export default function RequestsWithEditor({
     } catch (err) {
       console.error('[loadProcessingTypes] Ошибка:', err);
       return [];
+    }
+  };
+
+  // Загрузка доступных материалов
+  const loadMaterials = async () => {
+    setLoadingMaterials(true);
+    try {
+      const res = await authFetch(`${API_BASE}/api/materials`);
+      if (!res.ok) {
+        console.error('[loadMaterials] Ошибка загрузки материалов');
+        return;
+      }
+      const data = await res.json();
+      const materials = Array.isArray(data.materials) ? data.materials : [];
+      setAvailableMaterials(materials);
+    } catch (err) {
+      console.error('[loadMaterials] Ошибка:', err);
+    } finally {
+      setLoadingMaterials(false);
+    }
+  };
+
+  // Загрузка выбранных материалов для заказа
+  const loadSelectedMaterials = async (orderId: number) => {
+    try {
+      const res = await authFetch(
+        `${API_BASE}/api/selected-materials/order/${orderId}`,
+      );
+      if (!res.ok) {
+        console.error(
+          '[loadSelectedMaterials] Ошибка загрузки выбранных материалов',
+        );
+        return;
+      }
+      const data = await res.json();
+      const materials = Array.isArray(data.selectedMaterials)
+        ? data.selectedMaterials
+        : [];
+      setSelectedMaterials(
+        materials.map((m: any) => ({
+          materialId: m.materialId,
+          quantity: m.quantity || 1,
+          name: m.materialName || `Материал #${m.materialId}`,
+        })),
+      );
+    } catch (err) {
+      console.error('[loadSelectedMaterials] Ошибка:', err);
+    }
+  };
+
+  // Добавление материала к заказу
+  const addMaterialToOrder = async (
+    orderId: number,
+    materialId: number,
+    quantity: number,
+  ) => {
+    try {
+      const res = await authFetch(`${API_BASE}/api/selected-materials`, {
+        method: 'POST',
+        body: JSON.stringify({ orderId, materialId, quantity }),
+      });
+      if (!res.ok) {
+        throw new Error('Ошибка при добавлении материала');
+      }
+      return true;
+    } catch (err) {
+      console.error('[addMaterialToOrder] Ошибка:', err);
+      return false;
+    }
+  };
+
+  // Удаление материала из заказа
+  const removeMaterialFromOrder = async (
+    orderId: number,
+    materialId: number,
+  ) => {
+    try {
+      const res = await authFetch(
+        `${API_BASE}/api/selected-materials/${orderId}/${materialId}`,
+        {
+          method: 'DELETE',
+        },
+      );
+      if (!res.ok) {
+        throw new Error('Ошибка при удалении материала');
+      }
+      return true;
+    } catch (err) {
+      console.error('[removeMaterialFromOrder] Ошибка:', err);
+      return false;
+    }
+  };
+
+  // Деактивация (soft delete) заказа
+  const deactivateOrder = async (orderId: number) => {
+    if (!confirm(`Вы уверены, что хотите удалить заказ #${orderId}?`)) {
+      return;
+    }
+
+    try {
+      const res = await authFetch(`${API_BASE}/api/orders/${orderId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        throw new Error('Ошибка при удалении заказа');
+      }
+      showToast(`Заказ #${orderId} успешно удален`);
+      // Обновляем список заказов
+      fetchOrders();
+    } catch (err) {
+      console.error('[deactivateOrder] Ошибка:', err);
+      showToast('Ошибка при удалении заказа');
     }
   };
 
@@ -955,9 +1083,12 @@ export default function RequestsWithEditor({
         type: editingRequest.type,
         status: editingRequest.status,
         materialsProvided: true,
+        orderType: editingRequest.orderType || 'DEFAULT',
       });
       setPreview(editingRequest.preview ?? null);
       setMetadata(editingRequest.metadata ?? null);
+      // Загружаем выбранные материалы для редактируемой заявки
+      loadSelectedMaterials(editingRequest.id);
     } else {
       const today = new Date().toISOString().slice(0, 10);
       setForm((s) => ({
@@ -976,7 +1107,10 @@ export default function RequestsWithEditor({
       setPreview(null);
       setMetadata(null);
       setPendingJson(null);
+      setSelectedMaterials([]);
     }
+    // Загружаем доступные материалы
+    loadMaterials();
   }, [editingRequest, editorOpen]);
 
   const filtered = useMemo(() => {
@@ -1193,6 +1327,24 @@ export default function RequestsWithEditor({
           const activated = await activateOrder(orderIdToUse);
           if (!activated)
             errors.push(`activateOrder failed for order ${orderIdToUse}`);
+        }
+      }
+
+      // Сохраняем выбранные материалы
+      if (
+        orderIdToUse &&
+        form.materialsProvided &&
+        selectedMaterials.length > 0
+      ) {
+        for (const material of selectedMaterials) {
+          const added = await addMaterialToOrder(
+            orderIdToUse,
+            material.materialId,
+            material.quantity,
+          );
+          if (!added) {
+            errors.push(`Не удалось добавить материал #${material.materialId}`);
+          }
         }
       }
 
@@ -1502,7 +1654,8 @@ export default function RequestsWithEditor({
                           >
                             <Eye size={18} />
                           </button>
-                          <button
+                          {/* Редактирование отключено для заказчика */}
+                          {/* <button
                             onClick={(e) => {
                               e.stopPropagation();
                               if (request.status === 'in_progress') {
@@ -1517,6 +1670,29 @@ export default function RequestsWithEditor({
                             }`}
                           >
                             <Edit size={16} />
+                          </button> */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (request.status === 'in_progress') {
+                                deactivateOrder(request.id);
+                              }
+                            }}
+                            disabled={request.status !== 'in_progress'}
+                            className={`flex items-center justify-center w-9 h-9 rounded-xl border shadow-sm focus:outline-none ${
+                              request.status === 'in_progress'
+                                ? 'bg-white border-gray-200 hover:shadow-md hover:bg-red-50 hover:border-red-200 transition cursor-pointer focus:ring-2 focus:ring-red-300'
+                                : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                            }`}
+                          >
+                            <Trash2
+                              size={16}
+                              className={
+                                request.status === 'in_progress'
+                                  ? 'text-red-500'
+                                  : ''
+                              }
+                            />
                           </button>
                         </div>
                       </div>
@@ -1561,7 +1737,8 @@ export default function RequestsWithEditor({
                               >
                                 <Eye size={16} />
                               </button>
-                              <button
+                              {/* Редактирование отключено для заказчика */}
+                              {/* <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (r.status === 'in_progress') {
@@ -1576,6 +1753,29 @@ export default function RequestsWithEditor({
                                 }`}
                               >
                                 <Edit size={16} />
+                              </button> */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (r.status === 'in_progress') {
+                                    deactivateOrder(r.id);
+                                  }
+                                }}
+                                disabled={r.status !== 'in_progress'}
+                                className={`p-2 rounded-lg shadow-sm focus:outline-none ${
+                                  r.status === 'in_progress'
+                                    ? 'bg-white hover:shadow-md hover:bg-red-50 cursor-pointer transition'
+                                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                }`}
+                              >
+                                <Trash2
+                                  size={16}
+                                  className={
+                                    r.status === 'in_progress'
+                                      ? 'text-red-500'
+                                      : ''
+                                  }
+                                />
                               </button>
                             </div>
                           </div>
@@ -1691,7 +1891,7 @@ export default function RequestsWithEditor({
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
+                  {/* <button
                     onClick={() => {
                       if (viewRequest.status === 'in_progress') {
                         openEdit(viewRequest);
@@ -1705,7 +1905,7 @@ export default function RequestsWithEditor({
                     }`}
                   >
                     Редактировать
-                  </button>
+                  </button> */}
                   <button
                     onClick={() => {
                       setViewRequest(null);
@@ -1967,13 +2167,15 @@ export default function RequestsWithEditor({
                                         string
                                       > = {
                                         originalImage:
-                                          'Оригинальное изображение',
-                                        indexImage: 'Индексное изображение',
-                                        areasWithFullIdsImage: 'Карта участков',
+                                          'RGB-представление данных спектральных измерений поля',
+                                        indexImage:
+                                          'Карта вегетационного индекса поля на основе спектральных измерений',
+                                        areasWithFullIdsImage:
+                                          'Карта поля в RGB-представлении, показывающая кластеры, выделенные по вегетационному индексу c обозначенными зонами для дифференцированной обработки',
                                         indexWithBoundsImage:
-                                          'Индекс с границами',
+                                          'Карта полученного вегетационного индекса поля с наложенными границами кластеров и зон для дифференцированной обработки',
                                         areasWithSegmentsAndFullIds:
-                                          'Сегменты с ID',
+                                          'Карта маршрутов дронов для дифференцированной обработки поля по предварительно выделенным зонам',
                                       };
 
                                       return Object.entries(images).map(
@@ -2025,11 +2227,11 @@ export default function RequestsWithEditor({
                         </div>
                         <div className="grid grid-cols-1 gap-2 text-sm text-gray-700 font-nekstregular">
                           <div>
-                            <strong>ФИО:</strong> Мальцева Светлана Валентиновна
+                            <strong>ФИО:</strong> Алеканкин Кирилл Олегович
                           </div>
 
                           <div>
-                            <strong>Почта:</strong> smaltseva@hse.ru
+                            <strong>Почта:</strong> koalekankin@edu.hse.ru
                           </div>
                           <div>
                             <strong>Телефон:</strong> +791234567890
@@ -2288,6 +2490,7 @@ export default function RequestsWithEditor({
                         <input
                           type="date"
                           value={form.dateTo}
+                          min={form.dateFrom}
                           onChange={(e) =>
                             setForm((s) => ({ ...s, dateTo: e.target.value }))
                           }
@@ -2300,40 +2503,29 @@ export default function RequestsWithEditor({
                         <label className="block text-sm font-nekstmedium text-gray-700 mb-1.5">
                           Тип заявки
                         </label>
-                        {isNew ? (
-                          <ModernSelect
-                            isFull
-                            label={undefined}
-                            options={[
-                              'Прокладывание маршрутов для дронов с учетом вегетационных индексов',
-                              'Разбиение поля на участки без учета вегетационных индексов',
-                            ]}
-                            value={
-                              form.orderType === 'DEFAULT'
-                                ? 'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
-                                : 'Разбиение поля на участки без учета вегетационных индексов'
-                            }
-                            onChange={(val) => {
-                              setForm((s) => ({
-                                ...s,
-                                orderType:
-                                  val ===
-                                  'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
-                                    ? 'DEFAULT'
-                                    : 'SPLIT',
-                              }));
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full flex items-center justify-between px-4 py-3.5 bg-gray-100 rounded-xl shadow-none border border-gray-200 cursor-not-allowed opacity-70">
-                            <span className="text-gray-600 font-nekstregular">
-                              {form.orderType === 'DEFAULT'
-                                ? 'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
-                                : 'Разбиение поля на участки без учета вегетационных индексов'}
-                            </span>
-                            <Lock size={16} className="text-gray-400" />
-                          </div>
-                        )}
+                        <ModernSelect
+                          isFull
+                          label={undefined}
+                          options={[
+                            'Прокладывание маршрутов для дронов с учетом вегетационных индексов',
+                            'Разбиение поля на участки без учета вегетационных индексов',
+                          ]}
+                          value={
+                            form.orderType === 'DEFAULT'
+                              ? 'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
+                              : 'Разбиение поля на участки без учета вегетационных индексов'
+                          }
+                          onChange={(val) => {
+                            setForm((s) => ({
+                              ...s,
+                              orderType:
+                                val ===
+                                'Прокладывание маршрутов для дронов с учетом вегетационных индексов'
+                                  ? 'DEFAULT'
+                                  : 'SPLIT',
+                            }));
+                          }}
+                        />
                         <div className="mt-2 text-xs text-gray-500 font-nekstregular">
                           {form.orderType === 'DEFAULT' ? (
                             <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg p-3">
@@ -2446,6 +2638,141 @@ export default function RequestsWithEditor({
                             </span>
                           </div>
                         </label>
+
+                        {/* Выбор конкретных материалов */}
+                        {!form.materialsProvided && (
+                          <div className="mt-4 space-y-3">
+                            <div className="text-sm font-nekstmedium text-gray-700">
+                              Выберите материалы для заказа
+                            </div>
+
+                            {/* Список выбранных материалов */}
+                            {selectedMaterials.length > 0 && (
+                              <div className="space-y-2">
+                                {selectedMaterials.map((sm) => {
+                                  const material = availableMaterials.find(
+                                    (m) => m.materialId === sm.materialId,
+                                  );
+                                  return (
+                                    <div
+                                      key={sm.materialId}
+                                      className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg"
+                                    >
+                                      <div className="flex-1">
+                                        <div className="text-sm font-nekstmedium text-gray-800">
+                                          {material?.materialName || sm.name}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          {material?.materialType &&
+                                            `Тип: ${material.materialType}`}
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => {
+                                          setSelectedMaterials((prev) =>
+                                            prev.filter(
+                                              (m) =>
+                                                m.materialId !== sm.materialId,
+                                            ),
+                                          );
+                                        }}
+                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {/* Выбор нового материала */}
+                            <div>
+                              {(() => {
+                                const selectedProcessingType =
+                                  getProcessingTypeName(form.type);
+                                const filteredMaterials =
+                                  availableMaterials.filter(
+                                    (m) =>
+                                      !selectedMaterials.find(
+                                        (sm) => sm.materialId === m.materialId,
+                                      ) &&
+                                      m.amount > 0 &&
+                                      (!selectedProcessingType ||
+                                        m.materialType ===
+                                          selectedProcessingType),
+                                  );
+                                return filteredMaterials.length > 0 ? (
+                                  <ModernSelect
+                                    isFull
+                                    label="Добавить материал"
+                                    options={filteredMaterials.map(
+                                      (m) => m.materialName,
+                                    )}
+                                    value="Выберите материал"
+                                    onChange={(val) => {
+                                      const material = filteredMaterials.find(
+                                        (m) => m.materialName === val,
+                                      );
+                                      if (material) {
+                                        setSelectedMaterials((prev) => [
+                                          ...prev,
+                                          {
+                                            materialId: material.materialId,
+                                            quantity: 1,
+                                            name: material.materialName,
+                                          },
+                                        ]);
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-full px-4 py-3.5 bg-gray-100 rounded-xl shadow-none border border-gray-200 cursor-not-allowed opacity-70">
+                                    <span className="text-gray-400 font-nekstregular text-sm">
+                                      Нет доступных материалов
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+
+                            {/* Недоступные материалы */}
+                            {availableMaterials.some((m) => m.amount === 0) && (
+                              <div className="space-y-2">
+                                <div className="text-xs font-nekstmedium text-gray-500 mt-3">
+                                  Материалы закончились:
+                                </div>
+                                {availableMaterials
+                                  .filter((m) => m.amount === 0)
+                                  .map((m) => (
+                                    <div
+                                      key={m.materialId}
+                                      className="flex items-center gap-3 p-3 bg-gray-100 border border-gray-300 rounded-lg opacity-60"
+                                    >
+                                      <div className="flex-1">
+                                        <div className="text-sm font-nekstmedium text-gray-600">
+                                          {m.materialName}
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                          {m.materialType &&
+                                            `Тип: ${m.materialType}`}
+                                        </div>
+                                      </div>
+                                      <div className="text-xs text-red-600 font-nekstmedium">
+                                        Нет в наличии
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+
+                            {loadingMaterials && (
+                              <div className="text-xs text-gray-500 text-center py-2">
+                                Загрузка материалов...
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

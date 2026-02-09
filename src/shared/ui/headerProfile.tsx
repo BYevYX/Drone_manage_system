@@ -19,6 +19,8 @@ import {
   CreditCard,
   Server,
   Globe,
+  Folder,
+  Warehouse,
 } from 'lucide-react';
 
 const roleLabels = {
@@ -170,6 +172,11 @@ export default function HeaderProfile({
         label: 'Поля',
         href: '/dashboard/manager/fields',
         icon: <CreditCard size={16} />,
+      },
+      {
+        label: 'Материалы',
+        href: '/materials',
+        icon: <Warehouse size={16} />,
       },
     ],
 

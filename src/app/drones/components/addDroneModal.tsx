@@ -30,10 +30,16 @@ export interface CreateDroneRequest {
   } | null;
 }
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE || 'https://api.droneagro.xyz';
+
 export interface AddDroneModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateDroneRequest) => void;
+  onSubmit: (
+    data: CreateDroneRequest,
+    imageFile?: File | null,
+  ) => Promise<void>;
   sending: boolean;
 }
 
@@ -628,7 +634,7 @@ export function AddDroneModal({
                     : null,
               };
 
-              onSubmit(body);
+              onSubmit(body, selectedFile);
             }}
             className={`px-5 py-2 rounded-full text-white ${
               !canSend || sending

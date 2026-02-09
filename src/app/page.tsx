@@ -220,9 +220,9 @@ export default function page() {
                 </span>{' '}
                 для агробизнеса
               </h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              {/* <p className="text-xl text-gray-600 max-w-3xl mx-auto">
                 Автоматизация сельскохозяйственных процессов с помощью БПЛА
-              </p>
+              </p> */}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -244,8 +244,7 @@ export default function page() {
                   <ul className="space-y-4 font-nekstregular text-[16px] ">
                     {[
                       'Автоматическое планирование маршрутов',
-                      'Реальный мониторинг выполнения работ',
-                      'Интеграция с картографическими сервисами',
+                      'Упрощение управления полями и заявками',
                       'Подробная аналитика и отчетность',
                     ].map((item, index) => (
                       <li key={index} className="flex items-start gap-3">
@@ -292,7 +291,8 @@ export default function page() {
               {[
                 {
                   title: 'Орошение полей',
-                  description: 'Точное внесение жидких удобрений и СЗР',
+                  description:
+                    'Точное внесение жидких удобрений и средств защиты растений',
                   image: '/pages/main/drone_1.jpg',
                   icon: <Droplet className="w-8 h-8 text-blue-500" />,
                 },
@@ -424,18 +424,18 @@ export default function page() {
                   icon: <DollarSign className="w-8 h-8 text-green-500" />,
                   title: 'Экономия средств',
                   description:
-                    'Сокращение расходов на топливо, персонал и технику до 40%',
+                    'Сокращение расходов на топливо, персонал и технику',
                 },
                 {
                   icon: <Clock className="w-8 h-8 text-blue-500" />,
                   title: 'Экономия времени',
-                  description:
-                    'Обработка полей в 3-5 раз быстрее традиционных методов',
+                  description: 'Обработка полей быстрее традиционных методов',
                 },
                 {
                   icon: <CheckCircle className="w-8 h-8 text-purple-500" />,
                   title: 'Точность обработки',
-                  description: 'Погрешность внесения препаратов не более 2-3%',
+                  description:
+                    'Обеспечивается высокая точность внесения препаратов с незначительным отклонением.',
                 },
                 {
                   icon: <CloudRain className="w-8 h-8 text-yellow-500" />,

@@ -133,7 +133,7 @@ export default function BecomePartner() {
               {
                 icon: <BarChart2 className="text-blue-600" size={28} />,
                 title: 'Рост доходов',
-                desc: 'Добавьте перспективное направление в свой бизнес с маржинальностью до 40-60%.',
+                desc: 'Добавьте перспективное направление в свой бизнес.',
               },
               {
                 icon: <Globe className="text-indigo-600" size={28} />,
