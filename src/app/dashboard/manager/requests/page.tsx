@@ -1991,18 +1991,40 @@ export default function FriendlyOrdersPanel() {
                     </div>
 
                     <div className="space-y-3">
-                      <input
-                        type="date"
-                        value={departureDate}
-                        onChange={(e) => setDepartureDate(e.target.value)}
-                        disabled={departureDateConfirmed}
-                        className={`w-full px-3 py-3 rounded-xl border text-sm transition-all ${
-                          departureDateConfirmed
-                            ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
-                            : 'bg-white border-slate-300 text-slate-700 hover:border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200'
-                        }`}
-                        min={new Date().toISOString().split('T')[0]}
-                      />
+                      <div className="relative">
+                        <input
+                          type="date"
+                          value={departureDate}
+                          onChange={(e) => setDepartureDate(e.target.value)}
+                          onKeyDown={(e) => e.preventDefault()}
+                          disabled={departureDateConfirmed}
+                          className={`w-full px-3 py-3 rounded-xl border text-sm transition-all cursor-pointer ${
+                            departureDateConfirmed
+                              ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed'
+                              : 'bg-white border-slate-300 text-slate-700 hover:border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200'
+                          }`}
+                          min={
+                            selected.dataStart
+                              ? new Date(selected.dataStart)
+                                  .toISOString()
+                                  .split('T')[0]
+                              : new Date().toISOString().split('T')[0]
+                          }
+                          max={
+                            selected.dataEnd
+                              ? new Date(selected.dataEnd)
+                                  .toISOString()
+                                  .split('T')[0]
+                              : new Date(
+                                  new Date().setFullYear(
+                                    new Date().getFullYear() + 1,
+                                  ),
+                                )
+                                  .toISOString()
+                                  .split('T')[0]
+                          }
+                        />
+                      </div>
 
                       {!departureDateConfirmed && departureDate && (
                         <button
