@@ -1305,6 +1305,12 @@ export default function OperatorOrdersWizard(): JSX.Element {
     setSelectedDroneIds([]);
   };
 
+  const resetWorkflow = () => {
+    setClusterAssignments({});
+    setSelectedDroneIds([]);
+    setDroneQuantities({});
+  };
+
   const toggleDroneSelection = (droneId: number) => {
     setSelectedDroneIds((prev) =>
       prev.includes(droneId)
@@ -1321,40 +1327,51 @@ export default function OperatorOrdersWizard(): JSX.Element {
     if (!inputId)
       return alert('Не удалось обнаружить inputId в ответе analyze.');
 
-    // Для обоих типов (DEFAULT и SPLIT) используем clusterAssignments
-    // 1. Определяем, какие дроны назначены (их 1-based индексы в списке availableDrones)
-    const assignedIndices = Array.from(
-      new Set(Object.values(clusterAssignments).filter(Boolean)),
-    ).sort((a, b) => a - b);
+    const isSplit = (selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT';
+    let droneIds: number[];
+    let droneTasks: Record<string, number>;
 
-    // 2. Создаем финальный список ID дронов (droneIds)
-    const droneIds = assignedIndices
-      .map((index) => availableDrones[index - 1]?.droneId)
-      .filter((id): id is number => id !== undefined);
-
-    if (!droneIds.length)
-      return alert('Назначьте хотя бы один дрон кластеру.');
-
-    // 3. Переиндексируем droneTasks
-    const indexMap: Record<number, number> = assignedIndices.reduce(
-      (acc, oldIndex, newIndex) => {
-        acc[oldIndex] = newIndex + 1;
-        return acc;
-      },
-      {} as Record<number, number>,
-    );
-
-    const droneTasks: Record<string, number> = {};
-    Object.keys(clusterAssignments).forEach((k) => {
-      const clusterId = Number(k);
-      const assignedIdx = clusterAssignments[clusterId];
-      if (!assignedIdx) return;
-
-      const newIndex = indexMap[assignedIdx];
-      if (newIndex) {
-        droneTasks[String(clusterId)] = newIndex;
+    if (isSplit) {
+      // Для SPLIT: используем простой выбор дронов
+      if (selectedDroneIds.length === 0) {
+        return alert('Выберите хотя бы один дрон.');
       }
-    });
+      droneIds = selectedDroneIds;
+      // Для SPLIT по умолчанию 1 кластер, первый дрон назначен на него
+      droneTasks = { '1': 1 };
+    } else {
+      // Для DEFAULT: используем clusterAssignments
+      const assignedIndices = Array.from(
+        new Set(Object.values(clusterAssignments).filter(Boolean)),
+      ).sort((a, b) => a - b);
+
+      droneIds = assignedIndices
+        .map((index) => availableDrones[index - 1]?.droneId)
+        .filter((id): id is number => id !== undefined);
+
+      if (!droneIds.length)
+        return alert('Назначьте хотя бы один дрон кластеру.');
+
+      const indexMap: Record<number, number> = assignedIndices.reduce(
+        (acc, oldIndex, newIndex) => {
+          acc[oldIndex] = newIndex + 1;
+          return acc;
+        },
+        {} as Record<number, number>,
+      );
+
+      droneTasks = {};
+      Object.keys(clusterAssignments).forEach((k) => {
+        const clusterId = Number(k);
+        const assignedIdx = clusterAssignments[clusterId];
+        if (!assignedIdx) return;
+
+        const newIndex = indexMap[assignedIdx];
+        if (newIndex) {
+          droneTasks[String(clusterId)] = newIndex;
+        }
+      });
+    }
 
     const numType: Record<string, number> = {};
     droneIds.forEach((dbId, i) => {
@@ -1412,16 +1429,18 @@ export default function OperatorOrdersWizard(): JSX.Element {
       const newTables: Record<string, any[] | null> = { ...existingTables };
 
       // Парсим все таблицы для обоих типов (DEFAULT и SPLIT)
-      ['clusterStatsDf', 'dronesDf', 'segmentsDf', 'segmentSummaryDf'].forEach((k) => {
-        const v = out?.[k];
-        if (v !== undefined && v !== null) {
-          try {
-            newTables[k] = typeof v === 'string' ? JSON.parse(v) : v;
-          } catch {
-            newTables[k] = null;
+      ['clusterStatsDf', 'dronesDf', 'segmentsDf', 'segmentSummaryDf'].forEach(
+        (k) => {
+          const v = out?.[k];
+          if (v !== undefined && v !== null) {
+            try {
+              newTables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+            } catch {
+              newTables[k] = null;
+            }
           }
-        }
-      });
+        },
+      );
       // --- Обновление selectedOrder и orders — теперь помечаем как processed и ставим статус processed ---
       setSelectedOrder((so) =>
         so
@@ -1602,6 +1621,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
     setOrders((prev) => prev.map((p) => (p.id === cleaned.id ? cleaned : p)));
     setIsViewOnly(false);
     setStep(1);
+    // Сбрасываем все выборы при редактировании
+    resetWorkflow();
   };
 
   const stepTitles = [
@@ -1704,20 +1725,27 @@ export default function OperatorOrdersWizard(): JSX.Element {
     return sorted;
   }, [orders, statusFilter, orderTypeFilter, sortOrder]);
 
-  // Проверяем, назначен ли дрон каждому кластеру
+  // Проверяем готовность к применению final
   const allClustersAssigned = useMemo(() => {
     if (!selectedOrder) return false;
 
-    // Для обоих типов проверяем, что каждому кластеру назначен дрон
-    return (
-      clusterRows.length > 0 &&
-      clusterRows.every(
-        (r) =>
-          clusterAssignments[r.cluster_id] !== undefined &&
-          clusterAssignments[r.cluster_id] !== '',
-      )
-    );
-  }, [clusterRows, clusterAssignments, selectedOrder]);
+    const isSplit = (selectedOrder?.orderType ?? 'DEFAULT') === 'SPLIT';
+
+    if (isSplit) {
+      // Для SPLIT проверяем что выбран хотя бы один дрон
+      return selectedDroneIds.length > 0;
+    } else {
+      // Для DEFAULT проверяем, что каждому кластеру назначен дрон
+      return (
+        clusterRows.length > 0 &&
+        clusterRows.every(
+          (r) =>
+            clusterAssignments[r.cluster_id] !== undefined &&
+            clusterAssignments[r.cluster_id] !== '',
+        )
+      );
+    }
+  }, [clusterRows, clusterAssignments, selectedDroneIds, selectedOrder]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -2042,6 +2070,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                 setSelectedOrder(o);
                                 setIsViewOnly(false);
                                 setStep(1);
+                                resetWorkflow();
                               }
                             }}
                             className="group transition-all duration-300 hover:bg-gradient-to-r hover:from-emerald-50/50 hover:via-teal-50/30 hover:to-transparent hover:shadow-md cursor-pointer"
@@ -2194,6 +2223,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                       setSelectedOrder(o);
                                       setIsViewOnly(false);
                                       setStep(1);
+                                      resetWorkflow();
                                     }}
                                     className="group/btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 text-white text-xs font-nekstmedium shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                                   >
@@ -2236,6 +2266,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                             setSelectedOrder(o);
                             setIsViewOnly(false);
                             setStep(1);
+                            resetWorkflow();
                           }
                         }}
                         className="bg-white rounded-2xl shadow-md border border-gray-100 p-4 active:scale-[0.98] transition-transform cursor-pointer"
@@ -2371,6 +2402,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                 setSelectedOrder(o);
                                 setIsViewOnly(false);
                                 setStep(1);
+                                resetWorkflow();
                               }}
                               className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-nekstmedium shadow-lg"
                             >
@@ -2947,187 +2979,323 @@ export default function OperatorOrdersWizard(): JSX.Element {
                   )}
                 </div>
 
-                {/* Таблица кластеров для обоих типов (DEFAULT и SPLIT) */}
-                <div className="rounded-xl bg-white p-4 border border-gray-100 shadow-sm">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="text-sm font-medium">Кластеры поля</div>
-                      <button
-                        onClick={clearAssignments}
-                        className="text-xs px-2 py-1 rounded bg-gray-50 border border-gray-100"
-                      >
-                        Сбросить
-                      </button>
-                    </div>
+                {/* Выбор дронов для SPLIT или таблица кластеров для DEFAULT */}
+                {(() => {
+                  const isSplit =
+                    (selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT';
 
-                    <div className="max-h-[1000px] overflow-y-auto">
-                      <table className="w-full text-sm border-collapse">
-                        <thead className="bg-gray-50 sticky top-0 z-10">
-                          <tr>
-                            <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                              Кластер
-                            </th>
-                            <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                              Пиксели
-                            </th>
-                            <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                              % площади
-                            </th>
-                            <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                              Центроид
-                            </th>
-                            <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                              Дрон (назначение)
-                            </th>
-                          </tr>
-                        </thead>
+                  if (isSplit) {
+                    // Для SPLIT: простой выбор дронов через checkbox
+                    return (
+                      <div className="rounded-xl bg-white p-4 border border-gray-100 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-sm font-medium">
+                            Выберите дроны
+                          </div>
+                          <button
+                            onClick={() => setSelectedDroneIds([])}
+                            className="text-xs px-2 py-1 rounded bg-gray-50 border border-gray-100"
+                          >
+                            Сбросить
+                          </button>
+                        </div>
+                        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                          {availableDrones.map((drone) => (
+                            <label
+                              key={drone.droneId}
+                              className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedDroneIds.includes(
+                                  drone.droneId,
+                                )}
+                                onChange={() => {
+                                  setSelectedDroneIds((prev) =>
+                                    prev.includes(drone.droneId)
+                                      ? prev.filter(
+                                          (id) => id !== drone.droneId,
+                                        )
+                                      : [...prev, drone.droneId],
+                                  );
+                                }}
+                                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                              />
+                              <div className="flex-1">
+                                <div className="text-sm font-medium">
+                                  {drone.droneName}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  ID: {drone.droneId} | Доступно:{' '}
+                                  {drone.quantity}
+                                </div>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                        {selectedDroneIds.length > 0 && (
+                          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                            <div className="text-xs text-blue-700">
+                              Выбрано дронов: {selectedDroneIds.length}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
 
-                        <tbody>
-                          {clusterRows.length === 0 ? (
+                  // Для DEFAULT: таблица с назначением дронов по кластерам
+                  return (
+                    <div className="rounded-xl bg-white p-4 border border-gray-100 shadow-sm">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-sm font-medium">Кластеры поля</div>
+                        <button
+                          onClick={clearAssignments}
+                          className="text-xs px-2 py-1 rounded bg-gray-50 border border-gray-100"
+                        >
+                          Сбросить
+                        </button>
+                      </div>
+
+                      <div className="max-h-[1000px] overflow-y-auto">
+                        <table className="w-full text-sm border-collapse">
+                          <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr>
-                              <td
-                                colSpan={5}
-                                className="p-4 text-xs text-gray-500"
-                              >
-                                Кластеры отсутствуют
-                              </td>
+                              <th className="px-3 py-2 text-xs text-gray-500 text-left">
+                                Кластер
+                              </th>
+                              <th className="px-3 py-2 text-xs text-gray-500 text-left">
+                                Пиксели
+                              </th>
+                              <th className="px-3 py-2 text-xs text-gray-500 text-left">
+                                % площади
+                              </th>
+                              <th className="px-3 py-2 text-xs text-gray-500 text-left">
+                                Центроид
+                              </th>
+                              <th className="px-3 py-2 text-xs text-gray-500 text-left">
+                                Дрон (назначение)
+                              </th>
                             </tr>
-                          ) : (
-                            clusterRows.map((r: any, i: number) => (
-                              <tr
-                                key={i}
-                                className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}
-                              >
-                                <td className="px-4 py-3 font-medium whitespace-nowrap">
-                                  {formatCell(r.cluster_id)}
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  {formatCell(
-                                    r.size_pixels ?? r.size ?? r.pixels,
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  {formatCell(r.area_percentage ?? r.area_pct)}
-                                </td>
-                                <td className="px-4 py-3 whitespace-nowrap">
-                                  {formatCell(r.centroid_x)},{' '}
-                                  {formatCell(r.centroid_y)}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <DroneDropdown
-                                    value={
-                                      clusterAssignments[r.cluster_id] ?? ''
-                                    }
-                                    options={droneOptions}
-                                    onChange={(val) =>
-                                      setClusterAssignments((s) => ({
-                                        ...s,
-                                        [r.cluster_id]: val,
-                                      }))
-                                    }
-                                  />
+                          </thead>
+
+                          <tbody>
+                            {clusterRows.length === 0 ? (
+                              <tr>
+                                <td
+                                  colSpan={5}
+                                  className="p-4 text-xs text-gray-500"
+                                >
+                                  Кластеры отсутствуют
                                 </td>
                               </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
+                            ) : (
+                              clusterRows.map((r: any, i: number) => (
+                                <tr
+                                  key={i}
+                                  className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}
+                                >
+                                  <td className="px-4 py-3 font-medium whitespace-nowrap">
+                                    {formatCell(r.cluster_id)}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    {formatCell(
+                                      r.size_pixels ?? r.size ?? r.pixels,
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    {formatCell(
+                                      r.area_percentage ?? r.area_pct,
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    {formatCell(r.centroid_x)},{' '}
+                                    {formatCell(r.centroid_y)}
+                                  </td>
+                                  <td className="px-4 py-3">
+                                    <DroneDropdown
+                                      value={
+                                        clusterAssignments[r.cluster_id] ?? ''
+                                      }
+                                      options={droneOptions}
+                                      onChange={(val) =>
+                                        setClusterAssignments((s) => ({
+                                          ...s,
+                                          [r.cluster_id]: val,
+                                        }))
+                                      }
+                                    />
+                                  </td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
+                  );
+                })()}
 
-                {Object.keys(clusterAssignments).some(
-                  (k) => clusterAssignments[Number(k)],
-                ) && (
-                  <div className="rounded-2xl p-5 bg-white border border-gray-200 shadow-lg">
-                    <div className="text-sm font-semibold mb-4 text-gray-800">
-                      Назначение количества дронов
-                    </div>
+                {(() => {
+                  const isSplit =
+                    (selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT';
 
-                    {(() => {
-                      // Получаем назначенные дроны через clusterAssignments
-                      const assignedIndices = Array.from(
-                        new Set(
-                          Object.values(clusterAssignments).filter(Boolean),
-                        ),
-                      ).sort((a, b) => a - b);
+                  if (isSplit) {
+                    // Для SPLIT показываем выбранные дроны с количеством
+                    if (selectedDroneIds.length === 0) return null;
 
-                      const assignedDrones = assignedIndices
-                        .map((index) => availableDrones[index - 1])
-                        .filter((d): d is Drone => d !== undefined);
+                    const selectedDrones = availableDrones.filter((d) =>
+                      selectedDroneIds.includes(d.droneId),
+                    );
 
-                      if (assignedDrones.length === 0) {
-                        return (
-                          <div className="text-xs text-gray-400 italic">
-                            Нет назначенных дронов. Назначьте дрон хотя бы
-                            одному кластеру.
-                          </div>
-                        );
-                      }
-
-                      return (
+                    return (
+                      <div className="rounded-2xl p-5 bg-white border border-gray-200 shadow-lg">
+                        <div className="text-sm font-semibold mb-4 text-gray-800">
+                          Назначение количества дронов
+                        </div>
                         <div className="space-y-4">
-                          {assignedDrones.map((drone, i) => (
+                          {selectedDrones.map((drone) => (
                             <div
                               key={drone.droneId}
-                              className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all shadow-sm hover:shadow-md"
+                              className="flex items-center justify-between gap-2 p-3 bg-gray-50 rounded-lg border border-gray-100"
                             >
-                              <div className="w-10 text-sm font-mono text-gray-700 text-center">
-                                {i + 1}
+                              <div className="flex-1">
+                                <div className="text-sm font-medium">
+                                  {drone.droneName}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  ID: {drone.droneId}
+                                </div>
                               </div>
-
-                              <div className="flex-1 text-sm font-medium text-gray-900">
-                                {drone.droneName}{' '}
-                                <span className="text-gray-400">
-                                  (ID: {drone.droneId})
-                                </span>
-                              </div>
-
-                              <div className="flex-none">
+                              <div className="flex items-center gap-2">
+                                <label className="text-xs text-gray-500">
+                                  Кол-во:
+                                </label>
                                 <input
                                   type="number"
-                                  min={1}
+                                  min="1"
                                   max={drone.quantity}
                                   value={
-                                    droneQuantities[drone.droneId] === 0
-                                      ? ''
-                                      : (droneQuantities[drone.droneId] ??
-                                        Math.max(1, drone.quantity ?? 1))
+                                    droneQuantities[drone.droneId] ??
+                                    drone.quantity ??
+                                    1
                                   }
                                   onChange={(e) => {
-                                    const textVal = e.target.value;
-                                    if (textVal === '') {
-                                      setDroneQuantities((s) => ({
-                                        ...s,
-                                        [drone.droneId]: 0,
-                                      }));
-                                      return;
-                                    }
-
-                                    let val = Number(textVal);
-                                    if (Number.isNaN(val) || val < 1) return;
-
-                                    const max = drone.quantity ?? 1;
-                                    if (val > max) val = max;
-
-                                    setDroneQuantities((s) => ({
-                                      ...s,
+                                    const val = Number(e.target.value);
+                                    setDroneQuantities((prev) => ({
+                                      ...prev,
                                       [drone.droneId]: val,
                                     }));
                                   }}
-                                  className="w-20 px-3 py-2 rounded-lg bg-white focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm text-center shadow-sm"
-                                  title={`Макс: ${drone.quantity ?? 1}`}
+                                  className="w-16 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
-                              </div>
-
-                              <div className="w-16 text-xs text-gray-500 text-center">
-                                /{drone.quantity ?? 1}
                               </div>
                             </div>
                           ))}
                         </div>
-                      );
-                    })()}
-                  </div>
-                )}
+                      </div>
+                    );
+                  }
+
+                  // Для DEFAULT показываем назначенные через clusterAssignments
+                  return (
+                    Object.keys(clusterAssignments).some(
+                      (k) => clusterAssignments[Number(k)],
+                    ) && (
+                      <div className="rounded-2xl p-5 bg-white border border-gray-200 shadow-lg">
+                        <div className="text-sm font-semibold mb-4 text-gray-800">
+                          Назначение количества дронов
+                        </div>
+
+                        {(() => {
+                          // Получаем назначенные дроны через clusterAssignments
+                          const assignedIndices = Array.from(
+                            new Set(
+                              Object.values(clusterAssignments).filter(Boolean),
+                            ),
+                          ).sort((a, b) => a - b);
+
+                          const assignedDrones = assignedIndices
+                            .map((index) => availableDrones[index - 1])
+                            .filter((d): d is Drone => d !== undefined);
+
+                          if (assignedDrones.length === 0) {
+                            return (
+                              <div className="text-xs text-gray-400 italic">
+                                Нет назначенных дронов. Назначьте дрон хотя бы
+                                одному кластеру.
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div className="space-y-4">
+                              {assignedDrones.map((drone, i) => (
+                                <div
+                                  key={drone.droneId}
+                                  className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all shadow-sm hover:shadow-md"
+                                >
+                                  <div className="w-10 text-sm font-mono text-gray-700 text-center">
+                                    {i + 1}
+                                  </div>
+
+                                  <div className="flex-1 text-sm font-medium text-gray-900">
+                                    {drone.droneName}{' '}
+                                    <span className="text-gray-400">
+                                      (ID: {drone.droneId})
+                                    </span>
+                                  </div>
+
+                                  <div className="flex-none">
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      max={drone.quantity}
+                                      value={
+                                        droneQuantities[drone.droneId] === 0
+                                          ? ''
+                                          : (droneQuantities[drone.droneId] ??
+                                            Math.max(1, drone.quantity ?? 1))
+                                      }
+                                      onChange={(e) => {
+                                        const textVal = e.target.value;
+                                        if (textVal === '') {
+                                          setDroneQuantities((s) => ({
+                                            ...s,
+                                            [drone.droneId]: 0,
+                                          }));
+                                          return;
+                                        }
+
+                                        let val = Number(textVal);
+                                        if (Number.isNaN(val) || val < 1)
+                                          return;
+
+                                        const max = drone.quantity ?? 1;
+                                        if (val > max) val = max;
+
+                                        setDroneQuantities((s) => ({
+                                          ...s,
+                                          [drone.droneId]: val,
+                                        }));
+                                      }}
+                                      className="w-20 px-3 py-2 rounded-lg bg-white focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm text-center shadow-sm"
+                                      title={`Макс: ${drone.quantity ?? 1}`}
+                                    />
+                                  </div>
+
+                                  <div className="w-16 text-xs text-gray-500 text-center">
+                                    /{drone.quantity ?? 1}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )
+                  );
+                })()}
 
                 <div className="rounded-xl p-4 bg-white border-gray-100">
                   <div className="mt-3 flex items-center justify-end gap-2">
