@@ -583,8 +583,12 @@ function localizeProcessingMode(mode: string): string {
   return modeMap[mode.toLowerCase()] || mode;
 }
 
-function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
+function getOrderedTables(
+  tables: Record<string, any[] | null> | undefined,
+  orderType?: string,
+) {
   if (!tables) return [] as [string, any[] | null][];
+  const isSplit = (orderType ?? 'DEFAULT') === 'SPLIT';
   const preferred = [
     'clusterStatsDf',
     'dronesDf',
@@ -601,6 +605,8 @@ function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
   };
   const present: [string, any[] | null][] = [];
   preferred.forEach((k) => {
+    // Для SPLIT не показываем clusterStatsDf
+    if (isSplit && k === 'clusterStatsDf') return;
     if (k in tables) present.push([nameMap[k] || k, tables[k]]);
   });
   Object.keys(tables)
@@ -1570,6 +1576,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
       );
       setIsViewOnly(true);
       // Для SPLIT переходим на шаг 4 (финальный результат), для DEFAULT - на шаг 2
+      const isSplit = (o.orderType ?? 'DEFAULT') === 'SPLIT';
       setStep(isSplit ? 4 : 2);
     } catch (e) {
       console.error('handleView error', e);
@@ -2855,10 +2862,13 @@ export default function OperatorOrdersWizard(): JSX.Element {
                 </div>
 
                 <div className="flex flex-col gap-4 w-full">
-                  {getOrderedTables(selectedOrder.metadata?.analyticsTables)
-                    .length > 0 ? (
+                  {getOrderedTables(
+                    selectedOrder.metadata?.analyticsTables,
+                    selectedOrder.orderType,
+                  ).length > 0 ? (
                     getOrderedTables(
                       selectedOrder.metadata?.analyticsTables,
+                      selectedOrder.orderType,
                     ).map(([k, rows]) => (
                       <div key={k} className="w-full">
                         <TableCard name={k} rows={rows ?? null} />
@@ -3231,10 +3241,13 @@ export default function OperatorOrdersWizard(): JSX.Element {
                 </div>
 
                 <div className="flex flex-col gap-4 w-full">
-                  {getOrderedTables(selectedOrder.metadata?.analyticsTables)
-                    .length > 0 ? (
+                  {getOrderedTables(
+                    selectedOrder.metadata?.analyticsTables,
+                    selectedOrder.orderType,
+                  ).length > 0 ? (
                     getOrderedTables(
                       selectedOrder.metadata?.analyticsTables,
+                      selectedOrder.orderType,
                     ).map(([k, rows]) => (
                       <div key={k} className="w-full">
                         <TableCard name={k} rows={rows ?? null} />
