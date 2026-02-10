@@ -1337,6 +1337,22 @@ export default function OperatorOrdersWizard(): JSX.Element {
         return alert('Выберите хотя бы один дрон.');
       }
       droneIds = selectedDroneIds;
+      
+      // Проверка количества дронов для SPLIT
+      for (const droneId of droneIds) {
+        const drone = availableDrones.find(d => d.droneId === droneId);
+        const requestedQty = droneQuantities[droneId] ?? drone?.quantity ?? 1;
+        const availableQty = drone?.quantity ?? 1;
+        
+        if (requestedQty > availableQty) {
+          return alert(
+            `Превышено количество для дрона "${drone?.droneName ?? droneId}".\n` +
+            `Запрошено: ${requestedQty}, Доступно: ${availableQty}.\n` +
+            `Выберите меньшее количество.`
+          );
+        }
+      }
+      
       // Для SPLIT по умолчанию 1 кластер, первый дрон назначен на него
       droneTasks = { '1': 1 };
     } else {
@@ -1351,6 +1367,21 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
       if (!droneIds.length)
         return alert('Назначьте хотя бы один дрон кластеру.');
+      
+      // Проверка количества дронов для DEFAULT
+      for (const droneId of droneIds) {
+        const drone = availableDrones.find(d => d.droneId === droneId);
+        const requestedQty = droneQuantities[droneId] ?? drone?.quantity ?? 1;
+        const availableQty = drone?.quantity ?? 1;
+        
+        if (requestedQty > availableQty) {
+          return alert(
+            `Превышено количество для дрона "${drone?.droneName ?? droneId}".\n` +
+            `Запрошено: ${requestedQty}, Доступно: ${availableQty}.\n` +
+            `Выберите меньшее количество.`
+          );
+        }
+      }
 
       const indexMap: Record<number, number> = assignedIndices.reduce(
         (acc, oldIndex, newIndex) => {
@@ -2985,12 +3016,12 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     (selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT';
 
                   if (isSplit) {
-                    // Для SPLIT: простой выбор дронов через checkbox
+                    // Для SPLIT: выбор одного типа дрона через radio
                     return (
                       <div className="rounded-xl bg-white p-4 border border-gray-100 shadow-sm">
                         <div className="flex items-center justify-between mb-3">
                           <div className="text-sm font-medium">
-                            Выберите дроны
+                            Выберите тип дрона
                           </div>
                           <button
                             onClick={() => setSelectedDroneIds([])}
@@ -3003,23 +3034,22 @@ export default function OperatorOrdersWizard(): JSX.Element {
                           {availableDrones.map((drone) => (
                             <label
                               key={drone.droneId}
-                              className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-blue-50 cursor-pointer transition-colors"
+                              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                                selectedDroneIds.includes(drone.droneId)
+                                  ? 'border-blue-500 bg-blue-50'
+                                  : 'border-gray-100 hover:bg-blue-50'
+                              }`}
                             >
                               <input
-                                type="checkbox"
+                                type="radio"
+                                name="drone-selection"
                                 checked={selectedDroneIds.includes(
                                   drone.droneId,
                                 )}
                                 onChange={() => {
-                                  setSelectedDroneIds((prev) =>
-                                    prev.includes(drone.droneId)
-                                      ? prev.filter(
-                                          (id) => id !== drone.droneId,
-                                        )
-                                      : [...prev, drone.droneId],
-                                  );
+                                  setSelectedDroneIds([drone.droneId]);
                                 }}
-                                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                                className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
                               />
                               <div className="flex-1">
                                 <div className="text-sm font-medium">
@@ -3036,7 +3066,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         {selectedDroneIds.length > 0 && (
                           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                             <div className="text-xs text-blue-700">
-                              Выбрано дронов: {selectedDroneIds.length}
+                              Выбран тип дрона
                             </div>
                           </div>
                         )}
@@ -3172,20 +3202,32 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                   Кол-во:
                                 </label>
                                 <input
-                                  type="number"
-                                  min="1"
-                                  max={drone.quantity}
+                                  type="text"
+                                  inputMode="numeric"
+                                  placeholder={String(drone.quantity ?? 1)}
                                   value={
                                     droneQuantities[drone.droneId] ??
                                     drone.quantity ??
                                     1
                                   }
                                   onChange={(e) => {
-                                    const val = Number(e.target.value);
-                                    setDroneQuantities((prev) => ({
-                                      ...prev,
-                                      [drone.droneId]: val,
-                                    }));
+                                    const val = e.target.value;
+                                    // Разрешаем только цифры
+                                    if (val === '' || /^\d+$/.test(val)) {
+                                      setDroneQuantities((prev) => ({
+                                        ...prev,
+                                        [drone.droneId]: val === '' ? '' : Number(val),
+                                      }));
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    // При потере фокуса если пусто - ставим 1
+                                    if (e.target.value === '' || Number(e.target.value) < 1) {
+                                      setDroneQuantities((prev) => ({
+                                        ...prev,
+                                        [drone.droneId]: 1,
+                                      }));
+                                    }
                                   }}
                                   className="w-16 px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
@@ -3248,36 +3290,31 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
                                   <div className="flex-none">
                                     <input
-                                      type="number"
-                                      min={1}
-                                      max={drone.quantity}
+                                      type="text"
+                                      inputMode="numeric"
+                                      placeholder={String(Math.max(1, drone.quantity ?? 1))}
                                       value={
-                                        droneQuantities[drone.droneId] === 0
-                                          ? ''
-                                          : (droneQuantities[drone.droneId] ??
-                                            Math.max(1, drone.quantity ?? 1))
+                                        droneQuantities[drone.droneId] ??
+                                        Math.max(1, drone.quantity ?? 1)
                                       }
                                       onChange={(e) => {
-                                        const textVal = e.target.value;
-                                        if (textVal === '') {
+                                        const val = e.target.value;
+                                        // Разрешаем только цифры
+                                        if (val === '' || /^\d+$/.test(val)) {
                                           setDroneQuantities((s) => ({
                                             ...s,
-                                            [drone.droneId]: 0,
+                                            [drone.droneId]: val === '' ? '' : Number(val),
                                           }));
-                                          return;
                                         }
-
-                                        let val = Number(textVal);
-                                        if (Number.isNaN(val) || val < 1)
-                                          return;
-
-                                        const max = drone.quantity ?? 1;
-                                        if (val > max) val = max;
-
-                                        setDroneQuantities((s) => ({
-                                          ...s,
-                                          [drone.droneId]: val,
-                                        }));
+                                      }}
+                                      onBlur={(e) => {
+                                        // При потере фокуса если пусто - ставим 1
+                                        if (e.target.value === '' || Number(e.target.value) < 1) {
+                                          setDroneQuantities((s) => ({
+                                            ...s,
+                                            [drone.droneId]: 1,
+                                          }));
+                                        }
                                       }}
                                       className="w-20 px-3 py-2 rounded-lg bg-white focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm text-center shadow-sm"
                                       title={`Макс: ${drone.quantity ?? 1}`}
