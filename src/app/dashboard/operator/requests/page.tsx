@@ -1337,22 +1337,22 @@ export default function OperatorOrdersWizard(): JSX.Element {
         return alert('Выберите хотя бы один дрон.');
       }
       droneIds = selectedDroneIds;
-      
+
       // Проверка количества дронов для SPLIT
       for (const droneId of droneIds) {
-        const drone = availableDrones.find(d => d.droneId === droneId);
+        const drone = availableDrones.find((d) => d.droneId === droneId);
         const requestedQty = droneQuantities[droneId] ?? drone?.quantity ?? 1;
         const availableQty = drone?.quantity ?? 1;
-        
+
         if (requestedQty > availableQty) {
           return alert(
             `Превышено количество для дрона "${drone?.droneName ?? droneId}".\n` +
-            `Запрошено: ${requestedQty}, Доступно: ${availableQty}.\n` +
-            `Выберите меньшее количество.`
+              `Запрошено: ${requestedQty}, Доступно: ${availableQty}.\n` +
+              `Выберите меньшее количество.`,
           );
         }
       }
-      
+
       // Для SPLIT по умолчанию 1 кластер, первый дрон назначен на него
       droneTasks = { '1': 1 };
     } else {
@@ -1367,18 +1367,18 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
       if (!droneIds.length)
         return alert('Назначьте хотя бы один дрон кластеру.');
-      
+
       // Проверка количества дронов для DEFAULT
       for (const droneId of droneIds) {
-        const drone = availableDrones.find(d => d.droneId === droneId);
+        const drone = availableDrones.find((d) => d.droneId === droneId);
         const requestedQty = droneQuantities[droneId] ?? drone?.quantity ?? 1;
         const availableQty = drone?.quantity ?? 1;
-        
+
         if (requestedQty > availableQty) {
           return alert(
             `Превышено количество для дрона "${drone?.droneName ?? droneId}".\n` +
-            `Запрошено: ${requestedQty}, Доступно: ${availableQty}.\n` +
-            `Выберите меньшее количество.`
+              `Запрошено: ${requestedQty}, Доступно: ${availableQty}.\n` +
+              `Выберите меньшее количество.`,
           );
         }
       }
@@ -3095,7 +3095,7 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                 Кластер
                               </th>
                               <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                                Пиксели
+                                Площадь (м<sup>2</sup>)
                               </th>
                               <th className="px-3 py-2 text-xs text-gray-500 text-left">
                                 % площади
@@ -3216,13 +3216,17 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                     if (val === '' || /^\d+$/.test(val)) {
                                       setDroneQuantities((prev) => ({
                                         ...prev,
-                                        [drone.droneId]: val === '' ? '' : Number(val),
+                                        [drone.droneId]:
+                                          val === '' ? '' : Number(val),
                                       }));
                                     }
                                   }}
                                   onBlur={(e) => {
                                     // При потере фокуса если пусто - ставим 1
-                                    if (e.target.value === '' || Number(e.target.value) < 1) {
+                                    if (
+                                      e.target.value === '' ||
+                                      Number(e.target.value) < 1
+                                    ) {
                                       setDroneQuantities((prev) => ({
                                         ...prev,
                                         [drone.droneId]: 1,
@@ -3292,7 +3296,9 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                     <input
                                       type="text"
                                       inputMode="numeric"
-                                      placeholder={String(Math.max(1, drone.quantity ?? 1))}
+                                      placeholder={String(
+                                        Math.max(1, drone.quantity ?? 1),
+                                      )}
                                       value={
                                         droneQuantities[drone.droneId] ??
                                         Math.max(1, drone.quantity ?? 1)
@@ -3303,13 +3309,17 @@ export default function OperatorOrdersWizard(): JSX.Element {
                                         if (val === '' || /^\d+$/.test(val)) {
                                           setDroneQuantities((s) => ({
                                             ...s,
-                                            [drone.droneId]: val === '' ? '' : Number(val),
+                                            [drone.droneId]:
+                                              val === '' ? '' : Number(val),
                                           }));
                                         }
                                       }}
                                       onBlur={(e) => {
                                         // При потере фокуса если пусто - ставим 1
-                                        if (e.target.value === '' || Number(e.target.value) < 1) {
+                                        if (
+                                          e.target.value === '' ||
+                                          Number(e.target.value) < 1
+                                        ) {
                                           setDroneQuantities((s) => ({
                                             ...s,
                                             [drone.droneId]: 1,
