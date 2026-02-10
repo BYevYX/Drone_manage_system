@@ -22,6 +22,7 @@ import {
   XCircle,
   CheckCheck,
   Clock,
+  HelpCircle,
 } from 'lucide-react';
 import { ModernSelect } from '../../modernSelect';
 import { Loader } from '../../operator/requests/spinner';
@@ -85,35 +86,108 @@ function translateCol(col: string) {
   const map: Record<string, string> = {
     cluster_id: 'Кластер',
     area_percentage: '% площади',
+    // NDVI
     NDVI_min: 'NDVI мин',
     NDVI_max: 'NDVI макс',
     NDVI_mean: 'NDVI сред',
     NDVI_std: 'NDVI стд',
-    NDVI_variance: 'NDVI вар',
-    coefficient_of_variation: 'Коэф вар',
+    NDVI_variance: 'NDVI дисперсия',
+    // ARVI
+    ARVI_min: 'ARVI мин',
+    ARVI_max: 'ARVI макс',
+    ARVI_mean: 'ARVI сред',
+    ARVI_std: 'ARVI стд',
+    ARVI_variance: 'ARVI дисперсия',
+    // DVI
+    DVI_min: 'DVI мин',
+    DVI_max: 'DVI макс',
+    DVI_mean: 'DVI сред',
+    DVI_std: 'DVI стд',
+    DVI_variance: 'DVI дисперсия',
+    // EVI
+    EVI_min: 'EVI мин',
+    EVI_max: 'EVI макс',
+    EVI_mean: 'EVI сред',
+    EVI_std: 'EVI стд',
+    EVI_variance: 'EVI дисперсия',
+    // GEMI
+    GEMI_min: 'GEMI мин',
+    GEMI_max: 'GEMI макс',
+    GEMI_mean: 'GEMI сред',
+    GEMI_std: 'GEMI стд',
+    GEMI_variance: 'GEMI дисперсия',
+    // IPVI
+    IPVI_min: 'IPVI мин',
+    IPVI_max: 'IPVI макс',
+    IPVI_mean: 'IPVI сред',
+    IPVI_std: 'IPVI стд',
+    IPVI_variance: 'IPVI дисперсия',
+    // PVI
+    PVI_min: 'PVI мин',
+    PVI_max: 'PVI макс',
+    PVI_mean: 'PVI сред',
+    PVI_std: 'PVI стд',
+    PVI_variance: 'PVI дисперсия',
+    // RVI
+    RVI_min: 'RVI мин',
+    RVI_max: 'RVI макс',
+    RVI_mean: 'RVI сред',
+    RVI_std: 'RVI стд',
+    RVI_variance: 'RVI дисперсия',
+    // SARVI
+    SARVI_min: 'SARVI мин',
+    SARVI_max: 'SARVI макс',
+    SARVI_mean: 'SARVI сред',
+    SARVI_std: 'SARVI стд',
+    SARVI_variance: 'SARVI дисперсия',
+    // SAVI
+    SAVI_min: 'SAVI мин',
+    SAVI_max: 'SAVI макс',
+    SAVI_mean: 'SAVI сред',
+    SAVI_std: 'SAVI стд',
+    SAVI_variance: 'SAVI дисперсия',
+    // TSAVI
+    TSAVI_min: 'TSAVI мин',
+    TSAVI_max: 'TSAVI макс',
+    TSAVI_mean: 'TSAVI сред',
+    TSAVI_std: 'TSAVI стд',
+    TSAVI_variance: 'TSAVI дисперсия',
+    // TVI
+    TVI_min: 'TVI мин',
+    TVI_max: 'TVI макс',
+    TVI_mean: 'TVI сред',
+    TVI_std: 'TVI стд',
+    TVI_variance: 'TVI дисперсия',
+    // WDVI
+    WDVI_min: 'WDVI мин',
+    WDVI_max: 'WDVI макс',
+    WDVI_mean: 'WDVI сред',
+    WDVI_std: 'WDVI стд',
+    WDVI_variance: 'WDVI дисперсия',
+    coefficient_of_variation: 'Коэф вариации (%)',
     droneId: 'ID дрона',
     drone_id: 'ID дрона',
     droneName: 'Дрон',
     drone_type: 'Тип дрона',
-    area: 'Площадь',
-    total_distance: 'Общее расстояние',
-    processing_distance: 'Расстояние обработки',
-    flight_distance: 'Расстояние полета',
-    total_time: 'Общее время',
-    processing_time: 'Время обработки',
-    flight_time: 'Время полета',
+    area: 'Площадь (м²)',
+    total_distance: 'Общее расстояние (м)',
+    processing_distance: 'Расстояние обработки (м)',
+    flight_distance: 'Расстояние полета (м)',
+    total_time: 'Общее время (мин)',
+    processing_time: 'Время обработки (мин)',
+    flight_time: 'Время полета (мин)',
     charge_events: 'События зарядки',
-    charge_time: 'Время зарядки',
+    charge_time: 'Время зарядки (мин)',
     segment_id: 'ID сегмента',
     segment_number: 'Номер сегмента',
     segment_index: 'Индекс сегмента',
-    size_pixels: 'Размер (пиксели)',
+    size_pixels: 'Размер (м²)',
     field_count: 'Количество полей',
     drone_count: 'Количество дронов',
-    parallel_total_time: 'Параллельное общее время',
-    parallel_processing_time: 'Параллельное время обработки',
-    parallel_flight_time: 'Параллельное время полета',
-    parallel_charge_time: 'Параллельное время зарядки',
+    parallel_total_time: 'Параллельное общее время (мин)',
+    parallel_processing_time: 'Параллельное время обработки (мин)',
+    parallel_flight_time: 'Параллельное время полета (мин)',
+    parallel_charge_time: 'Параллельное время зарядки (мин)',
   };
   return map[col] ?? col;
 }
@@ -128,11 +202,56 @@ function formatCell(val: any) {
   return String(val);
 }
 
-function renderTableCard(name: string, rows: any[] | null): JSX.Element {
+function getTableTooltip(name: string): string {
+  const tooltips: Record<string, string> = {
+    'Статистика по кластерам, определенных на основе вегетационных индексов':
+      'Эта таблица предоставляет подробный агрономический анализ каждого кластера, выделенного на основе вегетационных индексов. Она помогает оценить однородность посевов и выявить проблемные зоны на поле.',
+    'Отчет по выполненной работе внутри сегментов':
+      'Это пошаговый рабочий журнал, который документирует обработку каждого отдельного сегмента каждым дроном. Таблица отслеживает состояние батареи, время выполнения и другие параметры в реальном времени.',
+    'Сводный отчёт по полетным миссиям дронов':
+      'Агрегированный отчет по производительности каждого дрона и всего используемого парка. Показывает итоговые результаты работы и эффективность параллельного выполнения задач.',
+    'Сводная статистика по сегментам внутри кластера':
+      'Анализ эффективности распределения работ внутри каждого кластера. Показывает, насколько хорошо кластер был разделен между дронами и какова выгода от параллельной обработки.',
+  };
+  return tooltips[name] || '';
+}
+
+function TableCard({
+  name,
+  rows,
+}: {
+  name: string;
+  rows: any[] | null;
+}): JSX.Element {
+  const tooltip = getTableTooltip(name);
+  const [showTooltip, setShowTooltip] = useState(false);
+
   if (!rows)
     return (
       <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
-        <div className="text-sm font-medium text-gray-700 mb-2">{name}</div>
+        <div className="flex items-center gap-2 mb-2 min-h-[24px]">
+          <div
+            className="text-sm font-medium text-gray-700 truncate flex-1"
+            title={name}
+          >
+            {name}
+          </div>
+          {tooltip && (
+            <div className="relative flex-shrink-0">
+              <HelpCircle
+                size={16}
+                className="text-gray-400 hover:text-emerald-500 cursor-help transition-colors"
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+              />
+              {showTooltip && (
+                <div className="absolute right-0 top-6 z-50 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl">
+                  {tooltip}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <div className="text-xs text-gray-500">
           Таблица пуста или не удалось распарсить.
         </div>
@@ -150,9 +269,33 @@ function renderTableCard(name: string, rows: any[] | null): JSX.Element {
   const isMainTable = name === 'Основная таблица';
   return (
     <div className="rounded-xl bg-white p-3 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-medium text-gray-700">{name}</div>
-        <div className="text-xs text-gray-500">Строк: {rows.length}</div>
+      <div className="flex items-center justify-between mb-3 gap-2 min-h-[24px]">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div
+            className="text-sm font-medium text-gray-700 truncate"
+            title={name}
+          >
+            {name}
+          </div>
+          {tooltip && (
+            <div className="relative flex-shrink-0">
+              <HelpCircle
+                size={16}
+                className="text-gray-400 hover:text-emerald-500 cursor-help transition-colors"
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+              />
+              {showTooltip && (
+                <div className="absolute right-0 top-6 z-50 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl">
+                  {tooltip}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="text-xs text-gray-500 whitespace-nowrap">
+          Строк: {rows.length}
+        </div>
       </div>
       <div
         className={
@@ -199,8 +342,12 @@ function localizeProcessingMode(mode: string): string {
   return modeMap[mode.toLowerCase()] || mode;
 }
 
-function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
+function getOrderedTables(
+  tables: Record<string, any[] | null> | undefined,
+  orderType?: string,
+) {
   if (!tables) return [] as [string, any[] | null][];
+  const isSplit = (orderType ?? 'DEFAULT') === 'SPLIT';
   const preferred = [
     'clusterStatsDf',
     'dronesDf',
@@ -209,13 +356,16 @@ function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
   ];
   // Маппинг английских названий на русские
   const nameMap: Record<string, string> = {
-    clusterStatsDf: 'Статистика по кластерам',
-    dronesDf: 'Информация о дронах',
-    segmentsDf: 'Сегменты',
-    segmentSummaryDf: 'Сводка по сегментам',
+    clusterStatsDf:
+      'Статистика по кластерам, определенных на основе вегетационных индексов',
+    dronesDf: 'Сводный отчёт по полетным миссиям дронов',
+    segmentsDf: 'Отчет по выполненной работе внутри сегментов',
+    segmentSummaryDf: 'Сводная статистика по сегментам внутри кластера',
   };
   const present: [string, any[] | null][] = [];
   preferred.forEach((k) => {
+    // Для SPLIT не показываем clusterStatsDf
+    if (isSplit && k === 'clusterStatsDf') return;
     if (k in tables) present.push([nameMap[k] || k, tables[k]]);
   });
   Object.keys(tables)
@@ -528,9 +678,14 @@ export default function FriendlyOrdersPanel() {
 
       const images: Record<string, string | null> = {};
       if (isSplit) {
-        images.areasWithFullIdsImage = ensureDataUrl(
-          result?.areasWithFullIdsImage ?? null,
-        );
+        // Для SPLIT загружаем два изображения
+        const splitImageKeys = ['areasWithFullIdsImage', 'areasWithSegmentsAndFullIds'];
+        splitImageKeys.forEach((k) => {
+          const val = result?.[k];
+          if (val != null && val !== '') {
+            images[k] = ensureDataUrl(val);
+          }
+        });
       } else {
         const imageKeys = [
           'originalImage',
@@ -540,32 +695,33 @@ export default function FriendlyOrdersPanel() {
           'areasWithSegmentsAndFullIds',
         ];
         imageKeys.forEach((k) => {
-          images[k] = ensureDataUrl(result?.[k] ?? null);
+          const val = result?.[k];
+          if (val != null && val !== '') {
+            images[k] = ensureDataUrl(val);
+          }
         });
       }
 
       const tables: Record<string, any[] | null> = {};
-      if (!isSplit) {
-        Object.keys(result || {}).forEach((k) => {
-          const kl = k.toLowerCase();
-          if (
-            kl.endsWith('df') ||
-            kl.endsWith('statsdf') ||
-            (kl.includes('cluster') && kl.includes('df'))
-          ) {
-            const v = result[k];
-            if (!v) {
-              tables[k] = null;
-              return;
-            }
-            try {
-              tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
-            } catch {
-              tables[k] = null;
-            }
+      Object.keys(result || {}).forEach((k) => {
+        const kl = k.toLowerCase();
+        if (
+          kl.endsWith('df') ||
+          kl.endsWith('statsdf') ||
+          (kl.includes('cluster') && kl.includes('df'))
+        ) {
+          const v = result[k];
+          if (!v || v === '') {
+            tables[k] = null;
+            return;
           }
-        });
-      }
+          try {
+            tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+          } catch {
+            tables[k] = null;
+          }
+        }
+      });
 
       return {
         ...order,
@@ -573,7 +729,7 @@ export default function FriendlyOrdersPanel() {
           ...(order.metadata ?? {}),
           analyticsResponse: result,
           analyticsImages: images,
-          analyticsTables: isSplit ? {} : tables,
+          analyticsTables: tables,
         },
       } as ApiOrder;
     } catch (e) {
@@ -2114,60 +2270,119 @@ export default function FriendlyOrdersPanel() {
                           <div className="text-xs text-slate-500 uppercase tracking-wide">
                             Изображения
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3">
-                            {Object.entries(
-                              selected.metadata.analyticsImages,
-                            ).map(([name, dataUrl]) => {
-                              if (!dataUrl) return null;
-                              return (
-                                <div
-                                  key={name}
-                                  className="relative group cursor-pointer rounded-xl overflow-hidden bg-slate-50 shadow-sm hover:shadow-md transition-all"
-                                  onClick={() => setModalImage(dataUrl)}
-                                >
-                                  <img
-                                    src={dataUrl}
-                                    alt={name}
-                                    className="w-full h-auto"
-                                  />
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                    <svg
-                                      className="w-6 h-6 sm:w-8 sm:h-8 text-white"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
+                          <div className="grid grid-cols-1 gap-2 sm:gap-3">
+                            {(() => {
+                              const isSplit =
+                                (selected.orderType ?? 'DEFAULT') === 'SPLIT';
+                              const images = selected.metadata.analyticsImages;
+
+                              // Для SPLIT показываем только два изображения
+                              if (isSplit) {
+                                const splitImages = [
+                                  'areasWithFullIdsImage',
+                                  'areasWithSegmentsAndFullIds',
+                                ];
+                                return splitImages
+                                  .map((name) => {
+                                    const dataUrl = images[name];
+                                    if (!dataUrl) return null;
+                                    return (
+                                      <div
+                                        key={name}
+                                        className="relative group cursor-pointer rounded-xl overflow-hidden bg-slate-50 shadow-sm hover:shadow-md transition-all"
+                                        onClick={() => setModalImage(dataUrl)}
+                                      >
+                                        <img
+                                          src={dataUrl}
+                                          alt={name}
+                                          className="w-full h-auto"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                          <svg
+                                            className="w-6 h-6 sm:w-8 sm:h-8 text-white"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                          >
+                                            <path
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              strokeWidth={2}
+                                              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                                            />
+                                          </svg>
+                                        </div>
+                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 sm:p-2">
+                                          <div className="text-[10px] sm:text-xs text-white font-nekstmedium break-words">
+                                            {{
+                                              areasWithFullIdsImage:
+                                                'Карта разбиения поля на зоны',
+                                              areasWithSegmentsAndFullIds:
+                                                'Карта маршрутов дронов для обработки',
+                                            }[name] || name}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })
+                                  .filter(Boolean);
+                              }
+
+                              // Для DEFAULT показываем все изображения
+                              return Object.entries(images).map(
+                                ([name, dataUrl]) => {
+                                  if (!dataUrl) return null;
+                                  return (
+                                    <div
+                                      key={name}
+                                      className="relative group cursor-pointer rounded-xl overflow-hidden bg-slate-50 shadow-sm hover:shadow-md transition-all"
+                                      onClick={() => setModalImage(dataUrl)}
                                     >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                                      <img
+                                        src={dataUrl}
+                                        alt={name}
+                                        className="w-full h-auto"
                                       />
-                                    </svg>
-                                  </div>
-                                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 sm:p-2">
-                                    <div className="text-[10px] sm:text-xs text-white font-nekstmedium break-words">
-                                      {{
-                                        originalImage:
-                                          'RGB-представление данных спектральных измерений поля',
-                                        indexImage:
-                                          'Карта вегетационного индекса поля на основе спектральных измерений',
-                                        areasWithFullIdsImage:
-                                          'Карта поля в RGB-представлении, показывающая кластеры, выделенные по вегетационному индексу c обозначенными зонами для дифференцированной обработки',
-                                        indexWithBoundsImage:
-                                          'Карта полученного вегетационного индекса поля с наложенными границами кластеров и зон для дифференцированной обработки',
-                                        areasWithSegmentsAndFullIds:
-                                          'Карта маршрутов дронов для дифференцированной обработки поля по предварительно выделенным зонам',
-                                      }[name] ||
-                                        name
-                                          .replace(/([A-Z])/g, ' $1')
-                                          .replace(/Image$/, '')
-                                          .trim()}
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <svg
+                                          className="w-6 h-6 sm:w-8 sm:h-8 text-white"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"
+                                          />
+                                        </svg>
+                                      </div>
+                                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 sm:p-2">
+                                        <div className="text-[10px] sm:text-xs text-white font-nekstmedium break-words">
+                                          {{
+                                            originalImage:
+                                              'RGB-представление данных спектральных измерений поля',
+                                            indexImage:
+                                              'Карта вегетационного индекса поля на основе спектральных измерений',
+                                            areasWithFullIdsImage:
+                                              'Карта поля в RGB-представлении, показывающая кластеры, выделенные по вегетационному индексу c обозначенными зонами для дифференцированной обработки',
+                                            indexWithBoundsImage:
+                                              'Карта полученного вегетационного индекса поля с наложенными границами кластеров и зон для дифференцированной обработки',
+                                            areasWithSegmentsAndFullIds:
+                                              'Карта маршрутов дронов для дифференцированной обработки поля по предварительно выделенным зонам',
+                                          }[name] ||
+                                            name
+                                              .replace(/([A-Z])/g, ' $1')
+                                              .replace(/Image$/, '')
+                                              .trim()}
+                                        </div>
+                                      </div>
                                     </div>
-                                  </div>
-                                </div>
+                                  );
+                                },
                               );
-                            })}
+                            })()}
                           </div>
                         </div>
                       )}
@@ -2177,6 +2392,7 @@ export default function FriendlyOrdersPanel() {
                       (() => {
                         const orderedTables = getOrderedTables(
                           selected.metadata.analyticsTables,
+                          selected.orderType,
                         );
                         return orderedTables.length > 0 ? (
                           <div className="space-y-3 mt-4 sm:mt-5 pt-4 sm:pt-5 border-t border-slate-100">
@@ -2184,9 +2400,9 @@ export default function FriendlyOrdersPanel() {
                               Таблицы данных
                             </div>
                             <div className="space-y-2 sm:space-y-3 max-w-full overflow-hidden">
-                              {orderedTables.map(([name, rows]) =>
-                                renderTableCard(name, rows),
-                              )}
+                              {orderedTables.map(([name, rows]) => (
+                                <TableCard key={name} name={name} rows={rows} />
+                              ))}
                             </div>
                           </div>
                         ) : null;

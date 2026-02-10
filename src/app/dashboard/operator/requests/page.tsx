@@ -19,6 +19,7 @@ import {
   Edit2,
   Clock,
   GitMerge,
+  HelpCircle,
 } from 'lucide-react';
 import { useGlobalContext } from '@/src/app/GlobalContext';
 import { Loader } from './spinner';
@@ -303,35 +304,108 @@ function translateCol(col: string) {
   const map: Record<string, string> = {
     cluster_id: 'Кластер',
     area_percentage: '% площади',
+    // NDVI
     NDVI_min: 'NDVI мин',
     NDVI_max: 'NDVI макс',
     NDVI_mean: 'NDVI сред',
     NDVI_std: 'NDVI стд',
-    NDVI_variance: 'NDVI вар',
-    coefficient_of_variation: 'Коэф вар',
+    NDVI_variance: 'NDVI дисперсия',
+    // ARVI
+    ARVI_min: 'ARVI мин',
+    ARVI_max: 'ARVI макс',
+    ARVI_mean: 'ARVI сред',
+    ARVI_std: 'ARVI стд',
+    ARVI_variance: 'ARVI дисперсия',
+    // DVI
+    DVI_min: 'DVI мин',
+    DVI_max: 'DVI макс',
+    DVI_mean: 'DVI сред',
+    DVI_std: 'DVI стд',
+    DVI_variance: 'DVI дисперсия',
+    // EVI
+    EVI_min: 'EVI мин',
+    EVI_max: 'EVI макс',
+    EVI_mean: 'EVI сред',
+    EVI_std: 'EVI стд',
+    EVI_variance: 'EVI дисперсия',
+    // GEMI
+    GEMI_min: 'GEMI мин',
+    GEMI_max: 'GEMI макс',
+    GEMI_mean: 'GEMI сред',
+    GEMI_std: 'GEMI стд',
+    GEMI_variance: 'GEMI дисперсия',
+    // IPVI
+    IPVI_min: 'IPVI мин',
+    IPVI_max: 'IPVI макс',
+    IPVI_mean: 'IPVI сред',
+    IPVI_std: 'IPVI стд',
+    IPVI_variance: 'IPVI дисперсия',
+    // PVI
+    PVI_min: 'PVI мин',
+    PVI_max: 'PVI макс',
+    PVI_mean: 'PVI сред',
+    PVI_std: 'PVI стд',
+    PVI_variance: 'PVI дисперсия',
+    // RVI
+    RVI_min: 'RVI мин',
+    RVI_max: 'RVI макс',
+    RVI_mean: 'RVI сред',
+    RVI_std: 'RVI стд',
+    RVI_variance: 'RVI дисперсия',
+    // SARVI
+    SARVI_min: 'SARVI мин',
+    SARVI_max: 'SARVI макс',
+    SARVI_mean: 'SARVI сред',
+    SARVI_std: 'SARVI стд',
+    SARVI_variance: 'SARVI дисперсия',
+    // SAVI
+    SAVI_min: 'SAVI мин',
+    SAVI_max: 'SAVI макс',
+    SAVI_mean: 'SAVI сред',
+    SAVI_std: 'SAVI стд',
+    SAVI_variance: 'SAVI дисперсия',
+    // TSAVI
+    TSAVI_min: 'TSAVI мин',
+    TSAVI_max: 'TSAVI макс',
+    TSAVI_mean: 'TSAVI сред',
+    TSAVI_std: 'TSAVI стд',
+    TSAVI_variance: 'TSAVI дисперсия',
+    // TVI
+    TVI_min: 'TVI мин',
+    TVI_max: 'TVI макс',
+    TVI_mean: 'TVI сред',
+    TVI_std: 'TVI стд',
+    TVI_variance: 'TVI дисперсия',
+    // WDVI
+    WDVI_min: 'WDVI мин',
+    WDVI_max: 'WDVI макс',
+    WDVI_mean: 'WDVI сред',
+    WDVI_std: 'WDVI стд',
+    WDVI_variance: 'WDVI дисперсия',
+    coefficient_of_variation: 'Коэф вариации (%)',
     droneId: 'ID дрона',
     drone_id: 'ID дрона',
     droneName: 'Дрон',
     drone_type: 'Тип дрона',
-    area: 'Площадь',
-    total_distance: 'Общее расстояние',
-    processing_distance: 'Расстояние обработки',
-    flight_distance: 'Расстояние полета',
-    total_time: 'Общее время',
-    processing_time: 'Время обработки',
-    flight_time: 'Время полета',
+    area: 'Площадь (м²)',
+    total_distance: 'Общее расстояние (м)',
+    processing_distance: 'Расстояние обработки (м)',
+    flight_distance: 'Расстояние полета (м)',
+    total_time: 'Общее время (мин)',
+    processing_time: 'Время обработки (мин)',
+    flight_time: 'Время полета (мин)',
     charge_events: 'События зарядки',
-    charge_time: 'Время зарядки',
+    charge_time: 'Время зарядки (мин)',
     segment_id: 'ID сегмента',
     segment_number: 'Номер сегмента',
     segment_index: 'Индекс сегмента',
-    size_pixels: 'Размер (пиксели)',
+    size_pixels: 'Размер (м²)',
     field_count: 'Количество полей',
     drone_count: 'Количество дронов',
-    parallel_total_time: 'Параллельное общее время',
-    parallel_processing_time: 'Параллельное время обработки',
-    parallel_flight_time: 'Параллельное время полета',
-    parallel_charge_time: 'Параллельное время зарядки',
+    parallel_total_time: 'Параллельное общее время (мин)',
+    parallel_processing_time: 'Параллельное время обработки (мин)',
+    parallel_flight_time: 'Параллельное время полета (мин)',
+    parallel_charge_time: 'Параллельное время зарядки (мин)',
   };
   return map[col] ?? col;
 }
@@ -346,11 +420,56 @@ function formatCell(val: any) {
   return String(val);
 }
 
-function renderTableCard(name: string, rows: any[] | null): JSX.Element {
+function getTableTooltip(name: string): string {
+  const tooltips: Record<string, string> = {
+    'Статистика по кластерам, определенных на основе вегетационных индексов':
+      'Эта таблица предоставляет подробный агрономический анализ каждого кластера, выделенного на основе вегетационных индексов. Она помогает оценить однородность посевов и выявить проблемные зоны на поле.',
+    'Отчет по выполненной работе внутри сегментов':
+      'Это пошаговый рабочий журнал, который документирует обработку каждого отдельного сегмента каждым дроном. Таблица отслеживает состояние батареи, время выполнения и другие параметры в реальном времени.',
+    'Сводный отчёт по полетным миссиям дронов':
+      'Агрегированный отчет по производительности каждого дрона и всего используемого парка. Показывает итоговые результаты работы и эффективность параллельного выполнения задач.',
+    'Сводная статистика по сегментам внутри кластера':
+      'Анализ эффективности распределения работ внутри каждого кластера. Показывает, насколько хорошо кластер был разделен между дронами и какова выгода от параллельной обработки.',
+  };
+  return tooltips[name] || '';
+}
+
+function TableCard({
+  name,
+  rows,
+}: {
+  name: string;
+  rows: any[] | null;
+}): JSX.Element {
+  const tooltip = getTableTooltip(name);
+  const [showTooltip, setShowTooltip] = useState(false);
+
   if (!rows)
     return (
       <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
-        <div className="text-sm font-medium text-gray-700 mb-2">{name}</div>
+        <div className="flex items-center gap-2 mb-2 min-h-[24px]">
+          <div
+            className="text-sm font-medium text-gray-700 truncate flex-1"
+            title={name}
+          >
+            {name}
+          </div>
+          {tooltip && (
+            <div className="relative flex-shrink-0">
+              <HelpCircle
+                size={16}
+                className="text-gray-400 hover:text-emerald-500 cursor-help transition-colors"
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+              />
+              {showTooltip && (
+                <div className="absolute right-0 top-6 z-50 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl">
+                  {tooltip}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <div className="text-xs text-gray-500">
           Таблица пуста или не удалось распарсить.
         </div>
@@ -368,9 +487,33 @@ function renderTableCard(name: string, rows: any[] | null): JSX.Element {
   const isMainTable = name === 'Основная таблица';
   return (
     <div className="rounded-xl bg-white p-3 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-medium text-gray-700">{name}</div>
-        <div className="text-xs text-gray-500">Строк: {rows.length}</div>
+      <div className="flex items-center justify-between mb-3 gap-2 min-h-[24px]">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div
+            className="text-sm font-medium text-gray-700 truncate"
+            title={name}
+          >
+            {name}
+          </div>
+          {tooltip && (
+            <div className="relative flex-shrink-0">
+              <HelpCircle
+                size={16}
+                className="text-gray-400 hover:text-emerald-500 cursor-help transition-colors"
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+              />
+              {showTooltip && (
+                <div className="absolute right-0 top-6 z-50 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl">
+                  {tooltip}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="text-xs text-gray-500 whitespace-nowrap">
+          Строк: {rows.length}
+        </div>
       </div>
       <div
         className={
@@ -450,10 +593,11 @@ function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
   ];
   // Маппинг английских названий на русские
   const nameMap: Record<string, string> = {
-    clusterStatsDf: 'Статистика по кластерам',
-    dronesDf: 'Информация о дронах',
-    segmentsDf: 'Сегменты',
-    segmentSummaryDf: 'Сводка по сегментам',
+    clusterStatsDf:
+      'Статистика по кластерам, определенных на основе вегетационных индексов',
+    dronesDf: 'Сводный отчёт по полетным миссиям дронов',
+    segmentsDf: 'Отчет по выполненной работе внутри сегментов',
+    segmentSummaryDf: 'Сводная статистика по сегментам внутри кластера',
   };
   const present: [string, any[] | null][] = [];
   preferred.forEach((k) => {
@@ -560,6 +704,9 @@ export default function OperatorOrdersWizard(): JSX.Element {
   const [clusterAssignments, setClusterAssignments] = useState<
     Record<number, number>
   >({});
+
+  // Для SPLIT workflow: простой список ID выбранных дронов
+  const [selectedDroneIds, setSelectedDroneIds] = useState<number[]>([]);
 
   // Toast уведомление
   const [toast, setToast] = useState<string | null>(null);
@@ -864,26 +1011,47 @@ export default function OperatorOrdersWizard(): JSX.Element {
         const out = parsed?.output ?? {};
         const inputId = parsed?.inputId ?? null;
 
-        // Для SPLIT только одно изображение
+        // Для SPLIT загружаем изображение разбиения
         const images: Record<string, string | null> = {
           areasWithFullIdsImage: ensureDataUrl(
             out?.areasWithFullIdsImage ?? null,
           ),
         };
 
+        // Загружаем таблицы кластеров из split result
+        const tables: Record<string, any[] | null> = {};
+        Object.keys(out || {}).forEach((k) => {
+          const kl = k.toLowerCase();
+          if (
+            kl.endsWith('df') ||
+            kl.endsWith('statsdf') ||
+            (kl.includes('cluster') && kl.includes('df'))
+          ) {
+            const v = out[k];
+            if (!v) {
+              tables[k] = null;
+              return;
+            }
+            try {
+              tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+            } catch {
+              tables[k] = null;
+            }
+          }
+        });
+
         setSelectedOrder((so) =>
           so
             ? ({
                 ...so,
-                status: 'processed',
+                // Не меняем status на processed - это промежуточный шаг
                 metadata: {
                   ...(so.metadata ?? {}),
                   uploadedJson: uploaded,
                   latestInput: { id: inputId },
                   analyticsResponse: parsed,
                   analyticsImages: images,
-                  analyticsTables: {},
-                  processed: true,
+                  analyticsTables: tables,
                 },
               } as Order)
             : so,
@@ -894,15 +1062,14 @@ export default function OperatorOrdersWizard(): JSX.Element {
             p.id === selectedOrder.id
               ? ({
                   ...p,
-                  status: 'processed',
+                  // Не меняем status на processed - это промежуточный шаг
                   metadata: {
                     ...(p.metadata ?? {}),
                     uploadedJson: uploaded,
                     latestInput: { id: inputId },
                     analyticsResponse: parsed,
                     analyticsImages: images,
-                    analyticsTables: {},
-                    processed: true,
+                    analyticsTables: tables,
                   },
                 } as Order)
               : p,
@@ -911,24 +1078,8 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
         setCalcProgress(100);
         setIsViewOnly(false);
-        setStep(4); // Сразу переходим к финальному шагу для SPLIT
-        showToast('Разбиение успешно завершено!');
-
-        // Обновляем статус заказа на бекенде
-        try {
-          const statusRes = await authFetch(
-            `${API_BASE}/api/orders_status/${selectedOrder.id}`,
-            {
-              method: 'PUT',
-              body: JSON.stringify({ status: 'Processed' }),
-            },
-          );
-          if (!statusRes.ok) {
-            console.error('Failed to update order status on backend');
-          }
-        } catch (e) {
-          console.error('Error updating order status', e);
-        }
+        setStep(3); // Переходим к выбору дронов для SPLIT
+        showToast('Разбиение успешно завершено! Теперь выберите дроны.');
       } else {
         // Для DEFAULT используем стандартную ручку analyze
         const body = {
@@ -1143,7 +1294,18 @@ export default function OperatorOrdersWizard(): JSX.Element {
     setClusterAssignments(byCluster);
   };
 
-  const clearAssignments = () => setClusterAssignments({});
+  const clearAssignments = () => {
+    setClusterAssignments({});
+    setSelectedDroneIds([]);
+  };
+
+  const toggleDroneSelection = (droneId: number) => {
+    setSelectedDroneIds((prev) =>
+      prev.includes(droneId)
+        ? prev.filter((id) => id !== droneId)
+        : [...prev, droneId],
+    );
+  };
 
   const applyFinal = async () => {
     if (!selectedOrder) return alert('Выберите заявку.');
@@ -1153,22 +1315,24 @@ export default function OperatorOrdersWizard(): JSX.Element {
     if (!inputId)
       return alert('Не удалось обнаружить inputId в ответе analyze.');
 
+    // Для обоих типов (DEFAULT и SPLIT) используем clusterAssignments
     // 1. Определяем, какие дроны назначены (их 1-based индексы в списке availableDrones)
     const assignedIndices = Array.from(
       new Set(Object.values(clusterAssignments).filter(Boolean)),
     ).sort((a, b) => a - b);
 
     // 2. Создаем финальный список ID дронов (droneIds)
-    const droneIds: number[] = assignedIndices
+    const droneIds = assignedIndices
       .map((index) => availableDrones[index - 1]?.droneId)
       .filter((id): id is number => id !== undefined);
 
-    if (!droneIds.length) return alert('Назначьте хотя бы один дрон кластеру.');
+    if (!droneIds.length)
+      return alert('Назначьте хотя бы один дрон кластеру.');
 
     // 3. Переиндексируем droneTasks
     const indexMap: Record<number, number> = assignedIndices.reduce(
       (acc, oldIndex, newIndex) => {
-        acc[oldIndex] = newIndex + 1; // oldIndex (1-based) -> newIndex (1-based) в новом droneIds
+        acc[oldIndex] = newIndex + 1;
         return acc;
       },
       {} as Record<number, number>,
@@ -1182,7 +1346,6 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
       const newIndex = indexMap[assignedIdx];
       if (newIndex) {
-        // newIndex - это 1-based index в новом списке `droneIds`
         droneTasks[String(clusterId)] = newIndex;
       }
     });
@@ -1241,12 +1404,9 @@ export default function OperatorOrdersWizard(): JSX.Element {
       });
       const existingTables = selectedOrder.metadata?.analyticsTables ?? {};
       const newTables: Record<string, any[] | null> = { ...existingTables };
-      [
-        'Статистика по кластерам',
-        'Информация о дронах',
-        'Сегменты',
-        'Сводка по сегментам',
-      ].forEach((k) => {
+
+      // Парсим все таблицы для обоих типов (DEFAULT и SPLIT)
+      ['clusterStatsDf', 'dronesDf', 'segmentsDf', 'segmentSummaryDf'].forEach((k) => {
         const v = out?.[k];
         if (v !== undefined && v !== null) {
           try {
@@ -1351,52 +1511,43 @@ export default function OperatorOrdersWizard(): JSX.Element {
       });
       const result = parsed?.result ?? parsed;
 
-      // Для SPLIT заявок загружаем только карту разбиения
-      const isSplit = (o.orderType ?? 'DEFAULT') === 'SPLIT';
-
+      // Загружаем все доступные изображения для обоих типов заказов
       const images: Record<string, string | null> = {};
-      if (isSplit) {
-        // Для SPLIT только areasWithFullIdsImage
-        images.areasWithFullIdsImage = ensureDataUrl(
-          result?.areasWithFullIdsImage ?? null,
-        );
-      } else {
-        // Для DEFAULT все изображения
-        const imageKeys = [
-          'originalImage',
-          'indexImage',
-          'areasWithFullIdsImage',
-          'indexWithBoundsImage',
-          'areasWithSegmentsAndFullIds',
-        ];
-        imageKeys.forEach((k) => {
-          images[k] = ensureDataUrl(result?.[k] ?? null);
-        });
-      }
+      const imageKeys = [
+        'originalImage',
+        'indexImage',
+        'areasWithFullIdsImage',
+        'indexWithBoundsImage',
+        'areasWithSegmentsAndFullIds',
+      ];
+      imageKeys.forEach((k) => {
+        const val = result?.[k];
+        if (val != null && val !== '') {
+          images[k] = ensureDataUrl(val);
+        }
+      });
 
-      // Таблицы загружаем только для DEFAULT
+      // Загружаем все доступные таблицы для обоих типов
       const tables: Record<string, any[] | null> = {};
-      if (!isSplit) {
-        Object.keys(result || {}).forEach((k) => {
-          const kl = k.toLowerCase();
-          if (
-            kl.endsWith('df') ||
-            kl.endsWith('statsdf') ||
-            (kl.includes('cluster') && kl.includes('df'))
-          ) {
-            const v = result[k];
-            if (!v) {
-              tables[k] = null;
-              return;
-            }
-            try {
-              tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
-            } catch {
-              tables[k] = null;
-            }
+      Object.keys(result || {}).forEach((k) => {
+        const kl = k.toLowerCase();
+        if (
+          kl.endsWith('df') ||
+          kl.endsWith('statsdf') ||
+          (kl.includes('cluster') && kl.includes('df'))
+        ) {
+          const v = result[k];
+          if (!v || v === '') {
+            tables[k] = null;
+            return;
           }
-        });
-      }
+          try {
+            tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+          } catch {
+            tables[k] = null;
+          }
+        }
+      });
 
       const updatedOrder = {
         ...o,
@@ -1407,12 +1558,10 @@ export default function OperatorOrdersWizard(): JSX.Element {
             ...(o.metadata?.analyticsImages ?? {}),
             ...images,
           },
-          analyticsTables: isSplit
-            ? {}
-            : {
-                ...(o.metadata?.analyticsTables ?? {}),
-                ...tables,
-              },
+          analyticsTables: {
+            ...(o.metadata?.analyticsTables ?? {}),
+            ...tables,
+          },
         },
       } as Order;
       setSelectedOrder(updatedOrder);
@@ -1548,14 +1697,20 @@ export default function OperatorOrdersWizard(): JSX.Element {
     return sorted;
   }, [orders, statusFilter, orderTypeFilter, sortOrder]);
 
-  // Проверяем, назначен ли дрон каждому кластеру.
-  const allClustersAssigned =
-    clusterRows.length > 0 &&
-    clusterRows.every(
-      (r) =>
-        clusterAssignments[r.cluster_id] !== undefined &&
-        clusterAssignments[r.cluster_id] !== '',
+  // Проверяем, назначен ли дрон каждому кластеру
+  const allClustersAssigned = useMemo(() => {
+    if (!selectedOrder) return false;
+
+    // Для обоих типов проверяем, что каждому кластеру назначен дрон
+    return (
+      clusterRows.length > 0 &&
+      clusterRows.every(
+        (r) =>
+          clusterAssignments[r.cluster_id] !== undefined &&
+          clusterAssignments[r.cluster_id] !== '',
+      )
     );
+  }, [clusterRows, clusterAssignments, selectedOrder]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -1600,17 +1755,20 @@ export default function OperatorOrdersWizard(): JSX.Element {
               const done = step > idx;
               const isSplit =
                 (selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT';
-              // Для SPLIT показываем только шаги 1 и 4
-              if (isSplit && (idx === 2 || idx === 3)) return null;
+              // Для SPLIT показываем шаги 1, 3, 4 (пропускаем шаг 2 - merge)
+              if (isSplit && idx === 2) return null;
+              // Визуальный номер для SPLIT: 1, 2, 3 вместо 1, 3, 4
+              const visualNumber = isSplit && idx > 2 ? idx - 1 : idx;
               const disabled =
                 (isViewOnly && idx !== 2) ||
-                (isSplit && idx !== 1 && idx !== 4);
+                (isSplit && idx !== 1 && idx !== 3 && idx !== 4);
               return (
                 <div key={t} className="">
                   <button
                     onClick={() => {
                       if (disabled) return;
-                      if (isSplit && idx !== 1 && idx !== 4) return;
+                      if (isSplit && idx !== 1 && idx !== 3 && idx !== 4)
+                        return;
                       setStep(idx);
                     }}
                     className="w-full text-left"
@@ -1625,16 +1783,22 @@ export default function OperatorOrdersWizard(): JSX.Element {
                         {done ? (
                           <Check size={14} className="md:w-4 md:h-4" />
                         ) : (
-                          <span className="font-medium">{idx}</span>
+                          <span className="font-medium">{visualNumber}</span>
                         )}
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs md:text-sm font-medium truncate">
-                          {t}
+                          {isSplit && idx === 3
+                            ? `${visualNumber}. Выбор дронов`
+                            : isSplit && idx === 4
+                              ? `${visualNumber}. Финальные данные`
+                              : t}
                         </div>
                         <div className="hidden md:block text-xs text-gray-500 truncate">
                           {idx === 1
-                            ? 'Загрузите JSON поля'
+                            ? isSplit
+                              ? 'Загрузите JSON для разбиения'
+                              : 'Загрузите JSON поля'
                             : idx === 2
                               ? 'Просмотрите изображения и таблицы'
                               : idx === 3
@@ -2690,13 +2854,15 @@ export default function OperatorOrdersWizard(): JSX.Element {
                   })}
                 </div>
 
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 w-full">
                   {getOrderedTables(selectedOrder.metadata?.analyticsTables)
                     .length > 0 ? (
                     getOrderedTables(
                       selectedOrder.metadata?.analyticsTables,
                     ).map(([k, rows]) => (
-                      <div key={k}>{renderTableCard(k, rows ?? null)}</div>
+                      <div key={k} className="w-full">
+                        <TableCard name={k} rows={rows ?? null} />
+                      </div>
                     ))
                   ) : (
                     <div className="text-xs text-gray-500">
@@ -2756,216 +2922,214 @@ export default function OperatorOrdersWizard(): JSX.Element {
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm">
-                    <div className="text-sm font-medium mb-2">Индексы</div>
-                    <div className=" rounded overflow-hidden flex items-center justify-center h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130">
-                      {indexBoundsImg ? (
+                  {indexBoundsImg && (
+                    <div className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm">
+                      <div className="text-sm font-medium mb-2">Индексы</div>
+                      <div className="rounded overflow-hidden flex items-center justify-center h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130">
                         <img
                           src={indexBoundsImg}
                           alt="index"
                           className="object-contain w-full h-full rounded-md cursor-zoom-in"
                           onClick={() => setModalImage(indexBoundsImg)}
                         />
-                      ) : (
-                        <div className="text-xs text-gray-400">
-                          Нет изображения
-                        </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
 
+                {/* Таблица кластеров для обоих типов (DEFAULT и SPLIT) */}
                 <div className="rounded-xl bg-white p-4 border border-gray-100 shadow-sm">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-sm font-medium">Кластеры поля</div>
-                    <button
-                      onClick={clearAssignments}
-                      className="text-xs px-2 py-1 rounded bg-gray-50 border border-gray-100"
-                    >
-                      Сбросить
-                    </button>
-                  </div>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="text-sm font-medium">Кластеры поля</div>
+                      <button
+                        onClick={clearAssignments}
+                        className="text-xs px-2 py-1 rounded bg-gray-50 border border-gray-100"
+                      >
+                        Сбросить
+                      </button>
+                    </div>
 
-                  <div className="max-h-[1000px] overflow-y-auto">
-                    <table className="w-full text-sm border-collapse">
-                      <thead className="bg-gray-50 sticky top-0 z-10">
-                        <tr>
-                          <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                            Кластер
-                          </th>
-                          <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                            Пиксели
-                          </th>
-                          <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                            % площади
-                          </th>
-                          <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                            NDVI сред
-                          </th>
-                          <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                            NDVI стд
-                          </th>
-                          <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                            Центроид
-                          </th>
-                          <th className="px-3 py-2 text-xs text-gray-500 text-left">
-                            Дрон (назначение)
-                          </th>
-                        </tr>
-                      </thead>
-
-                      <tbody>
-                        {clusterRows.length === 0 ? (
+                    <div className="max-h-[1000px] overflow-y-auto">
+                      <table className="w-full text-sm border-collapse">
+                        <thead className="bg-gray-50 sticky top-0 z-10">
                           <tr>
-                            <td
-                              colSpan={7}
-                              className="p-4 text-xs text-gray-500"
-                            >
-                              Кластеры отсутствуют
-                            </td>
+                            <th className="px-3 py-2 text-xs text-gray-500 text-left">
+                              Кластер
+                            </th>
+                            <th className="px-3 py-2 text-xs text-gray-500 text-left">
+                              Пиксели
+                            </th>
+                            <th className="px-3 py-2 text-xs text-gray-500 text-left">
+                              % площади
+                            </th>
+                            <th className="px-3 py-2 text-xs text-gray-500 text-left">
+                              Центроид
+                            </th>
+                            <th className="px-3 py-2 text-xs text-gray-500 text-left">
+                              Дрон (назначение)
+                            </th>
                           </tr>
-                        ) : (
-                          clusterRows.map((r: any, i: number) => (
-                            <tr
-                              key={i}
-                              className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}
-                            >
-                              <td className="px-4 py-3 font-medium whitespace-nowrap">
-                                {formatCell(r.cluster_id)}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                {formatCell(
-                                  r.size_pixels ?? r.size ?? r.pixels,
-                                )}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                {formatCell(r.area_percentage ?? r.area_pct)}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                {formatCell(r.NDVI_mean ?? r.ndvi_mean)}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                {formatCell(r.NDVI_std ?? r.ndvi_std)}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                {formatCell(r.centroid_x)},{' '}
-                                {formatCell(r.centroid_y)}
-                              </td>
-                              <td className="px-4 py-3">
-                                <DroneDropdown
-                                  value={clusterAssignments[r.cluster_id] ?? ''}
-                                  options={droneOptions}
-                                  onChange={(val) =>
-                                    setClusterAssignments((s) => ({
-                                      ...s,
-                                      [r.cluster_id]: val,
-                                    }))
-                                  }
-                                />
+                        </thead>
+
+                        <tbody>
+                          {clusterRows.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={5}
+                                className="p-4 text-xs text-gray-500"
+                              >
+                                Кластеры отсутствуют
                               </td>
                             </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
+                          ) : (
+                            clusterRows.map((r: any, i: number) => (
+                              <tr
+                                key={i}
+                                className={`${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition-colors`}
+                              >
+                                <td className="px-4 py-3 font-medium whitespace-nowrap">
+                                  {formatCell(r.cluster_id)}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  {formatCell(
+                                    r.size_pixels ?? r.size ?? r.pixels,
+                                  )}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  {formatCell(r.area_percentage ?? r.area_pct)}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap">
+                                  {formatCell(r.centroid_x)},{' '}
+                                  {formatCell(r.centroid_y)}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <DroneDropdown
+                                    value={
+                                      clusterAssignments[r.cluster_id] ?? ''
+                                    }
+                                    options={droneOptions}
+                                    onChange={(val) =>
+                                      setClusterAssignments((s) => ({
+                                        ...s,
+                                        [r.cluster_id]: val,
+                                      }))
+                                    }
+                                  />
+                                </td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
 
-                <div className="rounded-2xl p-5 bg-white border border-gray-200 shadow-lg">
-                  <div className="text-sm font-semibold mb-4 text-gray-800">
-                    Назначение количества дронов
-                  </div>
+                {Object.keys(clusterAssignments).some(
+                  (k) => clusterAssignments[Number(k)],
+                ) && (
+                  <div className="rounded-2xl p-5 bg-white border border-gray-200 shadow-lg">
+                    <div className="text-sm font-semibold mb-4 text-gray-800">
+                      Назначение количества дронов
+                    </div>
 
-                  {(() => {
-                    const assignedIndices = Array.from(
-                      new Set(
-                        Object.values(clusterAssignments).filter(Boolean),
-                      ),
-                    ).sort((a, b) => a - b);
+                    {(() => {
+                      // Получаем назначенные дроны через clusterAssignments
+                      const assignedIndices = Array.from(
+                        new Set(
+                          Object.values(clusterAssignments).filter(Boolean),
+                        ),
+                      ).sort((a, b) => a - b);
 
-                    const assignedDrones = assignedIndices
-                      .map((index) => availableDrones[index - 1])
-                      .filter((d): d is Drone => d !== undefined);
+                      const assignedDrones = assignedIndices
+                        .map((index) => availableDrones[index - 1])
+                        .filter((d): d is Drone => d !== undefined);
 
-                    if (assignedDrones.length === 0) {
+                      if (assignedDrones.length === 0) {
+                        return (
+                          <div className="text-xs text-gray-400 italic">
+                            Нет назначенных дронов. Назначьте дрон хотя бы
+                            одному кластеру.
+                          </div>
+                        );
+                      }
+
                       return (
-                        <div className="text-xs text-gray-400 italic">
-                          Нет назначенных дронов. Назначьте дрон хотя бы одному
-                          кластеру.
-                        </div>
-                      );
-                    }
+                        <div className="space-y-4">
+                          {assignedDrones.map((drone, i) => (
+                            <div
+                              key={drone.droneId}
+                              className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all shadow-sm hover:shadow-md"
+                            >
+                              <div className="w-10 text-sm font-mono text-gray-700 text-center">
+                                {i + 1}
+                              </div>
 
-                    return (
-                      <div className="space-y-4">
-                        {assignedDrones.map((drone, i) => (
-                          <div
-                            key={drone.droneId}
-                            className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-all shadow-sm hover:shadow-md"
-                          >
-                            <div className="w-10 text-sm font-mono text-gray-700 text-center">
-                              {i + 1}
-                            </div>
+                              <div className="flex-1 text-sm font-medium text-gray-900">
+                                {drone.droneName}{' '}
+                                <span className="text-gray-400">
+                                  (ID: {drone.droneId})
+                                </span>
+                              </div>
 
-                            <div className="flex-1 text-sm font-medium text-gray-900">
-                              {drone.droneName}{' '}
-                              <span className="text-gray-400">
-                                (ID: {drone.droneId})
-                              </span>
-                            </div>
+                              <div className="flex-none">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={drone.quantity}
+                                  value={
+                                    droneQuantities[drone.droneId] === 0
+                                      ? ''
+                                      : (droneQuantities[drone.droneId] ??
+                                        Math.max(1, drone.quantity ?? 1))
+                                  }
+                                  onChange={(e) => {
+                                    const textVal = e.target.value;
+                                    if (textVal === '') {
+                                      setDroneQuantities((s) => ({
+                                        ...s,
+                                        [drone.droneId]: 0,
+                                      }));
+                                      return;
+                                    }
 
-                            <div className="flex-none">
-                              <input
-                                type="number"
-                                min={1}
-                                max={drone.quantity}
-                                value={
-                                  droneQuantities[drone.droneId] === 0
-                                    ? ''
-                                    : (droneQuantities[drone.droneId] ??
-                                      Math.max(1, drone.quantity ?? 1))
-                                }
-                                onChange={(e) => {
-                                  const textVal = e.target.value;
-                                  if (textVal === '') {
+                                    let val = Number(textVal);
+                                    if (Number.isNaN(val) || val < 1) return;
+
+                                    const max = drone.quantity ?? 1;
+                                    if (val > max) val = max;
+
                                     setDroneQuantities((s) => ({
                                       ...s,
-                                      [drone.droneId]: 0,
+                                      [drone.droneId]: val,
                                     }));
-                                    return;
-                                  }
+                                  }}
+                                  className="w-20 px-3 py-2 rounded-lg bg-white focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm text-center shadow-sm"
+                                  title={`Макс: ${drone.quantity ?? 1}`}
+                                />
+                              </div>
 
-                                  let val = Number(textVal);
-                                  if (Number.isNaN(val) || val < 1) return;
-
-                                  const max = drone.quantity ?? 1;
-                                  if (val > max) val = max;
-
-                                  setDroneQuantities((s) => ({
-                                    ...s,
-                                    [drone.droneId]: val,
-                                  }));
-                                }}
-                                className="w-20 px-3 py-2 rounded-lg bg-white focus:bg-white ring-1 ring-gray-200 focus:ring-2 focus:ring-emerald-400 outline-none text-sm text-center shadow-sm"
-                                title={`Макс: ${drone.quantity ?? 1}`}
-                              />
+                              <div className="w-16 text-xs text-gray-500 text-center">
+                                /{drone.quantity ?? 1}
+                              </div>
                             </div>
-
-                            <div className="w-16 text-xs text-gray-500 text-center">
-                              /{drone.quantity ?? 1}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
 
                 <div className="rounded-xl p-4 bg-white border-gray-100">
                   <div className="mt-3 flex items-center justify-end gap-2">
                     {!isViewOnly && (
                       <button
-                        onClick={() => setStep(2)}
+                        onClick={() =>
+                          setStep(
+                            (selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT'
+                              ? 1
+                              : 2,
+                          )
+                        }
                         className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
                       >
                         Назад
@@ -3008,177 +3172,100 @@ export default function OperatorOrdersWizard(): JSX.Element {
 
             {step === 4 && (
               <div className="space-y-4">
-                {(selectedOrder.orderType ?? 'DEFAULT') === 'SPLIT' ? (
-                  // Упрощенный результат для SPLIT - только изображение
-                  <>
-                    {!isViewOnly &&
-                      selectedOrder.metadata?.analyticsImages
-                        ?.areasWithFullIdsImage && (
-                        <div className="rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 p-6 border border-emerald-200 shadow-md">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center">
-                              <svg
-                                className="w-5 h-5 text-white"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                            </div>
-                            <div>
-                              <h3 className="text-lg font-nekstmedium text-emerald-900">
-                                Результат разбиения поля
-                              </h3>
-                              <p className="text-sm text-emerald-700 mt-0.5">
-                                Карта поля в RGB-представлении, показывающая
-                                кластеры, выделенные по вегетационному индексу c
-                                обозначенными зонами для дифференцированной
-                                обработки успешно сгенерирована
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                    <div className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm">
-                      <div className="text-sm font-medium mb-2">
-                        Карта разбиения поля
-                      </div>
-                      <div className="h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130 bg-gray-50 rounded overflow-hidden flex items-center justify-center">
-                        {selectedOrder.metadata?.analyticsImages
-                          ?.areasWithFullIdsImage ? (
-                          <img
-                            src={
-                              selectedOrder.metadata.analyticsImages
-                                .areasWithFullIdsImage
-                            }
-                            alt="Карта разбиения"
-                            className="object-contain h-full w-full rounded-md cursor-zoom-in"
-                            onClick={() =>
-                              setModalImage(
-                                selectedOrder.metadata?.analyticsImages
-                                  ?.areasWithFullIdsImage ?? null,
-                              )
-                            }
-                          />
-                        ) : (
-                          <div className="text-xs text-gray-400">
-                            Нет изображения
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          setSelectedOrder(null);
-                          setStep(1);
-                          setIsViewOnly(false);
-                        }}
-                        className="px-4 py-2 rounded bg-emerald-600 text-white"
-                      >
-                        Завершить
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  // Полный результат для DEFAULT
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-                      {[
-                        'originalImage',
-                        'indexImage',
-                        'areasWithFullIdsImage',
-                        'indexWithBoundsImage',
-                        'areasWithSegmentsAndFullIds',
-                      ].map((k) => {
-                        const img =
-                          selectedOrder.metadata?.analyticsImages?.[k] ?? null;
-                        const label =
-                          (
-                            {
-                              originalImage:
-                                'RGB-представление данных спектральных измерений поля',
-                              indexImage:
-                                'Карта вегетационного индекса поля на основе спектральных измерений',
-                              areasWithFullIdsImage:
-                                'Карта поля в RGB-представлении, показывающая кластеры, выделенные по вегетационному индексу c обозначенными зонами для дифференцированной обработки',
-                              indexWithBoundsImage:
-                                'Карта полученного вегетационного индекса поля с наложенными границами кластеров и зон для дифференцированной обработки',
-                              areasWithSegmentsAndFullIds:
-                                'Карта маршрутов дронов для дифференцированной обработки поля по предварительно выделенным зонам',
-                            } as Record<string, string>
-                          )[k] ?? k;
-                        return (
-                          <div
-                            key={k}
-                            className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm "
-                          >
-                            <div className="text-sm font-medium mb-2">
-                              {label}
-                            </div>
-                            <div className="h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130 bg-gray-50 rounded overflow-hidden flex items-center justify-center">
-                              {img ? (
-                                <img
-                                  src={img}
-                                  alt={label}
-                                  className="object-contain h-full w-full rounded-md cursor-zoom-in"
-                                  onClick={() => setModalImage(img)}
-                                />
-                              ) : (
-                                <div className="text-xs text-gray-400">
-                                  Нет изображения
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="flex flex-col gap-4">
-                      {getOrderedTables(selectedOrder.metadata?.analyticsTables)
-                        .length > 0 ? (
-                        getOrderedTables(
-                          selectedOrder.metadata?.analyticsTables,
-                        ).map(([k, rows]) => (
-                          <div key={k}>{renderTableCard(k, rows ?? null)}</div>
-                        ))
-                      ) : (
-                        <div className="text-xs text-gray-500">
-                          Таблицы отсутствуют.
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-end gap-2">
-                      {!isViewOnly && (
-                        <button
-                          onClick={() => setStep(3)}
-                          className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                {/* Полный результат для всех типов заказов */}
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                  {[
+                    'originalImage',
+                    'indexImage',
+                    'areasWithFullIdsImage',
+                    'indexWithBoundsImage',
+                    'areasWithSegmentsAndFullIds',
+                  ]
+                    .filter(
+                      (k) =>
+                        selectedOrder.metadata?.analyticsImages?.[k] != null,
+                    )
+                    .map((k) => {
+                      const img =
+                        selectedOrder.metadata?.analyticsImages?.[k] ?? null;
+                      const label =
+                        (
+                          {
+                            originalImage:
+                              'RGB-представление данных спектральных измерений поля',
+                            indexImage:
+                              'Карта вегетационного индекса поля на основе спектральных измерений',
+                            areasWithFullIdsImage:
+                              'Карта поля в RGB-представлении, показывающая кластеры, выделенные по вегетационному индексу c обозначенными зонами для дифференцированной обработки',
+                            indexWithBoundsImage:
+                              'Карта полученного вегетационного индекса поля с наложенными границами кластеров и зон для дифференцированной обработки',
+                            areasWithSegmentsAndFullIds:
+                              'Карта маршрутов дронов для дифференцированной обработки поля по предварительно выделенным зонам',
+                          } as Record<string, string>
+                        )[k] ?? k;
+                      return (
+                        <div
+                          key={k}
+                          className="rounded-lg border border-gray-100 p-3 bg-white shadow-sm "
                         >
-                          Назад
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setSelectedOrder(null);
-                          setStep(1);
-                        }}
-                        className="px-4 py-2 rounded bg-emerald-600 text-white"
-                      >
-                        Завершить
-                      </button>
+                          <div className="text-sm font-medium mb-2">
+                            {label}
+                          </div>
+                          <div className="h-48 sm:h-56 md:h-64 lg:h-80 xl:h-130 bg-gray-50 rounded overflow-hidden flex items-center justify-center">
+                            {img ? (
+                              <img
+                                src={img}
+                                alt={label}
+                                className="object-contain h-full w-full rounded-md cursor-zoom-in"
+                                onClick={() => setModalImage(img)}
+                              />
+                            ) : (
+                              <div className="text-xs text-gray-400">
+                                Нет изображения
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                <div className="flex flex-col gap-4 w-full">
+                  {getOrderedTables(selectedOrder.metadata?.analyticsTables)
+                    .length > 0 ? (
+                    getOrderedTables(
+                      selectedOrder.metadata?.analyticsTables,
+                    ).map(([k, rows]) => (
+                      <div key={k} className="w-full">
+                        <TableCard name={k} rows={rows ?? null} />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-gray-500">
+                      Таблицы отсутствуют.
                     </div>
-                  </>
-                )}
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  {!isViewOnly && (
+                    <button
+                      onClick={() => setStep(3)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 shadow-sm hover:bg-gray-200 hover:shadow active:scale-[0.98] transition"
+                    >
+                      Назад
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      setSelectedOrder(null);
+                      setStep(1);
+                    }}
+                    className="px-4 py-2 rounded bg-emerald-600 text-white"
+                  >
+                    Завершить
+                  </button>
+                </div>
               </div>
             )}
           </div>

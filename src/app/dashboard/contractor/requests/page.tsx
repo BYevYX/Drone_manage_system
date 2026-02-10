@@ -10,6 +10,7 @@ import {
   Info,
   CheckCheck,
   Clock,
+  HelpCircle,
 } from 'lucide-react';
 // Состояние загрузки для кнопки сохранения
 
@@ -129,35 +130,108 @@ function translateCol(col: string) {
   const map: Record<string, string> = {
     cluster_id: 'Кластер',
     area_percentage: '% площади',
+    // NDVI
     NDVI_min: 'NDVI мин',
     NDVI_max: 'NDVI макс',
     NDVI_mean: 'NDVI сред',
     NDVI_std: 'NDVI стд',
-    NDVI_variance: 'NDVI вар',
-    coefficient_of_variation: 'Коэф вар',
+    NDVI_variance: 'NDVI дисперсия',
+    // ARVI
+    ARVI_min: 'ARVI мин',
+    ARVI_max: 'ARVI макс',
+    ARVI_mean: 'ARVI сред',
+    ARVI_std: 'ARVI стд',
+    ARVI_variance: 'ARVI дисперсия',
+    // DVI
+    DVI_min: 'DVI мин',
+    DVI_max: 'DVI макс',
+    DVI_mean: 'DVI сред',
+    DVI_std: 'DVI стд',
+    DVI_variance: 'DVI дисперсия',
+    // EVI
+    EVI_min: 'EVI мин',
+    EVI_max: 'EVI макс',
+    EVI_mean: 'EVI сред',
+    EVI_std: 'EVI стд',
+    EVI_variance: 'EVI дисперсия',
+    // GEMI
+    GEMI_min: 'GEMI мин',
+    GEMI_max: 'GEMI макс',
+    GEMI_mean: 'GEMI сред',
+    GEMI_std: 'GEMI стд',
+    GEMI_variance: 'GEMI дисперсия',
+    // IPVI
+    IPVI_min: 'IPVI мин',
+    IPVI_max: 'IPVI макс',
+    IPVI_mean: 'IPVI сред',
+    IPVI_std: 'IPVI стд',
+    IPVI_variance: 'IPVI дисперсия',
+    // PVI
+    PVI_min: 'PVI мин',
+    PVI_max: 'PVI макс',
+    PVI_mean: 'PVI сред',
+    PVI_std: 'PVI стд',
+    PVI_variance: 'PVI дисперсия',
+    // RVI
+    RVI_min: 'RVI мин',
+    RVI_max: 'RVI макс',
+    RVI_mean: 'RVI сред',
+    RVI_std: 'RVI стд',
+    RVI_variance: 'RVI дисперсия',
+    // SARVI
+    SARVI_min: 'SARVI мин',
+    SARVI_max: 'SARVI макс',
+    SARVI_mean: 'SARVI сред',
+    SARVI_std: 'SARVI стд',
+    SARVI_variance: 'SARVI дисперсия',
+    // SAVI
+    SAVI_min: 'SAVI мин',
+    SAVI_max: 'SAVI макс',
+    SAVI_mean: 'SAVI сред',
+    SAVI_std: 'SAVI стд',
+    SAVI_variance: 'SAVI дисперсия',
+    // TSAVI
+    TSAVI_min: 'TSAVI мин',
+    TSAVI_max: 'TSAVI макс',
+    TSAVI_mean: 'TSAVI сред',
+    TSAVI_std: 'TSAVI стд',
+    TSAVI_variance: 'TSAVI дисперсия',
+    // TVI
+    TVI_min: 'TVI мин',
+    TVI_max: 'TVI макс',
+    TVI_mean: 'TVI сред',
+    TVI_std: 'TVI стд',
+    TVI_variance: 'TVI дисперсия',
+    // WDVI
+    WDVI_min: 'WDVI мин',
+    WDVI_max: 'WDVI макс',
+    WDVI_mean: 'WDVI сред',
+    WDVI_std: 'WDVI стд',
+    WDVI_variance: 'WDVI дисперсия',
+    coefficient_of_variation: 'Коэф вариации (%)',
     droneId: 'ID дрона',
     drone_id: 'ID дрона',
     droneName: 'Дрон',
     drone_type: 'Тип дрона',
-    area: 'Площадь',
-    total_distance: 'Общее расстояние',
-    processing_distance: 'Расстояние обработки',
-    flight_distance: 'Расстояние полета',
-    total_time: 'Общее время',
-    processing_time: 'Время обработки',
-    flight_time: 'Время полета',
+    area: 'Площадь (м²)',
+    total_distance: 'Общее расстояние (м)',
+    processing_distance: 'Расстояние обработки (м)',
+    flight_distance: 'Расстояние полета (м)',
+    total_time: 'Общее время (мин)',
+    processing_time: 'Время обработки (мин)',
+    flight_time: 'Время полета (мин)',
     charge_events: 'События зарядки',
-    charge_time: 'Время зарядки',
+    charge_time: 'Время зарядки (мин)',
     segment_id: 'ID сегмента',
     segment_number: 'Номер сегмента',
     segment_index: 'Индекс сегмента',
-    size_pixels: 'Размер (пиксели)',
+    size_pixels: 'Размер (м²)',
     field_count: 'Количество полей',
     drone_count: 'Количество дронов',
-    parallel_total_time: 'Параллельное общее время',
-    parallel_processing_time: 'Параллельное время обработки',
-    parallel_flight_time: 'Параллельное время полета',
-    parallel_charge_time: 'Параллельное время зарядки',
+    parallel_total_time: 'Параллельное общее время (мин)',
+    parallel_processing_time: 'Параллельное время обработки (мин)',
+    parallel_flight_time: 'Параллельное время полета (мин)',
+    parallel_charge_time: 'Параллельное время зарядки (мин)',
   };
   return map[col] ?? col;
 }
@@ -172,11 +246,56 @@ function formatCell(val: any) {
   return String(val);
 }
 
-function renderTableCard(name: string, rows: any[] | null): JSX.Element {
+function getTableTooltip(name: string): string {
+  const tooltips: Record<string, string> = {
+    'Статистика по кластерам, определенных на основе вегетационных индексов':
+      'Эта таблица предоставляет подробный агрономический анализ каждого кластера, выделенного на основе вегетационных индексов. Она помогает оценить однородность посевов и выявить проблемные зоны на поле.',
+    'Отчет по выполненной работе внутри сегментов':
+      'Это пошаговый рабочий журнал, который документирует обработку каждого отдельного сегмента каждым дроном. Таблица отслеживает состояние батареи, время выполнения и другие параметры в реальном времени.',
+    'Сводный отчёт по полетным миссиям дронов':
+      'Агрегированный отчет по производительности каждого дрона и всего используемого парка. Показывает итоговые результаты работы и эффективность параллельного выполнения задач.',
+    'Сводная статистика по сегментам внутри кластера':
+      'Анализ эффективности распределения работ внутри каждого кластера. Показывает, насколько хорошо кластер был разделен между дронами и какова выгода от параллельной обработки.',
+  };
+  return tooltips[name] || '';
+}
+
+function TableCard({
+  name,
+  rows,
+}: {
+  name: string;
+  rows: any[] | null;
+}): JSX.Element {
+  const tooltip = getTableTooltip(name);
+  const [showTooltip, setShowTooltip] = useState(false);
+
   if (!rows)
     return (
       <div className="rounded-xl bg-white p-4 shadow-sm border border-gray-100">
-        <div className="text-sm font-medium text-gray-700 mb-2">{name}</div>
+        <div className="flex items-center gap-2 mb-2 min-h-[24px]">
+          <div
+            className="text-sm font-medium text-gray-700 truncate flex-1"
+            title={name}
+          >
+            {name}
+          </div>
+          {tooltip && (
+            <div className="relative flex-shrink-0">
+              <HelpCircle
+                size={16}
+                className="text-gray-400 hover:text-emerald-500 cursor-help transition-colors"
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+              />
+              {showTooltip && (
+                <div className="absolute right-0 top-6 z-50 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl">
+                  {tooltip}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <div className="text-xs text-gray-500">
           Таблица пуста или не удалось распарсить.
         </div>
@@ -194,9 +313,33 @@ function renderTableCard(name: string, rows: any[] | null): JSX.Element {
   const isMainTable = name === 'Основная таблица';
   return (
     <div className="rounded-xl bg-white p-3 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-3">
-        <div className="text-sm font-medium text-gray-700">{name}</div>
-        <div className="text-xs text-gray-500">Строк: {rows.length}</div>
+      <div className="flex items-center justify-between mb-3 gap-2 min-h-[24px]">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div
+            className="text-sm font-medium text-gray-700 truncate"
+            title={name}
+          >
+            {name}
+          </div>
+          {tooltip && (
+            <div className="relative flex-shrink-0">
+              <HelpCircle
+                size={16}
+                className="text-gray-400 hover:text-emerald-500 cursor-help transition-colors"
+                onMouseEnter={() => setShowTooltip(true)}
+                onMouseLeave={() => setShowTooltip(false)}
+              />
+              {showTooltip && (
+                <div className="absolute right-0 top-6 z-50 w-72 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl">
+                  {tooltip}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="text-xs text-gray-500 whitespace-nowrap">
+          Строк: {rows.length}
+        </div>
       </div>
       <div
         className={
@@ -243,8 +386,12 @@ function localizeProcessingMode(mode: string): string {
   return modeMap[mode.toLowerCase()] || mode;
 }
 
-function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
+function getOrderedTables(
+  tables: Record<string, any[] | null> | undefined,
+  orderType?: string,
+) {
   if (!tables) return [] as [string, any[] | null][];
+  const isSplit = (orderType ?? 'DEFAULT') === 'SPLIT';
   const preferred = [
     'clusterStatsDf',
     'dronesDf',
@@ -253,13 +400,16 @@ function getOrderedTables(tables: Record<string, any[] | null> | undefined) {
   ];
   // Маппинг английских названий на русские
   const nameMap: Record<string, string> = {
-    clusterStatsDf: 'Статистика по кластерам',
-    dronesDf: 'Информация о дронах',
-    segmentsDf: 'Сегменты',
-    segmentSummaryDf: 'Сводка по сегментам',
+    clusterStatsDf:
+      'Статистика по кластерам, определенных на основе вегетационных индексов',
+    dronesDf: 'Сводный отчёт по полетным миссиям дронов',
+    segmentsDf: 'Отчет по выполненной работе внутри сегментов',
+    segmentSummaryDf: 'Сводная статистика по сегментам внутри кластера',
   };
   const present: [string, any[] | null][] = [];
   preferred.forEach((k) => {
+    // Для SPLIT не показываем clusterStatsDf
+    if (isSplit && k === 'clusterStatsDf') return;
     if (k in tables) present.push([nameMap[k] || k, tables[k]]);
   });
   Object.keys(tables)
@@ -1006,9 +1156,14 @@ export default function RequestsWithEditor({
 
       const images: Record<string, string | null> = {};
       if (isSplit) {
-        images.areasWithFullIdsImage = ensureDataUrl(
-          result?.areasWithFullIdsImage ?? null,
-        );
+        // Для SPLIT загружаем два изображения
+        const splitImageKeys = ['areasWithFullIdsImage', 'areasWithSegmentsAndFullIds'];
+        splitImageKeys.forEach((k) => {
+          const val = result?.[k];
+          if (val != null && val !== '') {
+            images[k] = ensureDataUrl(val);
+          }
+        });
       } else {
         const imageKeys = [
           'originalImage',
@@ -1018,32 +1173,33 @@ export default function RequestsWithEditor({
           'areasWithSegmentsAndFullIds',
         ];
         imageKeys.forEach((k) => {
-          images[k] = ensureDataUrl(result?.[k] ?? null);
+          const val = result?.[k];
+          if (val != null && val !== '') {
+            images[k] = ensureDataUrl(val);
+          }
         });
       }
 
       const tables: Record<string, any[] | null> = {};
-      if (!isSplit) {
-        Object.keys(result || {}).forEach((k) => {
-          const kl = k.toLowerCase();
-          if (
-            kl.endsWith('df') ||
-            kl.endsWith('statsdf') ||
-            (kl.includes('cluster') && kl.includes('df'))
-          ) {
-            const v = result[k];
-            if (!v) {
-              tables[k] = null;
-              return;
-            }
-            try {
-              tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
-            } catch {
-              tables[k] = null;
-            }
+      Object.keys(result || {}).forEach((k) => {
+        const kl = k.toLowerCase();
+        if (
+          kl.endsWith('df') ||
+          kl.endsWith('statsdf') ||
+          (kl.includes('cluster') && kl.includes('df'))
+        ) {
+          const v = result[k];
+          if (!v || v === '') {
+            tables[k] = null;
+            return;
           }
-        });
-      }
+          try {
+            tables[k] = typeof v === 'string' ? JSON.parse(v) : v;
+          } catch {
+            tables[k] = null;
+          }
+        }
+      });
 
       return {
         ...request,
@@ -1051,7 +1207,7 @@ export default function RequestsWithEditor({
           ...(request.metadata ?? {}),
           analyticsResponse: result,
           analyticsImages: images,
-          analyticsTables: isSplit ? {} : tables,
+          analyticsTables: tables,
         },
       } as Request;
     } catch (e) {
@@ -2127,7 +2283,7 @@ export default function RequestsWithEditor({
                             <div className="space-y-4">
                               {/* Изображения */}
                               {viewRequest.metadata?.analyticsImages && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-4">
                                   {(() => {
                                     const images =
                                       viewRequest.metadata.analyticsImages;
@@ -2136,29 +2292,51 @@ export default function RequestsWithEditor({
                                       'SPLIT';
 
                                     if (isSplit) {
-                                      // Для SPLIT только одно изображение
+                                      // Для SPLIT показываем два изображения
                                       return (
-                                        images.areasWithFullIdsImage && (
-                                          <div
-                                            key="areasWithFullIdsImage"
-                                            className="col-span-full"
-                                          >
-                                            <div className="text-sm text-gray-600 mb-2">
-                                              Карта разбиения
+                                        <>
+                                          {images.areasWithFullIdsImage && (
+                                            <div key="areasWithFullIdsImage">
+                                              <div className="text-sm text-gray-600 mb-2">
+                                                Карта разбиения поля на зоны
+                                              </div>
+                                              <img
+                                                src={
+                                                  images.areasWithFullIdsImage
+                                                }
+                                                alt="Карта разбиения"
+                                                className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition"
+                                                onClick={() =>
+                                                  setModalImage(
+                                                    images.areasWithFullIdsImage ??
+                                                      null,
+                                                  )
+                                                }
+                                              />
                                             </div>
-                                            <img
-                                              src={images.areasWithFullIdsImage}
-                                              alt="Карта разбиения"
-                                              className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition"
-                                              onClick={() =>
-                                                setModalImage(
-                                                  images.areasWithFullIdsImage ??
-                                                    null,
-                                                )
-                                              }
-                                            />
-                                          </div>
-                                        )
+                                          )}
+                                          {images.areasWithSegmentsAndFullIds && (
+                                            <div key="areasWithSegmentsAndFullIds">
+                                              <div className="text-sm text-gray-600 mb-2">
+                                                Карта маршрутов дронов для
+                                                обработки
+                                              </div>
+                                              <img
+                                                src={
+                                                  images.areasWithSegmentsAndFullIds
+                                                }
+                                                alt="Карта маршрутов"
+                                                className="w-full rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition"
+                                                onClick={() =>
+                                                  setModalImage(
+                                                    images.areasWithSegmentsAndFullIds ??
+                                                      null,
+                                                  )
+                                                }
+                                              />
+                                            </div>
+                                          )}
+                                        </>
                                       );
                                     } else {
                                       // Для DEFAULT все изображения
@@ -2208,9 +2386,10 @@ export default function RequestsWithEditor({
                                 <div className="space-y-4">
                                   {getOrderedTables(
                                     viewRequest.metadata.analyticsTables,
+                                    viewRequest.orderType,
                                   ).map(([name, rows]) => (
                                     <div key={name}>
-                                      {renderTableCard(name, rows)}
+                                      <TableCard name={name} rows={rows} />
                                     </div>
                                   ))}
                                 </div>
@@ -2689,6 +2868,17 @@ export default function RequestsWithEditor({
                             {/* Выбор нового материала */}
                             <div>
                               {(() => {
+                                // Разрешаем выбрать только один материал
+                                if (selectedMaterials.length > 0) {
+                                  return (
+                                    <div className="w-full px-4 py-3.5 bg-gray-100 rounded-xl shadow-none border border-gray-200 cursor-not-allowed opacity-70">
+                                      <span className="text-gray-400 font-nekstregular text-sm">
+                                        Можно выбрать только один материал
+                                      </span>
+                                    </div>
+                                  );
+                                }
+
                                 const selectedProcessingType =
                                   getProcessingTypeName(form.type);
                                 const filteredMaterials =
@@ -2710,6 +2900,7 @@ export default function RequestsWithEditor({
                                       (m) => m.materialName,
                                     )}
                                     value="Выберите материал"
+                                    dropdownMaxHeight={180}
                                     onChange={(val) => {
                                       const material = filteredMaterials.find(
                                         (m) => m.materialName === val,
